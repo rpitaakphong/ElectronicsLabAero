@@ -313,17 +313,17 @@ h3 {
   font: 12px var(--font-lab-sans);
   opacity: 0.65;
 }
-.workspace-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
-  gap: 22px;
-  align-items: start;
-}
-.main-column {
+.workspace-stack {
   display: flex;
   flex-direction: column;
   gap: 18px;
   min-width: 0;
+}
+.instrument-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 22px;
+  align-items: start;
 }
 .control-column {
   min-width: 0;
@@ -479,7 +479,7 @@ h3 {
   margin-top: 10px;
 }
 .numeric-entry input,
-.readouts,
+.scope-metrics,
 .cursor-readout,
 .scope-svg text {
   font-variant-numeric: tabular-nums;
@@ -495,11 +495,19 @@ h3 {
 .scope-panel > .section-heading {
   padding-bottom: 10px;
 }
-.scope-legend {
+.scope-overview {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px 20px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 20px;
   padding: 0 22px 16px;
+}
+.scope-legend {
+  display: flex;
+  flex: 1 1 220px;
+  flex-wrap: wrap;
+  gap: 10px 18px;
   font-size: 12px;
   color: #c5d5e0;
 }
@@ -524,6 +532,9 @@ h3 {
   background: var(--chart-3);
 }
 .scope-surface {
+  min-width: 0;
+}
+.scope-panel {
   min-width: 0;
 }
 .scope-svg text {
@@ -631,43 +642,46 @@ h3 {
   padding: 0 22px 16px;
   line-height: 1.7;
 }
-.readouts {
+.scope-metrics {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
+  flex: 0 1 500px;
+  margin-left: auto;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 7px;
   overflow: hidden;
-  background: #141f2a;
+  background: #121e29;
 }
-.readouts > div {
-  padding: 17px 20px;
+.scope-metrics > div {
+  min-width: 0;
+  padding: 8px 10px;
   border-right: 1px solid var(--border);
 }
-.readouts > div:last-child {
+.scope-metrics > div:last-child {
   border: 0;
 }
-.readouts span {
-  font-size: 12px;
+.scope-metrics span {
+  font-size: 10px;
+  line-height: 1.35;
   color: var(--muted-foreground);
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 3px;
 }
-.readouts strong {
-  font: 23px var(--font-lab-sans);
+.scope-metrics strong {
+  font: 15px var(--font-lab-sans);
+  line-height: 1.35;
   display: block;
-  letter-spacing: -1px;
+  letter-spacing: -0.25px;
+  white-space: nowrap;
 }
-.readouts strong small {
-  font: 11px var(--font-lab-sans);
+.scope-metrics strong small {
+  font: 9px var(--font-lab-sans);
   letter-spacing: 0;
-  margin-left: 8px;
+  margin-left: 5px;
   color: var(--muted-foreground);
 }
-.readouts strong.readout-wide {
-  font-size: 17px;
-  letter-spacing: -0.5px;
-  line-height: 1.7;
+.scope-metrics strong.scope-metric-wide {
+  font-size: 14px;
 }
 .controls-panel > .section-heading {
   border-bottom: 1px solid var(--border);
@@ -779,13 +793,15 @@ h3 {
   color: #bacddc;
 }
 .application-note {
-  padding: 24px 10px;
+  border-top: 1px solid var(--border);
+  margin-top: 18px;
+  padding: 18px 0 0;
 }
 .application-note p {
   font-size: 14px;
-  line-height: 1.85;
-  color: #c5d5e0;
-  margin: 12px 0 9px;
+  line-height: 1.7;
+  color: #c7d7e2;
+  margin: 9px 0 7px;
 }
 .source-controls + hr {
   border-color: var(--border);
@@ -860,7 +876,7 @@ h3 {
     padding-left: 48px;
     padding-right: 48px;
   }
-  .workspace-grid {
+  .instrument-grid {
     grid-template-columns: minmax(0, 1fr) 340px;
   }
 }
@@ -876,55 +892,20 @@ h3 {
   .circuit-number {
     display: none;
   }
-  .workspace-grid {
+  .instrument-grid {
     gap: 16px;
     grid-template-columns: minmax(0, 1fr) 300px;
-  }
-  .schematic-panel {
-    grid-template-columns: 1fr;
-  }
-  .circuit-explanation {
-    border-left: 0;
-    border-top: 1px solid var(--border);
-  }
-  .schematic-wrap {
-    max-height: none;
-  }
-  .readouts > div {
-    padding: 14px;
-  }
-  .readouts strong {
-    font-size: 19px;
-  }
-  .readouts strong small {
-    display: block;
-    margin: 6px 0 0;
-  }
-  .readouts strong.readout-wide {
-    font-size: 14px;
   }
   .intro h1 {
     font-size: 28px;
   }
 }
 @media (max-width: 950px) {
-  .workspace-grid {
+  .instrument-grid {
     grid-template-columns: minmax(0, 1fr);
   }
   .control-column {
-    display: grid;
-    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
-    gap: 20px;
-  }
-  .schematic-panel {
-    grid-template-columns: 57% 43%;
-  }
-  .schematic-wrap {
-    max-height: none;
-  }
-  .circuit-explanation {
-    border-left: 1px solid var(--border);
-    border-top: 0;
+    display: block;
   }
   .source-controls {
     display: grid;
@@ -990,26 +971,16 @@ h3 {
   .source-controls {
     display: block;
   }
-  .application-note {
-    padding: 22px 5px 0;
-  }
-  .readouts {
-    grid-template-columns: 1fr 1fr;
-  }
-  .readouts > div:nth-child(2) {
-    border-right: 0;
-  }
-  .readouts > div:last-child {
-    grid-column: 1/-1;
-    border-top: 1px solid var(--border);
-  }
-  .readouts strong.readout-wide {
-    font-size: 19px;
-  }
-  .scope-legend {
+  .scope-overview {
     padding-left: 16px;
     padding-right: 16px;
     gap: 10px 15px;
+  }
+  .scope-legend {
+    flex-basis: 100%;
+  }
+  .scope-metrics {
+    flex-basis: 100%;
   }
   .scope-controls {
     padding: 14px 16px 10px;

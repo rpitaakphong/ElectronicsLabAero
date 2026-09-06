@@ -10,6 +10,7 @@ import {
   simulate,
   type Config,
   type Sample,
+  type Simulation,
 } from '@/lib/opamp/simulator';
 
 const TIME_PER_DIVISION = 0.0005;
@@ -17,7 +18,13 @@ const HORIZONTAL_DIVISIONS = 8;
 const TIME_WINDOW = TIME_PER_DIVISION * HORIZONTAL_DIVISIONS;
 const SCOPE_SAMPLE_STEPS = 8191;
 
-export function Oscilloscope({ config }: { config: Config }) {
+export function Oscilloscope({
+  config,
+  metrics,
+}: {
+  config: Config;
+  metrics: Simulation['metrics'];
+}) {
   const { ref, width: w } = useWidth(),
     [scale, setScale] = useState('auto'),
     [center, setCenter] = useState(0),
@@ -111,27 +118,63 @@ export function Oscilloscope({ config }: { config: Config }) {
           <span /> 0.5 ms/div · LIVE RESPONSE
         </span>
       </div>
-      <div className="scope-legend">
-        {config.circuit === 'comparator' && (
+      <div className="scope-overview">
+        <div className="scope-legend">
+          {config.circuit === 'comparator' && (
+            <span>
+              <i className="trace-swatch reference" />
+              Reference {eng(config.components.reference, 'V')}
+            </span>
+          )}
           <span>
-            <i className="trace-swatch reference" />
-            Reference {eng(config.components.reference, 'V')}
+            <i className="trace-swatch input" />
+            Input 1
           </span>
-        )}
-        <span>
-          <i className="trace-swatch input" />
-          Input 1
-        </span>
-        {sum && (
+          {sum && (
+            <span>
+              <i className="trace-swatch second" />
+              Input 2
+            </span>
+          )}
           <span>
-            <i className="trace-swatch second" />
-            Input 2
+            <i className="trace-swatch output" />
+            Output
           </span>
-        )}
-        <span>
-          <i className="trace-swatch output" />
-          Output
-        </span>
+        </div>
+        <div className="scope-metrics" aria-live="polite" aria-atomic="true">
+          <div>
+            <span>
+              {config.circuit === 'summing'
+                ? 'Input 1 weight'
+                : config.circuit === 'lowpass'
+                  ? 'DC gain · theoretical'
+                  : 'Gain · theoretical'}
+            </span>
+            <strong>
+              {metrics.gain === null
+                ? 'Switching'
+                : `${Number(metrics.gain.toPrecision(4)) > 0 ? '+' : ''}${Number(metrics.gain.toPrecision(4))}`}
+              <small>{metrics.gain !== null ? 'V/V' : ''}</small>
+            </strong>
+          </div>
+          <div>
+            <span>Output swing · measured</span>
+            <strong>
+              {eng(metrics.outputVpp, 'V')}
+              <small>peak to peak</small>
+            </strong>
+          </div>
+          <div>
+            <span>
+              {metrics.cutoff ? 'Filter cutoff' : 'Output range · measured'}
+            </span>
+            <strong className="scope-metric-wide">
+              {metrics.cutoff
+                ? eng(metrics.cutoff, 'Hz')
+                : `${eng(metrics.outputMin, 'V')} → ${eng(metrics.outputMax, 'V')}`}
+            </strong>
+          </div>
+        </div>
       </div>
       <div ref={ref} className="scope-surface">
         <svg

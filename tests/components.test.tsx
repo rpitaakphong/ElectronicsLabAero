@@ -60,6 +60,31 @@ test('circuit selection preserves signal settings and updates schematic and equa
   assert.ok(screen.getByLabelText(/Gain = 1 \+ 20 kΩ \/ 10 kΩ = \+3 V\/V/));
   assert.ok(screen.getByRole('img', { name: /Non-inverting amplifier/ }));
 });
+test('teaching note, scope metrics, and parameters follow the intended layout hierarchy', () => {
+  render(<App />);
+  const scope = screen
+      .getByRole('heading', { name: 'Oscilloscope' })
+      .closest('section'),
+    parameters = screen
+      .getByRole('heading', { name: 'Parameters' })
+      .closest('section'),
+    applicationNote = screen.getByText('WHEN TO USE IT').closest('section'),
+    equation = screen.getByLabelText(
+      'Output is high when input is at or above the reference, and low otherwise',
+    );
+  assert.ok(scope);
+  assert.ok(parameters);
+  assert.ok(applicationNote?.closest('.circuit-explanation'));
+  assert.ok(
+    equation.compareDocumentPosition(applicationNote!) &
+      Node.DOCUMENT_POSITION_FOLLOWING,
+  );
+  assert.ok(scope.parentElement?.classList.contains('instrument-grid'));
+  assert.ok(scope.parentElement?.contains(parameters));
+  assert.ok(scope.contains(screen.getByText('Gain · theoretical')));
+  assert.ok(scope.contains(screen.getByText('Output swing · measured')));
+  assert.ok(scope.contains(screen.getByText('Output range · measured')));
+});
 test('resistor controls update gain and schematic; invalid input does not reach simulation', async () => {
   const user = userEvent.setup();
   render(<App />);
