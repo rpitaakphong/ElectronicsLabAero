@@ -15,8 +15,8 @@ export const CIRCUIT_INFO: Record<
     short: 'Inverting',
     tag: 'Amplify & invert',
     description:
-      'A rising input makes the output fall. The resistor ratio sets how much it changes.',
-    use: 'Reverse polarity, scale a signal up or down, or prepare it for a summing stage.',
+      'The signal enters through a resistor connected to the − input. The output moves in the opposite direction: a positive input produces a negative output, and vice versa. The ratio between Rf and Rin sets how much larger or smaller the output becomes.',
+    use: 'Use it when you need to flip a signal and control its size, or prepare it to be combined with other signals.',
     input:
       'The source sees approximately Rin. Current flows through Rin and Rf, while almost none enters the op-amp input.',
   },
@@ -25,8 +25,8 @@ export const CIRCUIT_INFO: Record<
     short: 'Non-inverting',
     tag: 'Amplify & preserve',
     description:
-      'The output follows the input’s direction. Feedback sets a gain of one or more.',
-    use: 'Amplify a voltage from a sensor or other source that should supply very little current.',
+      'The signal enters the + input, so the output moves in the same direction. A positive input produces a positive output, and the feedback resistors decide how much larger it becomes.',
+    use: 'Use it to make a sensor, audio, or other voltage signal larger without flipping the waveform upside down.',
     input:
       'Very high input impedance. The signal enters the + input directly, so the source supplies almost no input current.',
   },
@@ -35,8 +35,8 @@ export const CIRCUIT_INFO: Record<
     short: 'Buffer',
     tag: 'Follow & isolate',
     description:
-      'The output follows the input with a gain of one. The benefit is isolation, even when the two traces overlap.',
-    use: 'Put a buffer between a delicate voltage source and a later circuit that would otherwise load it.',
+      'The output copies the input with the same shape, size, and direction. The feedback wire tells the op-amp to keep both voltages equal. This lets a weak signal source drive the next circuit without its voltage being pulled down.',
+    use: 'Use it between a sensor or delicate signal source and a circuit that needs more current.',
     input:
       'Very high input impedance and low output impedance. Load-current limits are outside this model; the ideal trace demonstrates voltage following.',
   },
@@ -45,8 +45,8 @@ export const CIRCUIT_INFO: Record<
     short: 'Summing',
     tag: 'Combine & weight',
     description:
-      'Each input contributes through its own resistor. The output is the inverted, weighted sum.',
-    use: 'Mix signals, combine control voltages, or give different signals different weights.',
+      'Two signals enter through separate resistors, and the op-amp combines them into one output. Each input resistor controls how strongly its signal affects the result. The combined output is flipped, and opposite signals can partly or completely cancel each other.',
+    use: 'Use it to mix audio, combine sensor or control voltages, or add and cancel signals.',
     input:
       'Input 1 sees approximately Rin; input 2 sees approximately R₂. Matching resistors give matching weights.',
   },
@@ -55,8 +55,8 @@ export const CIRCUIT_INFO: Record<
     short: 'Low-pass',
     tag: 'Filter & smooth',
     description:
-      'The feedback capacitor reduces gain at high frequencies. Fast edges become rounded.',
-    use: 'Reduce high-frequency content before another analog stage or measurement.',
+      'The resistor and capacitor let slow signal changes pass while reducing fast changes. Above the cutoff frequency, the output becomes smaller and sharp corners become rounded. The circuit also flips the output upside down.',
+    use: 'Use it to smooth a noisy signal or remove unwanted high-frequency detail before measuring or processing it.',
     input:
       'The source sees approximately Rin. Rf sets the low-frequency gain; Rf and C together set the cutoff frequency.',
   },
@@ -65,8 +65,8 @@ export const CIRCUIT_INFO: Record<
     short: 'Comparator',
     tag: 'Compare & switch',
     description:
-      'Without negative feedback, the output goes high when Vin is at or above the reference, and low otherwise.',
-    use: 'Detect when a voltage crosses a threshold. In hardware, a dedicated comparator is usually the better choice.',
+      'With no feedback path, the op-amp acts like a yes-or-no switch. When the input rises above the reference voltage, the output jumps HIGH; when it falls below, the output jumps LOW. If the input repeatedly crosses the reference, the output looks like a square wave with flat tops.',
+    use: 'Use it to detect when a signal passes a chosen voltage, such as switching an alarm or digital input on and off. For real circuits, a dedicated comparator chip is usually the better choice.',
     input:
       'The two inputs compare voltages. There is no resistor-set linear gain and no virtual short between + and −.',
   },
