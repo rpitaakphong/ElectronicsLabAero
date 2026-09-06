@@ -368,9 +368,13 @@ export function Oscilloscope({
         )}
       </div>
       <div className="scope-caption">
-        {outOfRange
-          ? 'Some traces are outside the manual range. Choose Auto fit to see the full signal.'
-          : 'Output follows the ideal circuit equation.'}{' '}
+        {outOfRange &&
+          'Some traces are outside the manual range. Choose Auto fit to see the full signal. '}
+        {config.circuit === 'comparator'
+          ? `The comparator switches between the ${eng(config.components.supplyNegative, 'V')} and ${eng(config.components.supplyPositive, 'V')} supply rails.`
+          : metrics.clipped
+            ? `The ideal output exceeded the ${eng(config.components.supplyNegative, 'V')} to ${eng(config.components.supplyPositive, 'V')} supply, so the waveform is clipped flat at a rail.`
+            : 'The output follows the ideal circuit equation and stays within the selected supply rails.'}{' '}
         Time scale is fixed at 0.5 ms/div.
       </div>
     </section>

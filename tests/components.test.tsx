@@ -135,7 +135,7 @@ test('reset lab restores the default signal', async () => {
     '0.5',
   );
 });
-test('summing exposes a second source and comparator hides irrelevant components', async () => {
+test('circuit controls expose shared supply rails and hide irrelevant components', async () => {
   const user = userEvent.setup();
   render(<App />);
   await user.click(screen.getByRole('radio', { name: /Summing/ }));
@@ -148,10 +148,50 @@ test('summing exposes a second source and comparator hides irrelevant components
   await user.click(screen.getByRole('tab', { name: 'Circuit' }));
   assert.ok(screen.getByRole('spinbutton', { name: 'Threshold Vref' }));
   assert.equal(screen.queryByRole('spinbutton', { name: 'Feedback Rf' }), null);
-  assert.ok(screen.getByRole('spinbutton', { name: 'Output LOW' }));
-  assert.ok(screen.getByRole('spinbutton', { name: 'Output HIGH' }));
+  assert.match(
+    screen.getByRole('combobox', { name: 'Supply preset' }).textContent ?? '',
+    /±5 V/,
+  );
+  assert.ok(screen.getByRole('spinbutton', { name: 'V− supply rail' }));
+  assert.ok(screen.getByRole('spinbutton', { name: 'V+ supply rail' }));
+  assert.equal(screen.queryByRole('spinbutton', { name: 'Output LOW' }), null);
+  assert.equal(screen.queryByRole('spinbutton', { name: 'Output HIGH' }), null);
   assert.equal(screen.queryByRole('tab', { name: 'Limits' }), null);
   assert.equal(screen.queryByRole('switch', { name: 'Practical mode' }), null);
+});
+test('supply presets update both rails and manual editing selects Custom', async () => {
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(screen.getByRole('tab', { name: 'Circuit' }));
+  const preset = screen.getByRole('combobox', { name: 'Supply preset' });
+  await user.click(preset);
+  const singleSupply = [...document.querySelectorAll('[role="option"]')].find(
+    (option) => option.textContent === '0–5 V',
+  );
+  assert.ok(singleSupply);
+  await user.click(singleSupply);
+  assert.equal(
+    (
+      screen.getByRole('spinbutton', {
+        name: 'V− supply rail',
+      }) as HTMLInputElement
+    ).value,
+    '0',
+  );
+  assert.equal(
+    (
+      screen.getByRole('spinbutton', {
+        name: 'V+ supply rail',
+      }) as HTMLInputElement
+    ).value,
+    '5',
+  );
+  fireEvent.change(screen.getByRole('spinbutton', { name: 'V− supply rail' }), {
+    target: { value: '-1' },
+  });
+  assert.match(preset.textContent ?? '', /Custom/);
+  assert.ok(screen.getByText(/switches directly between its -1 V and 5 V/));
+  assert.ok(screen.getByRole('img', { name: /V minus -1 V, V plus 5 V/ }));
 });
 test('optional browser-tool registration updates visible state and rejects invalid input', async () => {
   const registered = new Map<string, LabTool>(),

@@ -19,7 +19,43 @@ test('inverting amplifier has exact gain and opposite polarity', () => {
   const r = simulate(c);
   close(r.metrics.gain!, -2);
   close(r.metrics.outputVpp, 2);
+  assert.equal(r.metrics.clipped, false);
   for (const s of r.samples) close(s.output, -2 * s.input);
+});
+test('power-supply rails clip every linear circuit while preserving theoretical gain', () => {
+  for (const circuit of [
+    'buffer',
+    'noninverting',
+    'inverting',
+    'summing',
+    'lowpass',
+  ] as Circuit[]) {
+    const c = cloneDefault();
+    c.circuit = circuit;
+    c.source.amplitude = 10;
+    c.source.frequency = 1;
+    c.second.amplitude = 10;
+    c.second.frequency = 1;
+    const theoreticalGain = characteristics(c).gain;
+    const r = simulate(c);
+    assert.equal(r.metrics.gain, theoreticalGain);
+    assert.equal(r.metrics.clipped, true);
+    assert.ok(r.samples.every((s) => s.output >= -5 && s.output <= 5));
+    close(r.metrics.outputMin, -5);
+    close(r.metrics.outputMax, 5);
+  }
+});
+test('a 0–5 V single supply clips negative output at ground', () => {
+  const c = cloneDefault();
+  c.circuit = 'inverting';
+  c.components.supplyNegative = 0;
+  c.components.supplyPositive = 5;
+  const r = simulate(c);
+  assert.equal(r.metrics.gain, -2);
+  assert.equal(r.metrics.clipped, true);
+  close(r.metrics.outputMin, 0);
+  close(r.metrics.outputMax, 1);
+  close(r.metrics.measuredGain!, 1);
 });
 test('supports a fixed oscilloscope time window without changing the default window', () => {
   const c = cloneDefault();
@@ -108,7 +144,7 @@ test('filter preserves DC bias and square/triangle periodic symmetry', () => {
     assert.ok(r.metrics.outputVpp < 2);
   }
 });
-test('comparator uses >= threshold and separate high/low levels', () => {
+test('comparator uses >= threshold and switches between its supply rails', () => {
   const c = cloneDefault();
   c.circuit = 'comparator';
   c.components.reference = 0.2;
@@ -119,14 +155,15 @@ test('comparator uses >= threshold and separate high/low levels', () => {
   assert.equal(simulate(c).metrics.outputMin, 5);
   c.components.reference = 1;
   assert.equal(simulate(c).metrics.outputMax, -5);
-  c.components.outputLow = -2;
-  c.components.outputHigh = 3;
+  c.components.supplyNegative = -2;
+  c.components.supplyPositive = 3;
   c.source.amplitude = 0.5;
   c.source.offset = 0;
   c.components.reference = 0.2;
   const custom = simulate(c);
   assert.equal(custom.metrics.outputMin, -2);
   assert.equal(custom.metrics.outputMax, 3);
+  assert.equal(custom.metrics.clipped, false);
 });
 test('extreme filter/time constants stay finite and settle near the reference', () => {
   const c = cloneDefault();
@@ -163,16 +200,24 @@ test('all circuits handle zero amplitude and parameter extremes without NaN', ()
     }
   }
 });
-test('invalid numeric inputs and comparator levels are rejected atomically', () => {
+test('invalid numeric inputs and supply rails are rejected atomically', () => {
   for (const n of [NaN, Infinity, -1, 0]) {
     const c = cloneDefault();
     c.components.rin = n;
     assert.throws(() => validateConfig(c));
   }
   const c = cloneDefault();
-  c.components.outputLow = 5;
-  c.components.outputHigh = 5;
-  assert.throws(() => validateConfig(c), /LOW output/);
+  c.components.supplyNegative = 5;
+  c.components.supplyPositive = 5;
+  assert.throws(() => validateConfig(c), /at least 0.1 V/);
+  c.components.supplyNegative = 4.95;
+  c.components.supplyPositive = 5;
+  assert.throws(() => validateConfig(c), /at least 0.1 V/);
+  const legacy = cloneDefault() as unknown as {
+    components: Record<string, unknown>;
+  };
+  legacy.components.outputLow = -5;
+  assert.throws(() => validateConfig(legacy), /replaced by supplyNegative/);
   assert.throws(() => validateConfig({}));
 });
 test('browser tools share state and validate before mutating', () => {
@@ -189,12 +234,15 @@ test('browser tools share state and validate before mutating', () => {
   assert.equal(tools[1].annotations.readOnlyHint, false);
   const next = cloneDefault();
   next.circuit = 'buffer';
+  next.components.supplyNegative = 0;
+  next.components.supplyPositive = 0.5;
   const response = tools[1].execute(next) as {
     config: typeof config;
     metrics: typeof result.metrics;
   };
   assert.equal(response.config.circuit, 'buffer');
   assert.equal(response.metrics.gain, 1);
+  assert.equal(response.metrics.clipped, true);
   const invalid = cloneDefault();
   invalid.source.frequency = NaN;
   assert.throws(() => tools[1].execute(invalid));

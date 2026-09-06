@@ -29,8 +29,8 @@ export interface Config {
     r2: number;
     capacitance: number;
     reference: number;
-    outputLow: number;
-    outputHigh: number;
+    supplyNegative: number;
+    supplyPositive: number;
   };
 }
 export interface Sample {
@@ -51,6 +51,7 @@ export interface Simulation {
     outputMin: number;
     outputMax: number;
     measuredGain: number | null;
+    clipped: boolean;
   };
 }
 export interface SimulationOptions {
@@ -80,8 +81,8 @@ export const DEFAULT_CONFIG: Config = {
     r2: 10000,
     capacitance: 10e-9,
     reference: 0,
-    outputLow: -5,
-    outputHigh: 5,
+    supplyNegative: -5,
+    supplyPositive: 5,
   },
 };
 export const cloneDefault = (): Config => structuredClone(DEFAULT_CONFIG);
@@ -120,14 +121,18 @@ export function validateConfig(value: unknown): Config {
   }
   const c = value.components;
   record(c, 'Components');
+  if ('outputLow' in c || 'outputHigh' in c)
+    throw new Error(
+      'Comparator output levels were replaced by supplyNegative and supplyPositive.',
+    );
   for (const name of ['rin', 'rf', 'rg', 'r2'])
     bounded(c[name], 1000, 100000, name);
   bounded(c.capacitance, 1e-10, 1e-5, 'Capacitance');
   bounded(c.reference, -10, 10, 'Reference');
-  bounded(c.outputLow, -15, 15, 'Comparator LOW output');
-  bounded(c.outputHigh, -15, 15, 'Comparator HIGH output');
-  if (c.outputLow >= c.outputHigh)
-    throw new Error('Comparator LOW output must be below its HIGH output.');
+  bounded(c.supplyNegative, -15, 15, 'V− supply rail');
+  bounded(c.supplyPositive, -15, 15, 'V+ supply rail');
+  if (c.supplyPositive - c.supplyNegative < 0.1 - 1e-9)
+    throw new Error('V+ supply rail must be at least 0.1 V above V−.');
   // Reconstruct only supported fields; do not retain arbitrary tool payloads.
   const source = (s: Record<string, unknown>): Source => ({
     waveform: s.waveform as Waveform,
@@ -147,8 +152,8 @@ export function validateConfig(value: unknown): Config {
       r2: c.r2 as number,
       capacitance: c.capacitance,
       reference: c.reference,
-      outputLow: c.outputLow,
-      outputHigh: c.outputHigh,
+      supplyNegative: c.supplyNegative,
+      supplyPositive: c.supplyPositive,
     },
   };
 }
@@ -234,8 +239,8 @@ function signalModel(c: Config): (t: number) => number {
   if (c.circuit === 'comparator')
     return (t) =>
       sourceAt(c.source, t) >= c.components.reference
-        ? c.components.outputHigh
-        : c.components.outputLow;
+        ? c.components.supplyPositive
+        : c.components.supplyNegative;
   const taus: number[] = [];
   if (c.circuit === 'lowpass')
     taus.push(c.components.rf * c.components.capacitance);
@@ -270,9 +275,19 @@ export function simulate(
   const dt = duration / steps;
   const outputAt = signalModel(c);
   const samples: Sample[] = [];
+  let clipped = false;
   for (let i = 0; i <= steps; i++) {
     const t = i * dt,
-      output = outputAt(t);
+      requestedOutput = outputAt(t),
+      output =
+        c.circuit === 'comparator'
+          ? requestedOutput
+          : clamp(
+              requestedOutput,
+              c.components.supplyNegative,
+              c.components.supplyPositive,
+            );
+    if (output !== requestedOutput) clipped = true;
     samples.push({
       time: t,
       input: sourceAt(c.source, t),
@@ -305,6 +320,7 @@ export function simulate(
         inputVpp > 1e-9 && !['summing', 'comparator'].includes(c.circuit)
           ? outputVpp / inputVpp
           : null,
+      clipped,
     },
   };
 }

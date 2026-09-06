@@ -10,7 +10,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Field, SourceControls } from '@/components/lab/controls';
+import { Choice, Field, SourceControls } from '@/components/lab/controls';
 import { Schematic } from '@/components/lab/schematic';
 import { Oscilloscope } from '@/components/lab/oscilloscope';
 import { MathExpression } from '@/components/lab/math-expression';
@@ -25,10 +25,23 @@ import {
 import { CIRCUIT_INFO, equation } from '@/lib/opamp/content';
 import { createLabTools, type LabContext } from '@/lib/opamp/browser-tools';
 
+const SUPPLY_PRESETS = [
+  { value: 'dual-5', label: '±5 V', negative: -5, positive: 5 },
+  { value: 'single-5', label: '0–5 V', negative: 0, positive: 5 },
+  { value: 'dual-12', label: '±12 V', negative: -12, positive: 12 },
+  { value: 'dual-15', label: '±15 V', negative: -15, positive: 15 },
+] as const;
+
+const supplyPresetFor = (negative: number, positive: number) =>
+  SUPPLY_PRESETS.find(
+    (preset) => preset.negative === negative && preset.positive === positive,
+  )?.value ?? 'custom';
+
 export default function App() {
   const [config, setConfig] = useState<Config>(cloneDefault),
     [error, setError] = useState(''),
-    [paramTab, setParamTab] = useState('signal');
+    [paramTab, setParamTab] = useState('signal'),
+    [supplyPreset, setSupplyPreset] = useState('dual-5');
   const result = useMemo(() => simulate(config), [config]),
     info = CIRCUIT_INFO[config.circuit],
     formula = equation(config);
@@ -54,6 +67,12 @@ export default function App() {
       (c) =>
         flushSync(() => {
           setConfig(c);
+          setSupplyPreset(
+            supplyPresetFor(
+              c.components.supplyNegative,
+              c.components.supplyPositive,
+            ),
+          );
           setError('');
         }),
     )) {
@@ -69,11 +88,15 @@ export default function App() {
     }
     return () => abort.abort();
   }, []);
-  const setComponent = (key: keyof Config['components'], value: number) =>
+  const setComponent = (key: keyof Config['components'], value: number) => {
+    if (key === 'supplyNegative' || key === 'supplyPositive')
+      setSupplyPreset('custom');
     apply({ ...config, components: { ...config.components, [key]: value } });
+  };
   const reset = () => {
     apply(cloneDefault());
     setParamTab('signal');
+    setSupplyPreset('dual-5');
   };
   const p = config.components,
     isComp = config.circuit === 'comparator';
@@ -159,6 +182,19 @@ export default function App() {
               )}
               <p className="equation-note">{formula.note}</p>
             </div>
+            <section
+              className={`supply-note ${result.metrics.clipped ? 'is-clipped' : ''}`}
+              aria-live="polite"
+            >
+              <span className="eyebrow">POWER SUPPLY LIMIT</span>
+              <p>
+                {isComp
+                  ? `The comparator switches directly between its ${p.supplyNegative} V and ${p.supplyPositive} V power-supply rails.`
+                  : result.metrics.clipped
+                    ? `The ideal equation asks for more voltage than the ${p.supplyNegative} V to ${p.supplyPositive} V supply can provide, so the output stops at a rail and becomes flat.`
+                    : `The output stays inside the ${p.supplyNegative} V to ${p.supplyPositive} V supply rails. Increase the gain or choose a smaller supply to see clipping.`}
+              </p>
+            </section>
             <section className="application-note">
               <span className="eyebrow">WHEN TO USE IT</span>
               <p>{info.use}</p>
@@ -220,6 +256,56 @@ export default function App() {
                 </TabsContent>
                 <TabsContent value="circuit">
                   <div className="tab-inner">
+                    <h3>Power supply</h3>
+                    <Choice
+                      label="Supply preset"
+                      value={supplyPreset}
+                      options={[
+                        ...SUPPLY_PRESETS.map(({ value, label }) => ({
+                          value,
+                          label,
+                        })),
+                        { value: 'custom', label: 'Custom' },
+                      ]}
+                      onChange={(value) => {
+                        setSupplyPreset(value);
+                        const preset = SUPPLY_PRESETS.find(
+                          (candidate) => candidate.value === value,
+                        );
+                        if (!preset) return;
+                        apply({
+                          ...config,
+                          components: {
+                            ...p,
+                            supplyNegative: preset.negative,
+                            supplyPositive: preset.positive,
+                          },
+                        });
+                      }}
+                    />
+                    <Field
+                      label="V− supply rail"
+                      value={p.supplyNegative}
+                      min={-15}
+                      max={p.supplyPositive - 0.1}
+                      step={0.1}
+                      unit="V"
+                      onChange={(v) => setComponent('supplyNegative', v)}
+                    />
+                    <Field
+                      label="V+ supply rail"
+                      value={p.supplyPositive}
+                      min={p.supplyNegative + 0.1}
+                      max={15}
+                      step={0.1}
+                      unit="V"
+                      onChange={(v) => setComponent('supplyPositive', v)}
+                    />
+                    <p className="control-hint">
+                      The output cannot move beyond these power-supply rails.
+                      Real op-amps may stop slightly before reaching them.
+                    </p>
+                    <hr />
                     <h3>Components & reference</h3>
                     {!['buffer', 'comparator'].includes(config.circuit) && (
                       <>
@@ -299,28 +385,6 @@ export default function App() {
                         or reference are needed.
                       </p>
                     )}
-                    {isComp && (
-                      <>
-                        <Field
-                          label="Output LOW"
-                          value={p.outputLow}
-                          min={-15}
-                          max={p.outputHigh - 0.1}
-                          step={0.1}
-                          unit="V"
-                          onChange={(v) => setComponent('outputLow', v)}
-                        />
-                        <Field
-                          label="Output HIGH"
-                          value={p.outputHigh}
-                          min={p.outputLow + 0.1}
-                          max={15}
-                          step={0.1}
-                          unit="V"
-                          onChange={(v) => setComponent('outputHigh', v)}
-                        />
-                      </>
-                    )}
                     <div className="input-note">
                       <Info size={16} />
                       <p>{info.input}</p>
@@ -345,10 +409,11 @@ export default function App() {
         </summary>
         <div>
           <p>
-            <strong>A generic ideal teaching model.</strong> It assumes infinite
-            op-amp input impedance, zero output impedance, and unlimited speed
-            and output swing. The low-pass circuit still includes the response
-            of its external resistor and capacitor.
+            <strong>A generic teaching model with ideal gain equations.</strong>{' '}
+            It assumes infinite op-amp input impedance, zero output impedance,
+            and unlimited speed. Output voltage is limited exactly at the
+            selected power-supply rails. The low-pass circuit still includes the
+            response of its external resistor and capacitor.
           </p>
           <p>
             The filter’s steady periodic response is calculated before plotting.
@@ -357,9 +422,10 @@ export default function App() {
           </p>
           <p>
             Noise, input bias current, source loading, common-mode restrictions,
-            output-current limits, bandwidth, slew rate, clipping, stability,
-            hysteresis, and overload recovery are not simulated. The comparator
-            switches instantly and goes HIGH at equality by convention.
+            output-current limits, bandwidth, slew rate, output headroom,
+            stability, hysteresis, and overload recovery are not simulated. A
+            real op-amp may stop short of its rails. The comparator switches
+            instantly and goes to V+ at equality by convention.
           </p>
           <p className="model-sources">
             Learn more:{' '}

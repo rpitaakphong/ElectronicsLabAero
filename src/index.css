@@ -391,6 +391,15 @@ h3 {
   font-size: 16px;
   fill: #4d6870;
 }
+.circuit-wires .supply-pin {
+  stroke: var(--primary);
+  stroke-width: 1.5;
+}
+.circuit-wires .supply-label {
+  fill: var(--accent-foreground);
+  font-size: 10px;
+  font-weight: 600;
+}
 .circuit-wires .node-dot {
   fill: #607982;
   stroke: none;
@@ -445,6 +454,22 @@ h3 {
   font-size: 14px;
   line-height: 1.7;
   margin: 0;
+}
+.supply-note {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-tint);
+}
+.supply-note.is-clipped {
+  border-color: color-mix(in srgb, var(--chart-2) 50%, var(--border));
+  background: color-mix(in srgb, var(--chart-2) 8%, white);
+}
+.supply-note p {
+  margin: 7px 0 0;
+  color: #354d55;
+  line-height: 1.65;
 }
 .math-expression {
   display: block;
@@ -699,6 +724,11 @@ h3 {
 }
 .tab-inner h3 {
   margin: 7px 0 20px;
+}
+.tab-inner > hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 22px 0;
 }
 .control-section-title {
   display: flex;

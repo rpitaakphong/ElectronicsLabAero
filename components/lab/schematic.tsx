@@ -56,7 +56,7 @@ export function Schematic({ config: c }: { config: Config }) {
         style={{ height: 300 }}
         className="circuit-svg"
         role="img"
-        aria-label={`${CIRCUIT_INFO[c.circuit].name}. ${CIRCUIT_INFO[c.circuit].input}`}
+        aria-label={`${CIRCUIT_INFO[c.circuit].name}. Power supply rails: V minus ${eng(p.supplyNegative, 'V')}, V plus ${eng(p.supplyPositive, 'V')}. ${CIRCUIT_INFO[c.circuit].input}`}
       >
         <title>{CIRCUIT_INFO[c.circuit].name}</title>
         <defs>
@@ -85,6 +85,16 @@ export function Schematic({ config: c }: { config: Config }) {
           </text>
           <text x={amp + 27} y={179} className="opamp-label">
             A
+          </text>
+          <path
+            className="supply-pin"
+            d={`M${amp + 44} 137V100M${amp + 44} 203V240`}
+          />
+          <text x={amp + 52} y={103} className="supply-label">
+            V+ {eng(p.supplyPositive, 'V')}
+          </text>
+          <text x={amp + 52} y={244} className="supply-label">
+            V− {eng(p.supplyNegative, 'V')}
           </text>
           {non || comparator ? (
             <>

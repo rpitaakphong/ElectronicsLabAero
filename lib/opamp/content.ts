@@ -38,7 +38,7 @@ export const CIRCUIT_INFO: Record<
       'Imagine a small sensor trying to power the next circuit by itself. A buffer recreates the sensor’s voltage at the output, so the two scope traces overlap, while the op-amp provides the drive needed by the next circuit. The feedback wire continually corrects the output until it matches the input.',
     use: 'Use it between a sensor or delicate signal source and a circuit that needs more current.',
     input:
-      'Very high input impedance and low output impedance. Load-current limits are outside this model; the ideal trace demonstrates voltage following.',
+      'Very high input impedance and low output impedance. The output follows the input while it stays inside the supply rails; load-current limits are outside this model.',
   },
   summing: {
     name: 'Summing amplifier',
@@ -65,7 +65,7 @@ export const CIRCUIT_INFO: Record<
     short: 'Comparator',
     tag: 'Compare & switch',
     description:
-      'Imagine a thermostat deciding whether a room is too hot or too cold. The op-amp compares the input with the reference voltage: above it, the output jumps HIGH; below it, the output jumps LOW. As the input repeatedly crosses the reference, the output switches between two flat levels and looks like a square wave.',
+      'Imagine a thermostat deciding whether a room is too hot or too cold. The op-amp compares the input with the reference voltage: above it, the output jumps to the V+ supply rail; below it, the output jumps to the V− supply rail. As the input repeatedly crosses the reference, the output switches between two flat levels and looks like a square wave.',
     use: 'Use it to detect when a signal passes a chosen voltage, such as switching an alarm or digital input on and off. For real circuits, a dedicated comparator chip is usually the better choice.',
     input:
       'The two inputs compare voltages. There is no resistor-set linear gain and no virtual short between + and −.',
@@ -96,7 +96,11 @@ export function equation(c: Config): CircuitEquation {
   const p = c.components,
     ratio = p.rf / p.rin,
     n = 1 + p.rf / p.rg,
-    offset = eng(p.reference, 'V');
+    offset = eng(p.reference, 'V'),
+    railRange: MathLine = {
+      tex: String.raw`${quantity(p.supplyNegative, 'V')} = V_{S-} \leq V_{\mathrm{out}} \leq V_{S+} = ${quantity(p.supplyPositive, 'V')}`,
+      label: `Output is limited between V minus at ${eng(p.supplyNegative, 'V')} and V plus at ${eng(p.supplyPositive, 'V')}`,
+    };
   if (c.circuit === 'buffer')
     return {
       symbolic: [
@@ -110,6 +114,7 @@ export function equation(c: Config): CircuitEquation {
           tex: String.raw`A_v = +1\,\mathrm{V/V}`,
           label: 'Voltage gain = +1 V/V',
         },
+        railRange,
       ],
       note: 'The feedback wire connects output directly to the − input.',
     };
@@ -117,7 +122,7 @@ export function equation(c: Config): CircuitEquation {
     return {
       symbolic: [
         {
-          tex: String.raw`V_{\mathrm{out}} = \begin{cases} V_{\mathrm{H}}, & V_{\mathrm{in}} \geq V_{\mathrm{ref}} \\ V_{\mathrm{L}}, & V_{\mathrm{in}} < V_{\mathrm{ref}} \end{cases}`,
+          tex: String.raw`V_{\mathrm{out}} = \begin{cases} V_{S+}, & V_{\mathrm{in}} \geq V_{\mathrm{ref}} \\ V_{S-}, & V_{\mathrm{in}} < V_{\mathrm{ref}} \end{cases}`,
           label:
             'Output is high when input is at or above the reference, and low otherwise',
         },
@@ -128,11 +133,11 @@ export function equation(c: Config): CircuitEquation {
           label: `Threshold = ${offset}`,
         },
         {
-          tex: String.raw`V_{\mathrm{H}} = ${quantity(p.outputHigh, 'V')},\quad V_{\mathrm{L}} = ${quantity(p.outputLow, 'V')}`,
-          label: `High output = ${eng(p.outputHigh, 'V')}, low output = ${eng(p.outputLow, 'V')}`,
+          tex: String.raw`V_{S+} = ${quantity(p.supplyPositive, 'V')},\quad V_{S-} = ${quantity(p.supplyNegative, 'V')}`,
+          label: `Positive supply rail = ${eng(p.supplyPositive, 'V')}, negative supply rail = ${eng(p.supplyNegative, 'V')}`,
         },
       ],
-      note: 'The output switches instantly between the selected HIGH and LOW levels.',
+      note: 'The output switches instantly between the selected power-supply rails.',
     };
   if (c.circuit === 'noninverting')
     return {
@@ -153,6 +158,7 @@ export function equation(c: Config): CircuitEquation {
           tex: String.raw`A_v = 1 + \frac{${resistor(p.rf)}}{${resistor(p.rg)}} = +${number(n)}\,\mathrm{V/V}`,
           label: `Gain = 1 + ${eng(p.rf, 'Ω')} / ${eng(p.rg, 'Ω')} = +${number(n)} V/V`,
         },
+        railRange,
       ],
       note: `The input’s difference from ${offset} is multiplied by ${number(n)}.`,
     };
@@ -174,6 +180,7 @@ export function equation(c: Config): CircuitEquation {
           tex: String.raw`A_2 = -\frac{${resistor(p.rf)}}{${resistor(p.r2)}} = -${number(p.rf / p.r2)}`,
           label: `Input 2 weight = −${number(p.rf / p.r2)} V/V`,
         },
+        railRange,
       ],
       note: 'The dimensionless weights act on each input’s difference from the reference.',
     };
@@ -201,6 +208,7 @@ export function equation(c: Config): CircuitEquation {
           tex: String.raw`f_c = ${quantity(cutoff, 'Hz')}`,
           label: `Cutoff = ${eng(cutoff, 'Hz')}`,
         },
+        railRange,
       ],
       supporting: [
         {
@@ -230,6 +238,7 @@ export function equation(c: Config): CircuitEquation {
         tex: String.raw`A_v = -\frac{${resistor(p.rf)}}{${resistor(p.rin)}} = -${number(ratio)}\,\mathrm{V/V}`,
         label: `Gain = −${eng(p.rf, 'Ω')} / ${eng(p.rin, 'Ω')} = −${number(ratio)} V/V`,
       },
+      railRange,
     ],
     note: `The output moves in the opposite direction around the ${offset} reference.`,
   };

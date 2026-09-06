@@ -34,7 +34,8 @@ Comparator is selected at startup. Signal settings are preserved while switching
 
 - Choose sine, square, or triangle input signals.
 - Adjust amplitude, frequency, DC offset, and phase. The summing amplifier provides an independent second input.
-- Change the circuit's relevant resistance, capacitance, reference-voltage, or comparator-output values.
+- Change the circuit's relevant resistance, capacitance, reference voltage, and shared power-supply rails.
+- Try common ±5 V, 0–5 V, ±12 V, and ±15 V supply presets or enter custom rails to observe output clipping.
 - Read the current ideal equation with substituted component values.
 - Compare input and output on the shared oscilloscope. Its time scale is fixed at 0.5 ms/div across a 4 ms window; vertical scaling starts on Auto fit.
 - Move the time cursor to inspect signal values at a selected instant.
@@ -50,11 +51,11 @@ The amplifier configurations use these ideal relationships:
 - Voltage follower: `Vout = Vin`
 - Summing: `Vout = Vref − (Rf/Rin)(V1 − Vref) − (Rf/R2)(V2 − Vref)`
 - Low-pass: low-frequency gain `−Rf/Rin` and cutoff `1/(2π Rf C)`
-- Comparator: HIGH when `Vin ≥ Vref`, LOW otherwise
+- Comparator: `V+` supply rail when `Vin ≥ Vref`, `V−` supply rail otherwise
 
 The low-pass filter includes the external resistor-capacitor response. Sines are evaluated analytically; square and triangle waves use a periodic first-order filter calculation to avoid arbitrary startup transients.
 
-This is a teaching model rather than a chip-specific SPICE simulator. It assumes infinite input impedance, zero output impedance, unlimited amplifier speed, and unlimited output swing. It does not simulate noise, input bias current, source loading, common-mode restrictions, output-current limits, bandwidth, slew rate, clipping, stability, hysteresis, propagation delay, or overload recovery.
+This is a teaching model rather than a chip-specific SPICE simulator. It assumes infinite input impedance, zero output impedance, and unlimited amplifier speed. Every output is limited exactly at the selected power-supply rails; real devices often stop short of those rails. It does not simulate noise, input bias current, source loading, common-mode restrictions, output-current limits, bandwidth, slew rate, output headroom, stability, hysteresis, propagation delay, or overload recovery.
 
 ## Project structure
 
