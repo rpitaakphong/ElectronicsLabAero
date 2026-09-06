@@ -81,10 +81,13 @@ export default function App() {
     <main className="lab-shell">
       <header className="masthead">
         <div className="brand">
-          <Activity aria-hidden="true" />
-          <strong>Op-Amp Lab</strong>
+          <span
+            className="brand-logo"
+            role="img"
+            aria-label="Chulalongkorn University"
+          />
           <span className="brand-divider" />
-          <span>Interactive electronics</span>
+          <strong>Electronics Lab For Aerospace Engineering</strong>
         </div>
         <div className="header-actions">
           <span className="local-label">

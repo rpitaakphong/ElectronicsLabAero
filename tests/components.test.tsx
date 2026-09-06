@@ -17,6 +17,16 @@ afterEach(() => {
   delete (document as Document & { modelContext?: LabContext }).modelContext;
 });
 
+test('renders the Chula logo and aerospace engineering lab title', () => {
+  render(<App />);
+  const logo = screen.getByRole('img', {
+    name: 'Chulalongkorn University',
+  });
+  assert.ok(logo.classList.contains('brand-logo'));
+  assert.ok(screen.getByText('Electronics Lab For Aerospace Engineering'));
+  assert.equal(screen.queryByText('Interactive electronics'), null);
+});
+
 test('circuit selection preserves signal settings and updates schematic and equation', async () => {
   const user = userEvent.setup();
   render(<App />);

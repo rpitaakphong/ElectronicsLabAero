@@ -66,33 +66,38 @@ body {
 
 :root,
 .dark {
-  --background: #0d141c;
-  --foreground: #e4edf3;
-  --card: #151f2a;
-  --card-foreground: #e4edf3;
-  --popover: #1b2937;
-  --popover-foreground: #e4edf3;
-  --primary: #76d7be;
-  --primary-foreground: #102c25;
-  --secondary: #233340;
-  --secondary-foreground: #d8e4ed;
-  --muted: #21303e;
-  --muted-foreground: #a3b5c4;
-  --accent: #253e42;
-  --accent-foreground: #c5f4e7;
-  --destructive: #ff9c91;
-  --border: #2a3a48;
-  --input: #3b4c5d;
-  --ring: #76d7be;
-  --chart-1: #46cce2;
-  --chart-2: #f6b657;
-  --chart-3: #c099ff;
+  --background: #ffffff;
+  --foreground: #26343a;
+  --card: #ffffff;
+  --card-foreground: #26343a;
+  --popover: #ffffff;
+  --popover-foreground: #26343a;
+  --primary: #67bec7;
+  --primary-foreground: #153f44;
+  --secondary: #e7f5f6;
+  --secondary-foreground: #31545b;
+  --muted: #f4f7f7;
+  --muted-foreground: #687a80;
+  --accent: #ddf2f3;
+  --accent-foreground: #1f6269;
+  --destructive: #bd394d;
+  --border: #dbe7e8;
+  --input: #c7dadd;
+  --ring: #348f99;
+  --chart-1: #20a9bc;
+  --chart-2: #d99a00;
+  --chart-3: #557fc1;
+  --surface-tint: #eef9f9;
+  --surface-subtle: #f4f7f7;
+  --input-text: #08758a;
+  --output-text: #936500;
+  --second-text: #3e609c;
   --font-lab-sans:
     'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
   --radius: 0.6rem;
 }
 html {
-  color-scheme: dark;
+  color-scheme: light;
 }
 body {
   margin: 0;
@@ -115,7 +120,7 @@ button {
   padding: 0 38px 38px;
 }
 .masthead {
-  min-height: 80px;
+  min-height: 96px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -128,19 +133,21 @@ button {
   gap: 12px;
   flex-wrap: wrap;
 }
-.brand > svg {
-  color: var(--primary);
+.brand-logo {
+  display: block;
+  width: 132px;
+  aspect-ratio: 931 / 453;
+  flex: none;
+  background: url('/chula-logo.webp') center / contain no-repeat;
 }
 .brand strong {
-  font-size: 18px;
+  max-width: 320px;
+  font-size: 17px;
+  line-height: 1.35;
   letter-spacing: -0.5px;
 }
-.brand > span {
-  color: var(--muted-foreground);
-  font-size: 14px;
-}
 .brand-divider {
-  height: 20px;
+  height: 42px;
   border-left: 1px solid var(--border);
   margin: 0 6px;
 }
@@ -156,7 +163,7 @@ button {
   padding: 30px 0 26px;
 }
 .eyebrow {
-  color: var(--primary);
+  color: var(--accent-foreground);
   font: 12px var(--font-lab-sans);
   letter-spacing: 1.5px;
 }
@@ -176,6 +183,7 @@ h1 {
   border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 10px 30px rgb(67 126 130 / 8%);
 }
 .section-heading {
   display: flex;
@@ -196,8 +204,8 @@ h3 {
 }
 .pill {
   padding: 3px 9px;
-  background: #213b34;
-  color: var(--primary);
+  background: #e3f5f0;
+  color: var(--accent-foreground);
   font-size: 12px;
   border-radius: 5px;
 }
@@ -215,7 +223,7 @@ h3 {
   max-height: 220px;
 }
 .scope-svg {
-  background: #0e1822;
+  background: var(--surface-tint);
   display: block;
   width: 100%;
 }
@@ -235,8 +243,7 @@ h3 {
     padding: 16px 0;
   }
   .local-label,
-  .brand-divider,
-  .brand > span {
+  .brand-divider {
     display: none;
   }
   .intro {
@@ -274,6 +281,7 @@ h3 {
   overflow: hidden;
   margin-bottom: 22px;
   background: var(--card);
+  box-shadow: 0 7px 22px rgb(67 126 130 / 7%);
 }
 .circuit-choice {
   display: flex;
@@ -305,9 +313,9 @@ h3 {
   background: var(--muted);
 }
 .circuit-choice.selected {
-  background: #1c3634;
+  background: #ddf2f3;
   box-shadow: inset 0 -2px var(--primary);
-  color: #b5f4dd;
+  color: var(--accent-foreground);
 }
 .circuit-number {
   font: 12px var(--font-lab-sans);
@@ -362,7 +370,7 @@ h3 {
 .schematic-wrap {
   min-width: 0;
   overflow: hidden;
-  background: #121e29;
+  background: var(--surface-tint);
   align-self: stretch;
   display: flex;
   align-items: center;
@@ -373,7 +381,7 @@ h3 {
 }
 .circuit-wires {
   fill: none;
-  stroke: #b3c5d1;
+  stroke: #607982;
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -385,23 +393,23 @@ h3 {
   font-size: 12px;
 }
 .circuit-wires .opamp-body {
-  fill: #243747;
-  stroke: #819aa9;
+  fill: #dfeff1;
+  stroke: #76969f;
 }
 .circuit-wires .opamp-label {
   font-family: var(--font-lab-sans);
   font-size: 16px;
-  fill: #b3c5d1;
+  fill: #4d6870;
 }
 .circuit-wires .node-dot {
-  fill: #b3c5d1;
+  fill: #607982;
   stroke: none;
 }
 .circuit-wires .output-dot {
   fill: var(--chart-2);
 }
 .circuit-wires .erase-wire {
-  stroke: #121e29;
+  stroke: var(--surface-tint);
   stroke-width: 4;
 }
 .circuit-wires text.signal-input {
@@ -425,7 +433,7 @@ h3 {
 .circuit-explanation > p {
   margin: 0 0 14px;
   line-height: 1.65;
-  color: #c7d7e2;
+  color: #354d55;
 }
 .equation-block {
   display: flex;
@@ -433,7 +441,7 @@ h3 {
   gap: 12px;
 }
 .equation-symbolic {
-  color: var(--primary);
+  color: var(--accent-foreground);
 }
 .equation-numeric {
   color: var(--foreground);
@@ -510,7 +518,7 @@ h3 {
   flex-wrap: wrap;
   gap: 10px 18px;
   font-size: 12px;
-  color: #c5d5e0;
+  color: #526a72;
 }
 .scope-legend > span {
   display: flex;
@@ -540,21 +548,21 @@ h3 {
 }
 .scope-svg text {
   font: 12px var(--font-lab-sans);
-  fill: #a3b5c4;
+  fill: #627980;
 }
 .scope-grid {
   fill: none;
-  stroke: #233444;
+  stroke: #d5e6e8;
   stroke-width: 1;
 }
 .scope-zero {
   fill: none;
-  stroke: #496172;
+  stroke: #9ab6bb;
   stroke-width: 1.1;
 }
 .scope-reference {
   fill: none;
-  stroke: #76d7be;
+  stroke: #348f99;
   stroke-dasharray: 3 4;
   stroke-width: 1.5;
 }
@@ -574,12 +582,12 @@ h3 {
 }
 .cursor-line {
   fill: none;
-  stroke: #aec4d2;
+  stroke: #6f8990;
   stroke-dasharray: 2 3;
   stroke-width: 1;
 }
 .cursor-dot {
-  stroke: #0e1822;
+  stroke: var(--surface-tint);
   stroke-width: 1.5;
 }
 .cursor-dot.input {
@@ -598,7 +606,7 @@ h3 {
   padding: 12px 22px;
   font: 12px var(--font-lab-sans);
   border-top: 1px solid var(--border);
-  background: #121e29;
+  background: #f5fbfb;
 }
 .cursor-readout > span {
   display: flex;
@@ -606,13 +614,13 @@ h3 {
   gap: 6px;
 }
 .input-text {
-  color: var(--chart-1);
+  color: var(--input-text);
 }
 .output-text {
-  color: var(--chart-2);
+  color: var(--output-text);
 }
 .second-text {
-  color: var(--chart-3);
+  color: var(--second-text);
 }
 .scope-controls {
   padding: 15px 22px 10px;
@@ -651,7 +659,7 @@ h3 {
   border: 1px solid var(--border);
   border-radius: 7px;
   overflow: hidden;
-  background: #121e29;
+  background: #f5fbfb;
 }
 .scope-metrics > div {
   min-width: 0;
@@ -756,7 +764,7 @@ h3 {
   font-size: 14px;
   display: block;
   margin-bottom: 9px;
-  color: #c7d7e2;
+  color: #354d55;
 }
 .control-hint {
   font-size: 12px;
@@ -778,7 +786,7 @@ h3 {
   display: flex;
   gap: 9px;
   padding: 15px;
-  background: #1b2c39;
+  background: var(--surface-tint);
   border-radius: 8px;
   align-items: flex-start;
 }
@@ -791,7 +799,7 @@ h3 {
   margin: 0;
   font-size: 12px;
   line-height: 1.85;
-  color: #bacddc;
+  color: #526a72;
 }
 .application-note {
   border-top: 1px solid var(--border);
@@ -801,7 +809,7 @@ h3 {
 .application-note p {
   font-size: 14px;
   line-height: 1.7;
-  color: #c7d7e2;
+  color: #354d55;
   margin: 9px 0 7px;
 }
 .source-controls + hr {
@@ -821,7 +829,7 @@ h3 {
   align-items: center;
   gap: 10px;
   padding: 20px 0;
-  color: #b3c8d7;
+  color: #526a72;
 }
 .model-note > summary::-webkit-details-marker {
   display: none;
@@ -851,7 +859,7 @@ h3 {
   gap: 8px 16px;
 }
 .model-sources a {
-  color: var(--primary);
+  color: var(--accent-foreground);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -929,10 +937,15 @@ h3 {
     gap: 7px;
   }
   .masthead {
-    min-height: 65px;
+    min-height: 82px;
+  }
+  .brand-logo {
+    width: 96px;
   }
   .masthead .brand strong {
-    font-size: 17px;
+    max-width: 130px;
+    font-size: 12px;
+    letter-spacing: -0.2px;
   }
   .intro h1 {
     font-size: 26px;
