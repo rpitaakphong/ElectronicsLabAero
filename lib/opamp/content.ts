@@ -35,7 +35,7 @@ export const CIRCUIT_INFO: Record<
     short: 'Buffer',
     tag: 'Follow & isolate',
     description:
-      'The output copies the input with the same shape, size, and direction. The feedback wire tells the op-amp to keep both voltages equal. This lets a weak signal source drive the next circuit without its voltage being pulled down.',
+      'Think of a buffer as a helper that copies a message and delivers it for you. The output voltage is the same as the input, so the two traces sit directly on top of each other. The op-amp supplies the current needed by the next circuit, allowing a delicate sensor to keep its original voltage.',
     use: 'Use it between a sensor or delicate signal source and a circuit that needs more current.',
     input:
       'Very high input impedance and low output impedance. Load-current limits are outside this model; the ideal trace demonstrates voltage following.',
