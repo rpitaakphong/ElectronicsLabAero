@@ -190,7 +190,11 @@ test('supply presets update both rails and manual editing selects Custom', async
     target: { value: '-1' },
   });
   assert.match(preset.textContent ?? '', /Custom/);
-  assert.ok(screen.getByText(/switches directly between its -1 V and 5 V/));
+  assert.ok(
+    screen.getByText(
+      /comparator switches between the -1 V and 5 V supply rails/i,
+    ),
+  );
   assert.ok(screen.getByRole('img', { name: /V minus -1 V, V plus 5 V/ }));
 });
 test('optional browser-tool registration updates visible state and rejects invalid input', async () => {

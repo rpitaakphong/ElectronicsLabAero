@@ -182,19 +182,6 @@ export default function App() {
               )}
               <p className="equation-note">{formula.note}</p>
             </div>
-            <section
-              className={`supply-note ${result.metrics.clipped ? 'is-clipped' : ''}`}
-              aria-live="polite"
-            >
-              <span className="eyebrow">POWER SUPPLY LIMIT</span>
-              <p>
-                {isComp
-                  ? `The comparator switches directly between its ${p.supplyNegative} V and ${p.supplyPositive} V power-supply rails.`
-                  : result.metrics.clipped
-                    ? `The ideal equation asks for more voltage than the ${p.supplyNegative} V to ${p.supplyPositive} V supply can provide, so the output stops at a rail and becomes flat.`
-                    : `The output stays inside the ${p.supplyNegative} V to ${p.supplyPositive} V supply rails. Increase the gain or choose a smaller supply to see clipping.`}
-              </p>
-            </section>
             <section className="application-note">
               <span className="eyebrow">WHEN TO USE IT</span>
               <p>{info.use}</p>
