@@ -1,6 +1,6 @@
 # Op-Amp Learning Lab
 
-A local interactive learning tool for exploring six ideal operational-amplifier circuits. Adjust signals and components to see the schematic, equation, waveform, and measured values update together.
+A Vite, React, and TypeScript learning tool for exploring six ideal operational-amplifier circuits. Adjust signals and components to see the schematic, equation, waveform, and measured values update together.
 
 ## Run locally
 
@@ -12,6 +12,12 @@ npm run dev
 ```
 
 Open the local URL printed in the terminal, normally [http://localhost:3000](http://localhost:3000). The app runs without an account, API key, or external service.
+
+## Deploy on Vercel
+
+Import the GitHub repository into Vercel. The included `vercel.json` selects the Vite framework, runs `npm run build`, and serves the generated `dist` directory. There are no environment variables to configure.
+
+Vercel will create preview deployments and redeploy the production branch when new commits are pushed.
 
 ## Simulators
 
@@ -55,7 +61,8 @@ This is a teaching model rather than a chip-specific SPICE simulator. It assumes
 - `lib/opamp/simulator.ts`: typed configuration, validation, ideal circuit equations, filtering, and metrics
 - `lib/opamp/content.ts`: circuit explanations and displayed equations
 - `components/lab/`: schematic, oscilloscope, mathematical display, and parameter controls
-- `app/page.tsx`: shared application state and interface
+- `src/main.tsx`: Vite browser entry point
+- `src/App.tsx`: shared application state and interface
 - `lib/opamp/browser-tools.ts`: optional feature-detected browser tools
 - `tests/`: numerical and component checks
 

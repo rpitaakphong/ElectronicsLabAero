@@ -9,7 +9,7 @@ import {
   act,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import Home from '../app/page';
+import App from '../src/App';
 import type { LabTool, LabContext } from '../lib/opamp/browser-tools';
 import { cloneDefault } from '../lib/opamp/simulator';
 afterEach(() => {
@@ -19,7 +19,7 @@ afterEach(() => {
 
 test('circuit selection preserves signal settings and updates schematic and equation', async () => {
   const user = userEvent.setup();
-  render(<Home />);
+  render(<App />);
   assert.deepEqual(
     screen
       .getAllByRole('radio')
@@ -62,7 +62,7 @@ test('circuit selection preserves signal settings and updates schematic and equa
 });
 test('resistor controls update gain and schematic; invalid input does not reach simulation', async () => {
   const user = userEvent.setup();
-  render(<Home />);
+  render(<App />);
   await user.click(screen.getByRole('radio', { name: /Inverting/ }));
   await user.click(screen.getByRole('tab', { name: 'Circuit' }));
   const rf = screen.getByRole('spinbutton', { name: 'Feedback Rf' });
@@ -77,7 +77,7 @@ test('resistor controls update gain and schematic; invalid input does not reach 
 });
 test('reset lab restores the default signal', async () => {
   const user = userEvent.setup();
-  render(<Home />);
+  render(<App />);
   fireEvent.change(
     screen.getByRole('spinbutton', { name: 'Input 1 amplitude' }),
     { target: { value: '2' } },
@@ -102,7 +102,7 @@ test('reset lab restores the default signal', async () => {
 });
 test('summing exposes a second source and comparator hides irrelevant components', async () => {
   const user = userEvent.setup();
-  render(<Home />);
+  render(<App />);
   await user.click(screen.getByRole('radio', { name: /Summing/ }));
   assert.ok(screen.getByRole('spinbutton', { name: 'Input 2 phase' }));
   await user.click(screen.getByRole('radio', { name: /Comparator/ }));
@@ -127,7 +127,7 @@ test('optional browser-tool registration updates visible state and rejects inval
       if (options?.signal) signals.push(options.signal);
     },
   };
-  const { unmount } = render(<Home />);
+  const { unmount } = render(<App />);
   assert.equal(registered.size, 2);
   const config = cloneDefault();
   config.circuit = 'buffer';
@@ -151,7 +151,7 @@ test('optional browser-tool registration updates visible state and rejects inval
 });
 
 test('slider inputs expose names and physical units and accept arrow keys', () => {
-  render(<Home />);
+  render(<App />);
   // JSDOM has no layout; Base UI keeps the inset thumb hidden until measurement.
   // Inspect its real range input and exercise the shared keyboard handler.
   const sliders = screen.getAllByRole('slider', { hidden: true });

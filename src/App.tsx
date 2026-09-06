@@ -1,4 +1,3 @@
-'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
@@ -27,7 +26,7 @@ import {
 import { CIRCUIT_INFO, equation } from '@/lib/opamp/content';
 import { createLabTools, type LabContext } from '@/lib/opamp/browser-tools';
 
-export default function Home() {
+export default function App() {
   const [config, setConfig] = useState<Config>(cloneDefault),
     [error, setError] = useState(''),
     [paramTab, setParamTab] = useState('signal');
@@ -35,7 +34,9 @@ export default function Home() {
     info = CIRCUIT_INFO[config.circuit],
     formula = equation(config);
   const current = useRef({ config, result });
-  current.current = { config, result };
+  useEffect(() => {
+    current.current = { config, result };
+  }, [config, result]);
   const apply = (next: Config) => {
     try {
       setConfig(validateConfig(next));

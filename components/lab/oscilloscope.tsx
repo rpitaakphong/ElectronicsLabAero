@@ -56,24 +56,31 @@ export function Oscilloscope({ config }: { config: Config }) {
       pow = 10 ** Math.floor(Math.log10(raw)),
       step = [1, 2, 2.5, 5, 10].find((n) => n * pow >= raw)! * pow;
     return [Math.floor(lo / step) * step, Math.ceil(hi / step) * step];
-  }, [scopeResult, scale, center, sum, config.components.reference]);
+  }, [
+    scopeResult,
+    scale,
+    center,
+    sum,
+    config.circuit,
+    config.components.reference,
+  ]);
   const x = (t: number) => left + (t / scopeResult.duration) * pw,
     y = (v: number) => top + ((max - v) / (max - min)) * ph;
-  const path = (key: keyof Omit<Sample, 'time'>) =>
-    scopeResult.samples
-      .map(
-        (s, i) =>
-          `${i ? 'L' : 'M'}${x(s.time).toFixed(2)} ${y(s[key]).toFixed(2)}`,
-      )
-      .join('');
-  const paths = useMemo(
-    () => ({
-      input: path('input'),
-      output: path('output'),
-      second: sum ? path('second') : '',
-    }),
-    [scopeResult, w, min, max, sum],
-  ); // paths are deterministic functions of these values
+  const paths = useMemo(() => {
+    const makePath = (key: keyof Omit<Sample, 'time'>) =>
+      scopeResult.samples
+        .map((sample, index) => {
+          const px = left + (sample.time / scopeResult.duration) * pw;
+          const py = top + ((max - sample[key]) / (max - min)) * ph;
+          return `${index ? 'L' : 'M'}${px.toFixed(2)} ${py.toFixed(2)}`;
+        })
+        .join('');
+    return {
+      input: makePath('input'),
+      output: makePath('output'),
+      second: sum ? makePath('second') : '',
+    };
+  }, [scopeResult, left, pw, top, max, min, ph, sum]);
   const t = cursor * scopeResult.duration,
     position = cursor * (scopeResult.samples.length - 1),
     i = Math.min(Math.floor(position), scopeResult.samples.length - 2),
@@ -268,8 +275,9 @@ export function Oscilloscope({ config }: { config: Config }) {
       </div>
       <div className="scope-controls">
         <div className="cursor-control">
-          <label>Time cursor</label>
+          <label htmlFor="time-cursor">Time cursor</label>
           <Slider
+            id="time-cursor"
             aria-label="Time cursor"
             aria-valuetext={eng(t, 's')}
             min={0}
