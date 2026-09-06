@@ -323,6 +323,7 @@ h3 {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
   gap: 22px;
+  padding-top: 30px;
   align-items: start;
 }
 .control-column {
