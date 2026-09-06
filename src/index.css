@@ -151,14 +151,6 @@ button {
   border-left: 1px solid var(--border);
   margin: 0 6px;
 }
-.local-label {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  letter-spacing: 1.3px;
-  color: var(--muted-foreground);
-}
 .intro {
   padding: 30px 0 26px;
 }
@@ -242,7 +234,6 @@ h3 {
   .masthead {
     padding: 16px 0;
   }
-  .local-label,
   .brand-divider {
     display: none;
   }
@@ -259,7 +250,6 @@ h3 {
   align-items: center;
   gap: 22px;
 }
-.local-dot,
 .scope-live > span {
   width: 5px;
   height: 5px;

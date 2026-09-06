@@ -90,9 +90,6 @@ export default function App() {
           <strong>Electronics Lab For Aerospace Engineering</strong>
         </div>
         <div className="header-actions">
-          <span className="local-label">
-            <span className="local-dot" /> LOCAL LAB
-          </span>
           <Button variant="ghost" onClick={reset}>
             <RotateCcw size={15} />
             Reset lab
