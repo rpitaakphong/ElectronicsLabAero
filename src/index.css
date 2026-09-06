@@ -349,7 +349,7 @@ h3 {
 }
 .schematic-panel {
   display: grid;
-  grid-template-columns: 57% 43%;
+  grid-template-columns: 46% 54%;
 }
 .schematic-panel > .section-heading {
   grid-column: 1/-1;
