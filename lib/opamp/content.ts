@@ -15,7 +15,7 @@ export const CIRCUIT_INFO: Record<
     short: 'Inverting',
     tag: 'Amplify & invert',
     description:
-      'The signal enters through a resistor connected to the − input. The output moves in the opposite direction: a positive input produces a negative output, and vice versa. The ratio between Rf and Rin sets how much larger or smaller the output becomes.',
+      'Think of a seesaw: when the input side moves up, the output side moves down. On the scope, the output waveform is flipped vertically compared with the input. The ratio between Rf and Rin controls how large that flipped waveform becomes.',
     use: 'Use it when you need to flip a signal and control its size, or prepare it to be combined with other signals.',
     input:
       'The source sees approximately Rin. Current flows through Rin and Rf, while almost none enters the op-amp input.',
@@ -25,7 +25,7 @@ export const CIRCUIT_INFO: Record<
     short: 'Non-inverting',
     tag: 'Amplify & preserve',
     description:
-      'The signal enters the + input, so the output moves in the same direction. A positive input produces a positive output, and the feedback resistors decide how much larger it becomes.',
+      'Think of turning up a microphone while keeping the sound the same way around. When the input rises, the output rises too, but by a larger amount. The feedback resistors act like a volume setting that controls how much taller the output waveform becomes.',
     use: 'Use it to make a sensor, audio, or other voltage signal larger without flipping the waveform upside down.',
     input:
       'Very high input impedance. The signal enters the + input directly, so the source supplies almost no input current.',
@@ -35,7 +35,7 @@ export const CIRCUIT_INFO: Record<
     short: 'Buffer',
     tag: 'Follow & isolate',
     description:
-      'Think of a buffer as a helper that copies a message and delivers it for you. The output voltage is the same as the input, so the two traces sit directly on top of each other. The op-amp supplies the current needed by the next circuit, allowing a delicate sensor to keep its original voltage.',
+      'Imagine a small sensor trying to power the next circuit by itself. A buffer recreates the sensor’s voltage at the output, so the two scope traces overlap, while the op-amp provides the drive needed by the next circuit. The feedback wire continually corrects the output until it matches the input.',
     use: 'Use it between a sensor or delicate signal source and a circuit that needs more current.',
     input:
       'Very high input impedance and low output impedance. Load-current limits are outside this model; the ideal trace demonstrates voltage following.',
@@ -45,7 +45,7 @@ export const CIRCUIT_INFO: Record<
     short: 'Summing',
     tag: 'Combine & weight',
     description:
-      'Two signals enter through separate resistors, and the op-amp combines them into one output. Each input resistor controls how strongly its signal affects the result. The combined output is flipped, and opposite signals can partly or completely cancel each other.',
+      'Imagine an audio mixing desk combining two microphones into one output. Each input resistor works like a separate volume control, deciding how strongly that signal joins the mix. This circuit also flips the combined waveform, and equal signals pointing in opposite directions can cancel each other.',
     use: 'Use it to mix audio, combine sensor or control voltages, or add and cancel signals.',
     input:
       'Input 1 sees approximately Rin; input 2 sees approximately R₂. Matching resistors give matching weights.',
@@ -55,7 +55,7 @@ export const CIRCUIT_INFO: Record<
     short: 'Low-pass',
     tag: 'Filter & smooth',
     description:
-      'The resistor and capacitor let slow signal changes pass while reducing fast changes. Above the cutoff frequency, the output becomes smaller and sharp corners become rounded. The circuit also flips the output upside down.',
+      'Think of this filter like a car’s suspension smoothing out sharp bumps. Slow signal changes pass through, while fast changes are softened, making high-frequency waves smaller and sharp corners rounder. Because the signal enters the inverting side, the filtered output is also flipped vertically.',
     use: 'Use it to smooth a noisy signal or remove unwanted high-frequency detail before measuring or processing it.',
     input:
       'The source sees approximately Rin. Rf sets the low-frequency gain; Rf and C together set the cutoff frequency.',
@@ -65,7 +65,7 @@ export const CIRCUIT_INFO: Record<
     short: 'Comparator',
     tag: 'Compare & switch',
     description:
-      'With no feedback path, the op-amp acts like a yes-or-no switch. When the input rises above the reference voltage, the output jumps HIGH; when it falls below, the output jumps LOW. If the input repeatedly crosses the reference, the output looks like a square wave with flat tops.',
+      'Imagine a thermostat deciding whether a room is too hot or too cold. The op-amp compares the input with the reference voltage: above it, the output jumps HIGH; below it, the output jumps LOW. As the input repeatedly crosses the reference, the output switches between two flat levels and looks like a square wave.',
     use: 'Use it to detect when a signal passes a chosen voltage, such as switching an alarm or digital input on and off. For real circuits, a dedicated comparator chip is usually the better choice.',
     input:
       'The two inputs compare voltages. There is no resistor-set linear gain and no virtual short between + and −.',
