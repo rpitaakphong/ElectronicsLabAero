@@ -29,6 +29,8 @@ const raw = JSON.stringify(fixture);
       const storage = () => ui.locator('html').evaluate(() => JSON.stringify({ ...localStorage }));
       const startingStorage = await storage();
       const assertBlankLocked = async () => {
+        // The parent can finish loading before a newly mounted iframe runs app.js.
+        await ui.locator('#componentList option').first().waitFor({ state: 'attached' });
         assert.equal(await ui.locator('#presetSelect').inputValue(), 'blank');
         assert.equal(await ui.locator('#componentList option').count(), 1, `${name}: saved circuit leaked at startup`);
         assert.equal(await ui.locator('#presetSelect option:disabled').count(), 6);
