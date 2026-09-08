@@ -1,0 +1,33 @@
+const {chromium}=require('playwright');const fs=require('node:fs');const assert=require('node:assert/strict');
+(async()=>{
+ const b=await chromium.launch();const p=await b.newPage({viewport:{width:1440,height:1100}});const errors=[];p.on('pageerror',e=>errors.push(e.message));
+ await p.route('**/app.js',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync('app.js','utf8').replace('  // Initial state','  window.labTest={state,solveCircuitWaveforms,loadPreset,updateAll};\n  // Initial state')}));
+ await p.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/')+'index.html');await p.waitForTimeout(200);assert.deepEqual(errors,[]);
+ const gen=()=>p.evaluate(()=>JSON.parse(JSON.stringify(labTest.state.generator)));
+ const key=async k=>p.locator(`[data-sfg-key="${k}"]`).click();
+ const sequence=async keys=>{for(const k of keys)await key(k);};
+ await sequence(['3','7','SHIFT','9']);assert.equal((await gen()).frequency,37000);
+ await sequence(['1','.','2','SHIFT','8']);assert.equal((await gen()).frequency,1200000);
+ await sequence(['4','5','SHIFT','0']);assert.equal((await gen()).frequency,45);
+ await sequence(['SHIFT','4']);await p.locator('[data-sfg-knob=frequency]').press('ArrowUp');assert.equal((await gen()).frequency,55);
+ await sequence(['SHIFT','5']);await p.locator('[data-sfg-knob=frequency]').press('ArrowDown');assert.equal((await gen()).frequency,54);
+ await sequence(['4','SHIFT','8']);assert.equal((await gen()).frequency,3e6);assert.equal(await p.locator('#sfgDigits').textContent(),'Err-1');
+ await sequence(['WAVE','WAVE']);assert.equal((await gen()).waveform,'triangle');assert.equal((await gen()).frequency,1e6);assert.equal(await p.locator('#sfgDigits').textContent(),'Err-2');
+ await sequence(['0','SHIFT','0']);assert.equal((await gen()).frequency,.1);assert.equal(await p.locator('#sfgDigits').textContent(),'Err-4');
+ await sequence(['WAVE','1','SHIFT','9']);
+ await key('OUTPUT');await sequence(['SHIFT','WAVE']);assert.equal((await gen()).ttl,false);
+ await key('OUTPUT');await sequence(['SHIFT','WAVE']);assert.equal((await gen()).ttl,true);
+ await p.locator('[data-sfg-pull=duty]').click();await p.locator('[data-sfg-knob=duty]').press('ArrowUp');assert.equal((await gen()).duty,51);await p.locator('[data-sfg-pull=duty]').click();assert.equal((await gen()).duty,50);
+ const offsetBefore=(await gen()).offset;await p.locator('[data-sfg-knob=offset]').press('ArrowUp');assert.equal((await gen()).offset,offsetBefore);await p.locator('[data-sfg-pull=offset]').click();await p.locator('[data-sfg-knob=offset]').press('ArrowUp');assert.equal((await gen()).offset,.2);
+ const ttl=await p.evaluate(()=>{const g=labTest.state.generator;const a=SFG1013.voltage(g,.0001,'ttl');g.offset=8;g.amplitude=10;g.attenuated=true;return [a,SFG1013.voltage(g,.0001,'ttl')];});assert.deepEqual(ttl,[5,5]);
+ await sequence(['SHIFT','.']);assert.equal((await gen()).voltageDisplay,true);assert((await p.locator('#sfgUnit').textContent()).includes('Vpp'));
+ // Independent MAIN loading check: no amplifier load, probes on the generator node.
+ const loading=await p.evaluate(()=>{const s=labTest.state;s.components=[];s.generatorNode='T:8';s.probes={ch1:{tip:'T:8',gnd:'GND'},ch2:{tip:null,gnd:null}};Object.assign(s.generator,{groundNode:'GND',waveform:'sine',frequency:1000,amplitude:2,offset:0,offsetEnabled:false,powered:true,output:true,ttl:false,attenuated:false,termination:false});const pp=()=>{const y=labTest.solveCircuitWaveforms().traces.ch1;return Math.max(...y)-Math.min(...y);};const open=pp();s.generator.termination=true;const loaded=pp();s.generator.attenuated=true;const attenuated=pp();s.generator.output=false;const off=pp();return {open,loaded,attenuated,off};});
+ assert(Math.abs(loading.open-4)<.001);assert(Math.abs(loading.loaded-2)<.001);assert(Math.abs(loading.attenuated-.02)<.0001);assert.equal(loading.off,0);console.log('MAIN load results',loading);
+ await p.evaluate(()=>{labTest.loadPreset('inverting');});await p.waitForTimeout(100);
+ await key('POWER');assert.equal((await gen()).powered,false);await key('POWER');assert.equal((await gen()).frequency,1000);assert.equal((await gen()).output,false);
+ await key('OUTPUT');await p.locator('#sfgMainConnector').click();assert.equal(await p.evaluate(()=>labTest.state.selectedTool),'generator');await p.locator('#sfgTtlConnector').click();assert.equal(await p.evaluate(()=>labTest.state.selectedTool),'genttl');
+ await p.locator('.generator-section').screenshot({path:'/tmp/sfg1013-panel.png'});
+ await p.setViewportSize({width:390,height:844});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));await p.locator('.generator-section').screenshot({path:'/tmp/sfg1013-mobile.png'});
+ assert.deepEqual(errors,[]);console.log('PASS: keypad, shift, errors, waveform, TTL, pulls, V/F, load, attenuation, output, power, lead tools, mobile');await b.close();
+})().catch(e=>{console.error(e);process.exit(1);});

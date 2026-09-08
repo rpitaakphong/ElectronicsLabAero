@@ -1061,3 +1061,327 @@ h3 {
   height: 0;
   border-top: 2px dashed var(--primary);
 }
+
+/* Topic navigation and the DC divider bench share the existing lab palette. */
+.topic-link {
+  color: var(--primary);
+  font-size: 14px;
+  text-decoration: none;
+  display: inline-flex;
+  padding: 10px 0;
+}
+.topic-link:hover {
+  text-decoration: underline;
+}
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.topics-intro {
+  padding: 64px 0 36px;
+  max-width: 800px;
+}
+.topics-intro h1 {
+  font-size: clamp(30px, 4vw, 48px);
+  margin: 16px 0;
+}
+.topic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+.topic-breadcrumbs {
+  padding-top: 22px;
+  font-size: 13px;
+  color: var(--muted-foreground);
+}
+.topic-breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.topic-breadcrumbs li {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+.topic-breadcrumbs li + li::before {
+  content: '→';
+  color: var(--muted-foreground);
+}
+.topic-breadcrumbs a {
+  color: var(--primary);
+  text-decoration: none;
+}
+.topic-breadcrumbs a:hover {
+  text-decoration: underline;
+}
+.topic-breadcrumbs a:focus-visible,
+.open-lab:focus-visible,
+.topic-link:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+  border-radius: 3px;
+}
+.opamp-topic-intro {
+  padding-top: 30px;
+}
+.simulator-heading {
+  padding-bottom: 0;
+}
+.simulator-intro {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.simulator-frame {
+  display: block;
+  width: 100%;
+  height: 900px;
+  border: 0;
+}
+.simulator-frame[hidden] {
+  display: none;
+}
+.topic-art {
+  padding: 24px 28px 8px;
+  background: var(--surface-tint);
+  color: var(--primary);
+  border-bottom: 1px solid var(--border);
+}
+.topic-art svg {
+  display: block;
+  width: 100%;
+  height: 190px;
+}
+.topic-art text {
+  fill: currentColor;
+  stroke: none;
+  font-size: 15px;
+}
+.topic-card-body {
+  padding: 28px;
+}
+.topic-card h2 {
+  font-size: 26px;
+  margin: 12px 0;
+}
+.topic-card p {
+  color: var(--muted-foreground);
+  line-height: 1.7;
+  max-width: 540px;
+  min-height: 82px;
+}
+.open-lab {
+  margin-top: 24px;
+  padding: 12px 18px;
+  border-radius: 7px;
+  display: flex;
+  justify-content: space-between;
+  color: var(--primary-foreground);
+  background: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+.open-lab:hover {
+  filter: brightness(1.1);
+}
+.home-note,
+.divider-footer {
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.7;
+  margin: 28px 0 0;
+}
+.divider-picker {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.divider-circuit {
+  margin-bottom: 20px;
+}
+.divider-circuit-body {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  align-items: center;
+}
+.divider-diagram {
+  min-width: 0;
+  padding: 4px 10px;
+  color: var(--foreground);
+  background: var(--surface-tint);
+}
+.divider-diagram svg {
+  display: block;
+  width: 100%;
+}
+.divider-theory {
+  min-width: 0;
+  padding: 0 24px 24px;
+}
+.divider-theory > p,
+.experiment-grid p {
+  color: var(--muted-foreground);
+  line-height: 1.65;
+  font-size: 14px;
+}
+.divider-theory .equation-block {
+  margin-top: 16px;
+}
+.divider-theory .math-expression {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 2px 0;
+}
+.divider-theory .application-note {
+  margin-top: 18px;
+}
+.divider-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(280px, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+.divider-results {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+}
+.divider-graph svg {
+  display: block;
+  width: 100%;
+  background: var(--surface-tint);
+}
+.divider-legend {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 0 22px 14px;
+  color: var(--output-text);
+  font-size: 12px;
+}
+.divider-legend .unloaded-legend {
+  color: var(--primary);
+}
+.divider-caption {
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 14px 22px;
+  margin: 0;
+}
+.divider-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0 22px 22px;
+  margin: 0;
+  gap: 18px;
+}
+.divider-metrics dt {
+  font-size: 12px;
+  color: var(--muted-foreground);
+  margin-bottom: 6px;
+}
+.divider-metrics dd {
+  font-size: 17px;
+  color: var(--output-text);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.divider-fields {
+  padding: 0 22px 24px;
+  display: grid;
+  gap: 24px;
+}
+.divider-experiments {
+  margin-top: 20px;
+}
+.experiment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  padding: 0 22px 24px;
+}
+.experiment-grid article {
+  padding: 20px;
+  border-radius: 8px;
+  background: var(--surface-tint);
+}
+.experiment-grid h3 {
+  margin: 12px 0 8px;
+  font-size: 17px;
+}
+.experiment-grid summary {
+  color: var(--primary);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 0;
+}
+a:focus-visible,
+summary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 4px;
+}
+@media (max-width: 1050px) {
+  .divider-circuit-body {
+    grid-template-columns: 1fr;
+  }
+  .divider-diagram svg {
+    max-height: 370px;
+  }
+  .divider-theory {
+    padding-top: 20px;
+  }
+}
+@media (max-width: 700px) {
+  .topic-grid,
+  .divider-workbench,
+  .experiment-grid {
+    grid-template-columns: 1fr;
+  }
+  .topics-intro {
+    padding-top: 30px;
+  }
+  .topic-card p {
+    min-height: 0;
+  }
+  .divider-picker {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .divider-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .divider-lab .masthead {
+    align-items: flex-start;
+  }
+  .divider-lab .header-actions {
+    gap: 2px;
+    justify-content: flex-end;
+  }
+  .divider-theory {
+    padding: 18px 16px;
+  }
+  .divider-diagram {
+    overflow-x: auto;
+  }
+  .divider-diagram svg {
+    min-width: 0;
+  }
+  .divider-graph {
+    overflow-x: auto;
+  }
+  .divider-graph svg {
+    min-width: 0;
+  }
+}
+.topics-intro,
+.divider-lab > .intro {
+  display: block;
+}

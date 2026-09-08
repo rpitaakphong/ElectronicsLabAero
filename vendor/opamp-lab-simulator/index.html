@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Op-Amp Lab Simulator</title>
+  <link rel="icon" href="assets/favicon.svg" />
+  <script src="embed.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="lab-brand"><img src="assets/chula-logo.webp" width="132" height="64" alt="Chulalongkorn University" /><span class="brand-divider"></span><strong>Electronics Lab<br>For Aerospace Engineering</strong></div>
+    <div class="header-actions">
+      <label class="switch-row"><input id="challengeMode" type="checkbox" /> Challenge mode</label>
+      <button id="resetAllBtn" class="danger">Reset lab</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="lab-intro"><span class="eyebrow">THE INTERACTIVE LEARNING LAB</span><h1>Op-Amp Lab Simulator</h1><p>Build your circuit. Connect the instruments. Explore the signal.</p></div>
+    <section class="workspace-card board-section">
+      <div class="section-title-row">
+        <div>
+          <h2>1. Breadboard and circuit</h2>
+          <p>Choose a preset or start with a blank board, then select a tool to build.</p>
+        </div>
+        <div class="preset-controls"><div class="preset-row">
+          <label>Preset
+            <select id="presetSelect">
+              <option value="blank">Blank board</option>
+              <option value="follower">Voltage follower</option>
+              <option value="inverting">Inverting amplifier, gain −4.7</option>
+              <option value="noninverting">Non-inverting amplifier, gain 5.7</option>
+              <option value="lowpass">RC low-pass + buffer</option>
+              <option value="integrator">Practical op-amp integrator</option>
+            </select>
+          </label>
+          <button id="loadPresetBtn">Load</button>
+        </div><details class="preset-manager"><summary>Manage presets</summary><div class="preset-row">          <button id="savePresetBtn">Save over preset</button>
+          <button id="exportPresetsBtn" title="Download all locally saved presets, including overwritten built-in presets">Export saved presets</button>
+          <button id="restorePresetBtn" title="Remove your saved override and load the original built-in preset">Restore original</button>
+        </div><div class="preset-row new-preset-row"><label>New preset name<input id="newPresetName" type="text" maxlength="60" placeholder="e.g. My amplifier lab" autocomplete="off"></label><button id="createPresetBtn">Create new preset</button></div></details><p id="presetStatus" class="small" role="status"></p></div>
+      </div>
+
+      <details class="pin-guide" id="pinGuide" open>
+        <summary><span>Circuit schematics &amp; UA741 pin guide</span><span class="guide-action">View diagrams</span></summary>
+        <div class="pin-guide-content reference-grid">
+          <div class="pin-reference"><div class="pin-diagrams" id="ua741Guides"></div><p class="small">UA741CP · Pins 1, 5 and 8 are not connected.<br><a href="https://www.ti.com/lit/ds/symlink/ua741.pdf" target="_blank" rel="noopener">TI pinout ↗</a></p></div>
+          <section class="schematic-reference" aria-labelledby="schematicSelectLabel">
+            <div class="schematic-controls"><label id="schematicSelectLabel" for="schematicSelect">Circuit schematic</label><select id="schematicSelect" aria-describedby="schematicReferenceNote"></select></div>
+            <p id="schematicReferenceNote" class="reference-note">Reference schematic · Changing this diagram does not change your breadboard.</p>
+            <div id="schematicViewport" class="schematic-viewport" tabindex="0" role="region" aria-label="Circuit reference diagram" aria-describedby="schematicScrollHint"><div id="schematicDiagram"></div></div>
+            <p id="schematicScrollHint" class="schematic-scroll-hint">On small screens, scroll sideways to see the full schematic.</p>
+            <p id="schematicDescription" class="schematic-description"></p>
+          </section>
+        </div>
+      </details>
+      <aside class="pinout-notice" id="pinoutNotice" role="status" hidden><p>This older circuit was mirrored across the breadboard gap to correct the UA741 pinout and preserve its behavior. The stored original is unchanged unless you save over it.</p><button id="dismissPinoutNotice" type="button" aria-label="Dismiss pinout conversion notice">Dismiss</button></aside>
+      <div class="lab-grid">
+        <nav class="toolbar" id="toolBar" aria-labelledby="toolsSelectionTitle"><h3 id="toolsSelectionTitle" class="toolbar-title">Tools Selection</h3><div class="tool-group"><h3>Edit</h3><button data-tool="select" aria-pressed="true" class="active">Select / Move</button><button data-tool="pan" aria-pressed="false">Pan view</button><button data-tool="erase" aria-pressed="false">Erase</button></div><div class="tool-group"><h3>Components</h3><button data-tool="wire" aria-pressed="false">Wire</button><button data-tool="resistor" aria-pressed="false">Resistor</button><button data-tool="capacitor" aria-pressed="false">Capacitor</button><button data-tool="opamp" aria-pressed="false">UA741</button></div><div class="tool-group"><h3>Function generator leads</h3><button data-tool="generator" aria-pressed="false">MAIN lead</button><button data-tool="genttl" aria-pressed="false">TTL lead</button><button data-tool="gengnd" aria-pressed="false">GEN return</button></div><div class="tool-group"><h3>Oscilloscope leads</h3><button data-tool="ch1tip" aria-pressed="false">CH1 tip</button><button data-tool="ch1gnd" aria-pressed="false">CH1 ground</button><button data-tool="ch2tip" aria-pressed="false">CH2 tip</button><button data-tool="ch2gnd" aria-pressed="false">CH2 ground</button></div></nav>
+        <div class="breadboard-area">
+          <div class="board-actions" aria-label="Breadboard controls">
+            <div><button id="undoBtn" title="Undo circuit edit (Ctrl / ⌘ Z)">↶ Undo</button> <button id="redoBtn" title="Redo circuit edit (Ctrl / ⌘ Shift Z)">↷ Redo</button> <button id="cancelPlacementBtn">Cancel / Select</button> <button id="saveLabBtn">Save lab</button> <button id="recallLabBtn">Recall lab</button></div>
+            <div><button id="zoomOutBtn" aria-label="Zoom out">−</button> <span id="zoomReadout">100%</span> <button id="zoomInBtn" aria-label="Zoom in">+</button> <button id="fitBoardBtn">Fit board</button></div>
+          </div>
+          <div class="breadboard-wrap">
+            <canvas id="breadboardCanvas" width="1180" height="620" tabindex="0" aria-label="Virtual breadboard. Select parts from the component list for keyboard editing. Arrow keys move selected parts; Delete removes them; Escape cancels." aria-describedby="placementHint"></canvas>
+          </div>
+          <p class="mobile-board-help">Use + to enlarge the board, then Pan view to move around.</p>
+          <div id="holeReadout" class="hole-readout">Hover over a hole to see its connection</div>
+          <details class="status-group" id="statusDetails"><summary>Circuit status <span id="circuitStatus" class="status-pill warn">No complete circuit yet</span></summary><ul id="circuitWarnings" class="warning-list"></ul></details>
+          <div id="placementHint" role="status" class="hint">Select a tool. Two-terminal parts need two hole taps; the UA741 needs one tap near the center gap.</div>
+        </div>
+
+        <aside class="circuit-controls">
+          <div class="control-group component-editor">
+            <h3>Selected component</h3>
+            <label for="componentList">Parts and leads</label><select id="componentList" aria-label="Select a part or lead"></select>
+            <div id="selectedComponentEditor" class="editor-empty">Tap a component on the board.</div>
+          </div>
+
+          <div class="control-group">
+            <h3>Power rails</h3>
+            <label>Top red rail V+
+              <div class="field-with-unit"><input id="vplusInput" type="number" step="0.5" value="12" /><span>V</span></div>
+            </label>
+            <label>Bottom blue rail V−
+              <div class="field-with-unit"><input id="vminusInput" type="number" step="0.5" value="-12" /><span>V</span></div>
+            </label>
+            <p class="small">Top blue and bottom red rails are ground. Oscilloscope ground clips share instrument ground.</p>
+          </div>
+
+          <div class="control-group">
+            <h3>Generator quick setup</h3><p class="small">These shortcuts adjust the signal directly. Use the SFG-1013 panel below for instrument practice.</p>
+            <label>Waveform
+              <select id="waveformSelect">
+                <option value="sine">Sine</option>
+                <option value="square">Square</option>
+                <option value="triangle">Triangle</option>
+              </select>
+            </label>
+            <label>Frequency
+              <div class="field-with-unit"><input id="frequencyInput" type="number" min="0.1" step="10" value="1000" /><span>Hz</span></div>
+            </label>
+            <label>Amplitude (open-circuit peak)
+              <div class="field-with-unit"><input id="amplitudeInput" type="number" step="0.1" value="1" /><span>V</span></div>
+            </label>
+            <label>DC offset (open circuit)
+              <div class="field-with-unit"><input id="offsetInput" type="number" step="0.1" value="0" /><span>V</span></div>
+            </label>
+          </div>
+
+        </aside>
+      </div>
+    </section>
+
+    <section class="workspace-card generator-section">
+      <div class="section-title-row"><div><h2>2. GW Instek SFG-1013 function generator</h2><p>Use the instrument keys and knobs to set the signal, then connect MAIN or TTL to the breadboard.</p></div><a href="https://www.gwinstek.com/en-global/download/downloadFile/5814" target="_blank" rel="noopener">Manufacturer manual</a></div>
+      <div id="sfgPanel" class="sfg-chassis" tabindex="0" aria-label="GW Instek SFG-1013 front panel">
+        <div class="sfg-display"><div class="sfg-indicators"><span data-sfg-wave="sine">∿ SINE</span><span data-sfg-wave="square">⊓ SQUARE</span><span data-sfg-wave="triangle">△ TRIANGLE</span><span id="sfgTtlLed">TTL</span><span id="sfgAttLed">−40dB</span></div><div class="sfg-number-line"><output id="sfgDigits" aria-label="SFG displayed value"></output><span id="sfgUnit"></span></div><div id="sfgStep"></div></div>
+        <div class="sfg-keypad"><div class="sfg-key-cell"><span class="sfg-secondary">TTL</span><button data-sfg-key="WAVE" class="" aria-label="SFG WAVE">WAVE</button></div><div class="sfg-key-cell"><span class="sfg-secondary">&nbsp;</span><button data-sfg-key="1" class="" aria-label="SFG 1">1</button></div><div class="sfg-key-cell"><span class="sfg-secondary">&nbsp;</span><button data-sfg-key="2" class="" aria-label="SFG 2">2</button></div><div class="sfg-key-cell"><span class="sfg-secondary">−40dB</span><button data-sfg-key="3" class="" aria-label="SFG 3">3</button></div><div class="sfg-key-cell"><span class="sfg-secondary">◀</span><button data-sfg-key="4" class="" aria-label="SFG 4">4</button></div><div class="sfg-key-cell"><span class="sfg-secondary">▶</span><button data-sfg-key="5" class="" aria-label="SFG 5">5</button></div><div class="sfg-key-cell"><span class="sfg-secondary">&nbsp;</span><button data-sfg-key="SHIFT" class="sfg-blue-key" aria-label="SFG SHIFT">SHIFT</button></div><div class="sfg-key-cell"><span class="sfg-secondary">V / F</span><button data-sfg-key="." class="" aria-label="SFG .">•</button></div><div class="sfg-key-cell"><span class="sfg-secondary">&nbsp;</span><button data-sfg-key="6" class="" aria-label="SFG 6">6</button></div><div class="sfg-key-cell"><span class="sfg-secondary">&nbsp;</span><button data-sfg-key="7" class="" aria-label="SFG 7">7</button></div><div class="sfg-key-cell"><span class="sfg-secondary">MHz</span><button data-sfg-key="8" class="" aria-label="SFG 8">8</button></div><div class="sfg-key-cell"><span class="sfg-secondary">kHz</span><button data-sfg-key="9" class="" aria-label="SFG 9">9</button></div><div class="sfg-key-cell"><span class="sfg-secondary">Hz</span><button data-sfg-key="0" class="" aria-label="SFG 0">0</button></div><div class="sfg-key-cell"><span class="sfg-secondary">&nbsp;</span><button data-sfg-key="OUTPUT" class="" aria-label="SFG OUTPUT">OUTPUT<br>ON</button></div><div class="sfg-led-labels"><span id="sfgShiftLed">● SHIFT</span><span id="sfgOutputLed">● OUTPUT</span></div></div>
+        <div class="sfg-frequency"><div class="sfg-power-block"><strong>POWER</strong><button data-sfg-key="POWER" aria-label="SFG power" class="sfg-power">⏻</button></div><div class="sfg-dial sfg-large-dial" data-sfg-knob="frequency" tabindex="0" role="slider" aria-label="SFG frequency" aria-valuemin="0.1" aria-valuemax="3000000"><span></span></div><strong>FREQUENCY</strong></div>
+        <div class="sfg-analog"><div class="sfg-knob-group"><strong>DUTY</strong><div class="sfg-dial" data-sfg-knob="duty" tabindex="0" role="slider" aria-label="SFG duty" aria-valuemin="25" aria-valuemax="75"><span></span></div><button class="sfg-pull" data-sfg-pull="duty">DEFAULT · pull out</button></div><div class="sfg-knob-group"><strong>OFFSET</strong><div class="sfg-dial" data-sfg-knob="offset" tabindex="0" role="slider" aria-label="SFG offset" aria-valuemin="-10" aria-valuemax="10"><span></span></div><button class="sfg-pull" data-sfg-pull="offset">DEFAULT · pull out</button></div><div class="sfg-knob-group"><strong>AMPL</strong><div class="sfg-dial" data-sfg-knob="amplitude" tabindex="0" role="slider" aria-label="SFG amplitude" aria-valuemin="0.2" aria-valuemax="10"><span></span></div><small>MIN ↔ MAX</small></div><div class="sfg-connectors"><strong>OUTPUT</strong><div><button id="sfgTtlConnector" class="sfg-bnc" title="Connect TTL output lead">TTL<span class="bnc-ring"></span></button><button id="sfgMainConnector" class="sfg-bnc" title="Connect MAIN output lead">MAIN 50Ω<span class="bnc-ring"></span></button></div><button id="sfgGroundConnector">⏚ Common return</button></div></div>
+        <div class="sfg-brand"><strong>GW INSTEK &nbsp; SFG-1013</strong><span>DDS Function Generator</span></div>
+      </div>
+      <p id="sfgHint" class="hint" role="status">Example: 3 → 7 → SHIFT → 9 sets 37 kHz. Scroll a knob, drag vertically, or focus it and use arrow keys. Pull DUTY / OFFSET to enable adjustment.</p>
+      <div class="sfg-training-readouts"><output id="sfgOutputReadout"></output><output id="sfgDutyReadout"></output><output id="sfgClipReadout"></output><label><input type="checkbox" id="sfgTermination"> Add an external 50 Ω load from MAIN tip to return</label></div>
+      <details class="sfg-guide"><summary>Front-panel practice and model limits</summary><p>WAVE cycles sine, square and triangle. Enter a frequency, then SHIFT → 8 / 9 / 0 for MHz / kHz / Hz. SHIFT → 4 / 5 chooses the frequency-knob digit. SHIFT → decimal switches V/F display. SHIFT → 3 toggles −40 dB. Enable OUTPUT before SHIFT → WAVE for TTL. Push DUTY to reset 50%; push OFFSET to remove its DC contribution. Power-up restores sine / 1 kHz and leaves output off in this trainer.</p><p>Preset loading may start with output enabled. The extra readouts and load checkbox below the chassis are teaching aids, not hardware controls. MAIN is modeled as a clipped voltage source with 50 Ω series resistance; its display uses nominal peak-to-peak voltage into 50 Ω. TTL uses an ideal 0–5 V waveform (the manual specifies ≥3 Vpp); TTL loading, edge timing, noise, accuracy and warm-up are not modeled. Duty adjustment is limited to ≤1 MHz. TTL and MAIN are separate leads with a common grounded return; the trainer retains the MAIN waveform while TTL is enabled and mutes triangle MAIN above 1 MHz.</p></details>
+    </section>
+
+    <section class="workspace-card scope-section">
+      <div class="section-title-row">
+        <div>
+          <h2>3. GW Instek GDS-1202B training panel</h2>
+          <p>Adjust vertical scale, time/div, trigger, coupling, and probe connections to obtain a stable waveform.</p>
+        </div>
+        <div class="scope-badge">Hardware: 2 channels · 200 MHz · 1 GSa/s · 10 Mpts</div>
+      </div>
+
+      <div class="scope-chassis">
+        <div class="scope-left">
+          <div class="scope-brandbar">
+            <span class="brand">GW INSTEK</span>
+            <span class="model">GDS-1202B</span>
+            <span class="series">Digital Storage Oscilloscope</span>
+          </div>
+          <div class="display-shell">
+            <canvas id="scopeCanvas" width="800" height="480" aria-label="Oscilloscope display"></canvas>
+            <div class="side-softkeys" id="sideSoftkeys">
+              <button data-soft-side="0"></button>
+              <button data-soft-side="1"></button>
+              <button data-soft-side="2"></button>
+              <button data-soft-side="3"></button>
+              <button data-soft-side="4"></button>
+            </div>
+          </div>
+          <div class="bottom-softkeys" id="bottomSoftkeys">
+            <button data-soft-bottom="0"></button>
+            <button data-soft-bottom="1"></button>
+            <button data-soft-bottom="2"></button>
+            <button data-soft-bottom="3"></button>
+            <button data-soft-bottom="4"></button>
+            <button data-soft-bottom="5"></button>
+            <button data-soft-bottom="6"></button>
+          </div>
+        </div>
+
+        <div class="scope-right">
+          <div class="top-control-grid">
+            <div class="knob-block variable-block">
+              <div class="knob" data-knob="variable" title="Swipe vertically or use the mouse wheel"><span></span></div>
+              <button data-action="select">Select</button>
+              <div class="knob-label">VARIABLE</div>
+            </div>
+
+            <div class="function-key-grid">
+              <button data-action="measure">Measure</button>
+              <button data-action="cursor">Cursor</button>
+              <button data-action="app" disabled title="This hardware function is not emulated in the analog lab simulator">APP</button>
+              <button data-action="acquire">Acquire</button>
+              <button data-action="display">Display</button>
+              <button data-action="help">Help</button>
+              <button data-action="saveRecall">Save/Recall</button>
+              <button data-action="utility">Utility</button>
+            </div>
+
+            <div class="run-key-stack">
+              <button class="blue-key" data-action="autoset">Autoset</button>
+              <button data-action="runStop">Run/Stop</button>
+              <button data-action="single">Single</button>
+              <button data-action="default">Default</button>
+            </div>
+          </div>
+
+          <div class="mid-control-grid">
+            <div class="horizontal-cluster cluster">
+              <h4>HORIZONTAL</h4>
+              <div class="knob-row">
+                <div>
+                  <div class="knob small" data-knob="horizontalPosition"><span></span></div>
+                  <div class="knob-label">POSITION<br><small>push to zero</small></div>
+                </div>
+                <div>
+                  <div class="knob small" data-knob="timeScale"><span></span></div>
+                  <div class="knob-label">SCALE</div>
+                </div>
+              </div>
+              <div class="mini-buttons">
+                <button data-action="zoom">Zoom</button>
+                <button data-action="search" disabled title="This hardware function is not emulated in the analog lab simulator">Search</button>
+                <button data-action="setClear" disabled title="This hardware function is not emulated in the analog lab simulator">Set/Clear</button>
+              </div>
+            </div>
+
+            <div class="trigger-cluster cluster">
+              <h4>TRIGGER</h4>
+              <div class="knob small" data-knob="triggerLevel"><span></span></div>
+              <div class="knob-label">LEVEL<br><small>push to zero</small></div>
+              <div class="mini-buttons vertical">
+                <button data-action="triggerMenu">Menu</button>
+                <button data-action="trigger50">50%</button>
+                <button data-action="forceTrig">Force-Trig</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="vertical-section cluster">
+            <h4>VERTICAL</h4>
+            <div class="channel-cluster">
+              <div class="channel-title ch1-text">CH1</div>
+              <div class="knob-row">
+                <div>
+                  <div class="knob small ch1-knob" data-knob="ch1Position"><span></span></div>
+                  <div class="knob-label">POSITION</div>
+                </div>
+                <div>
+                  <div class="knob small ch1-knob" data-knob="ch1Scale"><span></span></div>
+                  <div class="knob-label">SCALE</div>
+                </div>
+              </div>
+              <button class="channel-key ch1-key" data-action="ch1">CH1</button>
+            </div>
+            <div class="channel-cluster">
+              <div class="channel-title ch2-text">CH2</div>
+              <div class="knob-row">
+                <div>
+                  <div class="knob small ch2-knob" data-knob="ch2Position"><span></span></div>
+                  <div class="knob-label">POSITION</div>
+                </div>
+                <div>
+                  <div class="knob small ch2-knob" data-knob="ch2Scale"><span></span></div>
+                  <div class="knob-label">SCALE</div>
+                </div>
+              </div>
+              <button class="channel-key ch2-key" data-action="ch2">CH2</button>
+            </div>
+            <div class="math-keys">
+              <button data-action="math">MATH</button>
+              <button data-action="ref">REF</button>
+              <button data-action="bus" disabled title="This hardware function is not emulated in the analog lab simulator">BUS</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="scope-bottom-strip">
+          <div class="power-section">
+            <button id="scopePowerBtn" class="power-button on">POWER</button>
+          </div>
+          <div class="usb-section">USB HOST</div>
+          <div class="bnc ch1-bnc"><span>CH1</span><div class="bnc-ring"></div></div>
+          <div class="bnc ch2-bnc"><span>CH2</span><div class="bnc-ring"></div></div>
+          <div class="bnc ext-bnc"><span>EXT TRIG</span><div class="bnc-ring"></div></div>
+          <button id="hardcopyBtn" class="hardcopy-btn">Hardcopy</button>
+          <button id="menuOffBtn" class="menuoff-btn">Menu Off</button>
+        </div>
+      </div>
+
+      <div class="measurement-panel" id="measurementPanel">
+        <div class="section-title-row"><div><h3>Automatic measurements</h3><p id="measurementHelp">Eight slots, each with its own source. Unavailable values include an explanation below.</p></div><span id="measurementCount"></span></div>
+        <div class="measurement-controls">
+          <label>Source 1<select id="measureSource"><option>CH1</option><option>CH2</option><option>Math</option></select></label>
+          <label>Source 2 (delay)<select id="measureSource2"><option>CH2</option><option>CH1</option><option>Math</option></select></label>
+          <label>Measurement<select id="measureType"></select></label><button id="addMeasureBtn">Add measurement</button>
+          <label>Gating<select id="measureGate"><option value="Off">Off · full record</option><option>Screen</option><option>Between Cursors</option></select></label>
+          <button id="clearMeasuresBtn">Remove all</button>
+        </div>
+        <div class="measurement-controls">
+          <label class="switch-row"><input id="measureStatistics" type="checkbox"> Statistics</label>
+          <label>Statistics samples<input id="statisticsSamples" type="number" min="2" max="1000" value="100"></label><button id="resetStatisticsBtn">Reset statistics</button>
+          <label>High / low method<select id="highLowSelect"><option>Auto</option><option>Min-Max</option><option>Histogram</option></select></label>
+          <label>Low ref %<input id="lowRefInput" type="number" min="0" max="100" value="10"></label><label>Mid ref %<input id="midRefInput" type="number" min="0" max="100" value="50"></label><label>High ref %<input id="highRefInput" type="number" min="0" max="100" value="90"></label>
+        </div>
+        <div class="measurement-table-wrap"><table class="measurement-table"><thead><tr><th>Source</th><th>Measurement</th><th>Value</th><th>Details / statistics</th><th></th></tr></thead><tbody id="measurementRows"></tbody></table></div>
+        <div class="cursor-controls" id="cursorControls">
+          <strong id="cursorSourceLabel">CH1 cursors · yellow</strong>
+          <label>Mode<select id="cursorMode"><option>Off</option><option>Time</option><option>Voltage</option></select></label>
+          <label>Source<select id="cursorSource"><option>CH1</option><option>CH2</option></select></label>
+          <label>X1 (s)<input id="cursorX1" type="number" step="0.0001"></label><label>X2 (s)<input id="cursorX2" type="number" step="0.0001"></label>
+          <label>Y1 (V)<input id="cursorY1" type="number" step="0.1"></label><label>Y2 (V)<input id="cursorY2" type="number" step="0.1"></label>
+          <output id="cursorReadout"></output>
+        </div>
+        <p class="small">Virtual leads are 1X; the channel Probe setting changes indicated voltage. Averaging combines successive simulated acquisitions; identical noise-free signals remain identical. The time-domain solver uses a limited sample record; the displayed sample rate is the simulated rate. Advanced hardware-only functions are marked unavailable.</p>
+      </div>
+
+      <div class="scope-readout-bar">
+        <div><strong>CH1:</strong> <span id="ch1ProbeReadout">not connected</span></div>
+        <div><strong>CH2:</strong> <span id="ch2ProbeReadout">not connected</span></div>
+        <div><strong>Simulation:</strong> <span id="simReadout">waiting</span></div>
+        <div><strong>Challenge score:</strong> <span id="challengeScore">—</span></div>
+      </div>
+    </section>
+
+    <section class="workspace-card learning-section">
+      <h2>4. Instructor / student notes</h2>
+      <div class="learning-grid">
+        <div>
+          <h3>What this simulator models</h3>
+          <ul>
+            <li>Breadboard connectivity and user-created jumper wiring.</li>
+            <li>Resistors, capacitors, a UA741 behavioral op-amp model, dual supply rails, and a function generator.</li>
+            <li>Two oscilloscope probes referenced to common instrument ground. CH1 and CH2 share the same instrument ground in the real scope, so mismatched grounds are flagged.</li>
+            <li>Time-domain RC behavior, op-amp saturation, finite open-loop gain, a 1 MHz dominant-pole bandwidth model, and a slew-rate limit.</li>
+            <li>Oscilloscope vertical/horizontal scale, coupling, position, trigger source/slope/level/mode, sample/average/peak acquire modes, channel-colored cursors, automatic measurements with gating and statistics, arithmetic math, run/stop, single, autoset, save/recall, and help.</li>
+          </ul>
+        </div>
+        <div>
+          <h3>What is deliberately simplified</h3>
+          <ul>
+            <li>This is a training simulator, not a SPICE replacement and not a manufacturer firmware emulator.</li>
+            <li>Serial-bus decode, LAN/USB remote control, Go/NoGo hardware I/O, printer/PictBridge behavior, and calibration procedures are represented in the UI but not electrically emulated.</li>
+            <li>High-frequency probe loading, noise spectral density, temperature drift, input protection, and other non-ideal 741 parameters are outside the teaching model.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status"></div>
+  <script src="sfg1013.js"></script>
+  <script src="routing.js"></script>
+  <script src="ua741.js"></script>
+  <script src="presets.js"></script>
+<script src="app.js"></script>
+  <script src="layout.js"></script>
+  <script src="schematics.js"></script>
+</body>
+</html>

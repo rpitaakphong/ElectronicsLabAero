@@ -9,10 +9,13 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "oxlint src components/lab lib vite.config.ts -A jsx-a11y/prefer-tag-over-role -A react/react-compiler",
+    "lint": "oxlint src components/lab components/divider lib vite.config.ts -A jsx-a11y/prefer-tag-over-role -A react/react-compiler",
     "format": "oxfmt",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/*.test.ts tests/*.test.tsx"
+    "test": "tsx --test tests/*.test.ts tests/*.test.tsx",
+    "package:simulator": "node scripts/package-simulator.mjs",
+    "predev": "npm run package:simulator",
+    "prebuild": "npm run package:simulator"
   },
   "dependencies": {
     "@base-ui/react": "1.7.0",
@@ -30,6 +33,7 @@
     "react-day-picker": "9.8.1",
     "react-dom": "19.2.6",
     "react-resizable-panels": "4.5.8",
+    "react-router-dom": "^7.18.3",
     "recharts": "3.8.0",
     "shadcn": "4.18.0",
     "tailwind-merge": "3.6.0",

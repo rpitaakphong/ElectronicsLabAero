@@ -9,7 +9,13 @@ import {
   act,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import App from '../src/App';
+import OpAmpLab from '../src/OpAmpLab';
+import { MemoryRouter } from 'react-router-dom';
+const App = () => (
+  <MemoryRouter>
+    <OpAmpLab />
+  </MemoryRouter>
+);
 import type { LabTool, LabContext } from '../lib/opamp/browser-tools';
 import { cloneDefault } from '../lib/opamp/simulator';
 afterEach(() => {

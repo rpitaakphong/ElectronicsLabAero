@@ -36,3 +36,6 @@ yarn-error.log*
 /dist/
 /outputs/
 /work/
+
+# Packaged from the maintained simulator source by predev/prebuild
+/public/simulators/opamp/

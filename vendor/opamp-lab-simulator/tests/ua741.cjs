@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict');require('../ua741.js');const U=globalThis.UA741;
+const expected={1:'B:14',2:'B:15',3:'B:16',4:'B:17',5:'T:17',6:'T:16',7:'T:15',8:'T:14'};
+assert.deepEqual(U.nodes({startCol:14}),expected);
+const holes=Object.fromEntries(U.holes({startCol:14}).map(p=>[p.pin,p.hole]));
+assert.deepEqual(holes,{1:{row:'F',col:14},2:{row:'F',col:15},3:{row:'F',col:16},4:{row:'F',col:17},5:{row:'E',col:17},6:{row:'E',col:16},7:{row:'E',col:15},8:{row:'E',col:14}});
+assert.deepEqual(Object.fromEntries(U.pins.map(p=>[p.number,p.label])),{1:'NC',2:'IN−',3:'IN+',4:'V−',5:'NC',6:'OUT',7:'V+',8:'NC'});
+const b={components:[{id:'U1',type:'opamp',startCol:1},{id:'U2',type:'opamp',startCol:12},{id:'R1',type:'resistor',value:10000,a:'T:4',b:'B:12',aHole:{row:'A',col:4},bHole:{row:'H',col:12}},{id:'W1',type:'wire',a:'VPLUS',b:'B:13',aHole:{row:'VPLUS',col:4},bHole:{row:'J',col:13}}],generatorNode:'T:8',generator:{ttlNode:'B:22',groundNode:'T:24',amplitude:1},probes:{ch1:{tip:'T:6',gnd:'B:5'},ch2:{tip:'B:9',gnd:'GND'}},leadHoles:{generator:{row:'B',col:8},genttl:{row:'I',col:22},gengnd:{row:'C',col:24},ch1tip:{row:'D',col:6},ch1gnd:{row:'G',col:5},ch2tip:{row:'F',col:9},ch2gnd:{row:'GND_BOTTOM',col:8}},supply:{plus:12,minus:-12}};
+const original=JSON.stringify(b),m=U.reflectLegacyBoard(b);
+assert.equal(JSON.stringify(b),original);assert.deepEqual(U.reflectLegacyBoard(m),b);
+assert.deepEqual(m.components[2],{...b.components[2],a:'B:4',b:'T:12',aHole:{row:'J',col:4},bHole:{row:'C',col:12}});
+assert.deepEqual(m.components[3].aHole,b.components[3].aHole);assert.equal(m.generatorNode,'B:8');assert.equal(m.generator.ttlNode,'T:22');assert.equal(m.generator.groundNode,'B:24');
+assert.deepEqual(m.probes,{ch1:{tip:'B:6',gnd:'T:5'},ch2:{tip:'T:9',gnd:'GND'}});
+assert.deepEqual(m.leadHoles,{generator:{row:'I',col:8},genttl:{row:'B',col:22},gengnd:{row:'H',col:24},ch1tip:{row:'G',col:6},ch1gnd:{row:'D',col:5},ch2tip:{row:'E',col:9},ch2gnd:{row:'GND_BOTTOM',col:8}});
+const passive={...b,components:b.components.filter(c=>c.type!=='opamp')};assert.deepEqual(U.reflectLegacyBoard(passive),passive);
+console.log('PASS: independent pin table, package functions, multi-opamp reflection, all source/probe nodes and hole rows, fixed rails, passive boards, immutable input');
