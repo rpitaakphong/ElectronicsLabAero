@@ -1,8 +1,9 @@
+const {unlockPresets}=require('./preset-helpers.cjs');
 const {chromium}=require('playwright');const fs=require('node:fs');const assert=require('node:assert/strict');
 (async()=>{
  const b=await chromium.launch();const p=await b.newPage({viewport:{width:1440,height:1100}});const errors=[];p.on('pageerror',e=>errors.push(e.message));
  await p.route('**/app.js',r=>r.fulfill({contentType:'text/javascript',body:fs.readFileSync('app.js','utf8').replace('  // Initial state','  window.labTest={state,loadPreset,holeOccupants,boardSnapshot,history};\n  // Initial state')}));
- await p.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/')+'index.html');await p.waitForTimeout(200);
+ await p.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/')+'index.html');await unlockPresets(p);await p.waitForTimeout(200);
  const get=()=>p.evaluate(()=>JSON.parse(labTest.boardSnapshot()));
  const noOverlap=()=>p.evaluate(()=>{const holes=labTest.holeOccupants().map(x=>`${x.hole.row}:${x.hole.col}`);return holes.length===new Set(holes).size;});
  for(const name of ['inverting','follower','noninverting','lowpass','integrator']){await p.selectOption('#presetSelect',name);await p.click('#loadPresetBtn');assert(await noOverlap(),name);}

@@ -23,21 +23,31 @@
       <div class="section-title-row">
         <div>
           <h2>1. Breadboard and circuit</h2>
-          <p>Choose a preset or start with a blank board, then select a tool to build.</p>
+          <p>Start with a blank board and select a tool to build your circuit.</p>
         </div>
         <div class="preset-controls"><div class="preset-row">
           <label>Preset
             <select id="presetSelect">
               <option value="blank">Blank board</option>
-              <option value="follower">Voltage follower</option>
-              <option value="inverting">Inverting amplifier, gain −4.7</option>
-              <option value="noninverting">Non-inverting amplifier, gain 5.7</option>
-              <option value="lowpass">RC low-pass + buffer</option>
-              <option value="integrator">Practical op-amp integrator</option>
+              <option value="follower" disabled>Voltage follower</option>
+              <option value="inverting" disabled>Inverting amplifier, gain −4.7</option>
+              <option value="noninverting" disabled>Non-inverting amplifier, gain 5.7</option>
+              <option value="lowpass" disabled>RC low-pass + buffer</option>
+              <option value="integrator" disabled>Practical op-amp integrator</option>
             </select>
           </label>
           <button id="loadPresetBtn">Load</button>
-        </div><details class="preset-manager"><summary>Manage presets</summary><div class="preset-row">          <button id="savePresetBtn">Save over preset</button>
+        </div>
+        <p id="presetAccessStatus" class="small" role="status">Presets are locked. Build your circuit on the blank board.</p>
+        <details id="presetAccess" class="preset-access">
+          <summary>Unlock presets</summary>
+          <form id="presetUnlockForm" class="preset-unlock-form">
+            <label for="presetPassword">Instructor password</label>
+            <div class="preset-unlock-row"><input id="presetPassword" type="password" autocomplete="off" required aria-describedby="presetAccessStatus" /><button type="submit">Unlock</button></div>
+            <p id="presetUnlockError" class="small" role="alert" hidden>Incorrect password. Try again.</p>
+          </form>
+        </details>
+        <details class="preset-manager" hidden><summary>Manage presets</summary><div class="preset-row">          <button id="savePresetBtn">Save over preset</button>
           <button id="exportPresetsBtn" title="Download all locally saved presets, including overwritten built-in presets">Export saved presets</button>
           <button id="restorePresetBtn" title="Remove your saved override and load the original built-in preset">Restore original</button>
         </div><div class="preset-row new-preset-row"><label>New preset name<input id="newPresetName" type="text" maxlength="60" placeholder="e.g. My amplifier lab" autocomplete="off"></label><button id="createPresetBtn">Create new preset</button></div></details><p id="presetStatus" class="small" role="status"></p></div>

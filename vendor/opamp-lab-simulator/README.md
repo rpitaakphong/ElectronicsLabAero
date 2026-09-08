@@ -77,7 +77,11 @@ This is intentionally an educational circuit solver, not a replacement for SPICE
 - RC low-pass followed by a buffer
 - practical op-amp integrator
 
-The presets are there for testing and demonstrations. Students can start from a blank board.
+The simulator always starts on an empty blank board, ignoring saved preset overrides at startup. Built-in and custom presets, plus Manage presets, require **Unlock presets → instructor password `aero1234`**. Unlocking only enables the controls; it does not load a circuit. Access lasts for the current page visit and resets on reload or re-entry. Incorrect passwords leave the circuit, history, and saved data unchanged.
+
+This is a client-side classroom deterrent, not secure authentication: the password and preset code can be inspected in browser source. Save/Recall for students’ own labs and the reference schematic/pin guide remain available while presets are locked. Saved originals remain untouched. Once unlocked, saved overrides (including Blank board) load as before; Reset lab always clears to the original blank board.
+
+`node tests/preset-access.cjs` checks locked startup, ignored saved overrides, incorrect/correct passwords, keyboard/phone controls, unchanged storage/history, manual Save/Recall, and re-locking in standalone, embedded, and offline versions. Existing behavioral scripts explicitly unlock and load their starting fixture through the UI.
 
 ### Organized physical layouts
 

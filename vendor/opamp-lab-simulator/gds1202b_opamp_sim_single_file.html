@@ -300,6 +300,13 @@ button { transition:background .12s,border-color .12s; }
 .preset-controls > .preset-row > label { flex:1; }
 .preset-row select { width:100%; min-width:0; }
 .preset-manager { margin-top:10px; }
+.preset-access { margin-top:10px; }
+.preset-unlock-form { padding:12px 0 4px; }
+.preset-unlock-form label { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+.preset-unlock-row { display:flex; gap:8px; }
+.preset-unlock-row input { width:100%; min-width:0; }
+#presetUnlockError { color:#ffaaa1; }
+.preset-manager[hidden],.preset-access[hidden],#presetUnlockError[hidden] { display:none; }
 summary { cursor:pointer; color:var(--muted); font-size:12px; }
 summary:hover { color:var(--text); }
 .preset-manager[open] { padding:10px; border:1px solid var(--line); border-radius:8px; background:#101a24; }
@@ -531,21 +538,31 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       <div class="section-title-row">
         <div>
           <h2>1. Breadboard and circuit</h2>
-          <p>Choose a preset or start with a blank board, then select a tool to build.</p>
+          <p>Start with a blank board and select a tool to build your circuit.</p>
         </div>
         <div class="preset-controls"><div class="preset-row">
           <label>Preset
             <select id="presetSelect">
               <option value="blank">Blank board</option>
-              <option value="follower">Voltage follower</option>
-              <option value="inverting">Inverting amplifier, gain −4.7</option>
-              <option value="noninverting">Non-inverting amplifier, gain 5.7</option>
-              <option value="lowpass">RC low-pass + buffer</option>
-              <option value="integrator">Practical op-amp integrator</option>
+              <option value="follower" disabled>Voltage follower</option>
+              <option value="inverting" disabled>Inverting amplifier, gain −4.7</option>
+              <option value="noninverting" disabled>Non-inverting amplifier, gain 5.7</option>
+              <option value="lowpass" disabled>RC low-pass + buffer</option>
+              <option value="integrator" disabled>Practical op-amp integrator</option>
             </select>
           </label>
           <button id="loadPresetBtn">Load</button>
-        </div><details class="preset-manager"><summary>Manage presets</summary><div class="preset-row">          <button id="savePresetBtn">Save over preset</button>
+        </div>
+        <p id="presetAccessStatus" class="small" role="status">Presets are locked. Build your circuit on the blank board.</p>
+        <details id="presetAccess" class="preset-access">
+          <summary>Unlock presets</summary>
+          <form id="presetUnlockForm" class="preset-unlock-form">
+            <label for="presetPassword">Instructor password</label>
+            <div class="preset-unlock-row"><input id="presetPassword" type="password" autocomplete="off" required aria-describedby="presetAccessStatus" /><button type="submit">Unlock</button></div>
+            <p id="presetUnlockError" class="small" role="alert" hidden>Incorrect password. Try again.</p>
+          </form>
+        </details>
+        <details class="preset-manager" hidden><summary>Manage presets</summary><div class="preset-row">          <button id="savePresetBtn">Save over preset</button>
           <button id="exportPresetsBtn" title="Download all locally saved presets, including overwritten built-in presets">Export saved presets</button>
           <button id="restorePresetBtn" title="Remove your saved override and load the original built-in preset">Restore original</button>
         </div><div class="preset-row new-preset-row"><label>New preset name<input id="newPresetName" type="text" maxlength="60" placeholder="e.g. My amplifier lab" autocomplete="off"></label><button id="createPresetBtn">Create new preset</button></div></details><p id="presetStatus" class="small" role="status"></p></div>
@@ -2461,11 +2478,14 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   const presetNames=new Map([...presetSelect.options].map(option=>[option.value,option.textContent]));
   const presetStorageKey=name=>'gds1202b-preset-'+name;
   const customPresetIndexKey='gds1202b-custom-presets';
+  // Classroom access gate only: no server authentication or persisted unlock.
+  let presetsUnlocked=false;
   let customPresets=[];
   try{const data=JSON.parse(localStorage.getItem(customPresetIndexKey)||'[]');if(Array.isArray(data))customPresets=data.filter(p=>p&&typeof p.id==='string'&&/^custom-[a-z0-9-]+$/.test(p.id)&&typeof p.name==='string'&&p.name.trim().length>0&&p.name.length<=60);}catch{toast('Custom preset names could not be read from browser storage.');}
   for(const preset of customPresets){presetNames.set(preset.id,preset.name);presetSelect.add(new Option(preset.name,preset.id));}
   function presetSnapshot(){return {pinoutVersion:UA741.pinoutVersion,state:JSON.parse(boardSnapshot()),scope:{...scope,sideMenu:null,currentMenu:null,frozenFrame:null,frozenRecord:null,forcedTrigger:false,singleArmed:false,running:true}};}
   function createPreset(){
+    if(!requirePresetAccess())return;
     if(drag||state.pendingHole||moveRequest)return toast('Finish or cancel the current placement before saving a preset.');
     const input=document.getElementById('newPresetName'),name=input.value.trim();
     if(!name||name.length>60){toast('Enter a preset name from 1 to 60 characters.');input.focus();return;}
@@ -2476,6 +2496,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     customPresets.push(entry);presetNames.set(id,name);presetSelect.add(new Option(name,id));presetSelect.value=id;input.value='';refreshPresetControls();toast(`Created “${name}”. It is now available in the preset list.`,3000);
   }
   function exportSavedPresets(){
+    if(!requirePresetAccess())return;
     try{
       const names=new Map(presetNames),index=JSON.parse(localStorage.getItem(customPresetIndexKey)||'[]');
       if(!Array.isArray(index))throw new Error('The custom preset index is invalid.');
@@ -2501,19 +2522,27 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
   function hasPresetOverride(name){try{return localStorage.getItem(presetStorageKey(name))!==null;}catch{return false;}}
   function refreshPresetControls(){
-    for(const option of presetSelect.options)option.textContent=presetNames.get(option.value)+(hasPresetOverride(option.value)?' · Saved':'');
+    for(const option of presetSelect.options){
+      option.disabled=!presetsUnlocked&&option.value!=='blank';
+      option.textContent=presetNames.get(option.value)+(presetsUnlocked&&hasPresetOverride(option.value)?' · Saved':'');
+    }
+    document.querySelector('.preset-manager').hidden=!presetsUnlocked;
+    document.getElementById('presetAccess').hidden=presetsUnlocked;
+    document.getElementById('presetAccessStatus').textContent=presetsUnlocked?'Presets unlocked for this visit. Reloading locks them again.':'Presets are locked. Build your circuit on the blank board.';
     const name=presetSelect.value,saved=hasPresetOverride(name);
     const custom=customPresets.some(p=>p.id===name),restore=document.getElementById('restorePresetBtn');restore.disabled=!saved&&!custom;restore.textContent=custom?'Delete preset':'Restore original';restore.title=custom?'Delete the selected saved preset; keep the current circuit open':'Remove your saved override and load the original built-in preset';
     document.getElementById('savePresetBtn').title=`Save the current circuit and scope settings over ${presetNames.get(name)}`;
-    document.getElementById('presetStatus').textContent=`${saved?'Saved version':'Original version'} selected. Save over preset replaces “${presetNames.get(name)}” in this browser.`;
+    document.getElementById('presetStatus').textContent=presetsUnlocked?`${saved?'Saved version':'Original version'} selected. Save over preset replaces “${presetNames.get(name)}” in this browser.`:'';
   }
   function saveOverPreset(){
+    if(!requirePresetAccess())return;
     if(drag||state.pendingHole||moveRequest)return toast('Finish or cancel the current placement before saving a preset.');
     const name=presetSelect.value;
     const preset=presetSnapshot();
     if(writeSaved(presetStorageKey(name),preset)){refreshPresetControls();toast(`Saved over “${presetNames.get(name)}”. Load will use your version.`,3000);}
   }
   function restoreOriginalPreset(){
+    if(!requirePresetAccess())return;
     const name=presetSelect.value;
     if(customPresets.some(p=>p.id===name)){
       const remaining=customPresets.filter(p=>p.id!==name);if(!writeSaved(customPresetIndexKey,remaining))return;
@@ -2526,9 +2555,29 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   }
   document.getElementById('savePresetBtn').onclick=saveOverPreset;
   document.getElementById('restorePresetBtn').onclick=restoreOriginalPreset;
-  presetSelect.addEventListener('change',refreshPresetControls);
+  function requirePresetAccess(){
+    if(presetsUnlocked)return true;
+    toast('Unlock presets with the instructor password first.');
+    return false;
+  }
+  document.getElementById('presetUnlockForm').addEventListener('submit',event=>{
+    event.preventDefault();
+    const input=document.getElementById('presetPassword'),error=document.getElementById('presetUnlockError');
+    if(input.value!=='aero1234'){
+      error.hidden=false;input.setAttribute('aria-invalid','true');input.setAttribute('aria-describedby','presetUnlockError');input.focus();input.select();return;
+    }
+    presetsUnlocked=true;input.value='';input.removeAttribute('aria-invalid');input.setAttribute('aria-describedby','presetAccessStatus');error.hidden=true;
+    refreshPresetControls();presetSelect.focus();
+  });
+  presetSelect.addEventListener('change',()=>{
+    if(!presetsUnlocked)presetSelect.value='blank';
+    refreshPresetControls();
+  });
   function loadPreset(name,originalOnly=false){
     if(!presetNames.has(name))return;
+    if(name!=='blank'&&!requirePresetAccess())return;
+    // A saved override of Blank board must not reveal a circuit while locked.
+    if(!presetsUnlocked)originalOnly=true;
     presetSelect.value=name;refreshPresetControls();
     if(!originalOnly&&hasPresetOverride(name)){const data=readSaved(presetStorageKey(name));if(data)restoreLab(data,`Loaded saved “${presetNames.get(name)}”.`);return;}
 
@@ -2607,7 +2656,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
   SFG1013.mount({getGenerator:()=>state.generator,onChange:()=>{syncInputs();state.challenge.actions++;updateAll();},setTool});
 
   // Initial state
-  loadPreset('inverting');
+  loadPreset('blank',true);
   setTool('select');
 })();
 

@@ -1,3 +1,4 @@
+const {unlockPresets}=require('./preset-helpers.cjs');
 const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const expected={
  follower:{pins:{2:'output',3:'input'},parts:{}},
@@ -41,7 +42,7 @@ function checkScene(s,layout){
  const browser=await chromium.launch(),page=await browser.newPage({viewport:{width:1512,height:1100}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  const expose="  window.schematicTest={loadPreset,snapshot:()=>JSON.stringify({board:boardSnapshot(),scope,history,tool:state.selectedTool,selection:state.selectedId,storage:{...localStorage}})};\n  // Initial state";
  await page.route('**/app.js',r=>r.fulfill({contentType:'text/javascript',body:fs.readFileSync('app.js','utf8').replace('  // Initial state',expose)}));
- await page.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/'));await page.waitForTimeout(100);
+ await page.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/')+'index.html');await unlockPresets(page);await page.waitForTimeout(100);
  assert.equal(await page.locator('#schematicSelect').inputValue(),'inverting');assert.equal(await page.locator('#schematicSelect option').count(),5);
  assert.equal(await page.locator('#ua741Guides svg').count(),1);assert.equal(await page.locator('#ua741Guides .pin-diagram').count(),0);
  await page.fill('#amplitudeInput','1.75');await page.locator('#amplitudeInput').press('Tab');await page.waitForTimeout(100);await page.click('#saveLabBtn');

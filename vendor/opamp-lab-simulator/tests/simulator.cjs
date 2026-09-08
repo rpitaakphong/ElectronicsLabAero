@@ -1,3 +1,4 @@
+const {unlockPresets}=require('./preset-helpers.cjs');
 // Run with NODE_PATH pointing to a Playwright installation: node tests/simulator.cjs
 const {chromium}=require('playwright');
 const fs=require('node:fs');
@@ -7,7 +8,7 @@ const assert=require('node:assert/strict');
  const page=await browser.newPage({viewport:{width:1440,height:1100}});
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/app.js',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync('app.js','utf8').replace('  // Initial state','  window.labTest={state,loadPreset,solveCircuitWaveforms,validateCircuit,engParse,fmt};\n  // Initial state')}));
- await page.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/'));await page.waitForTimeout(400);
+ await page.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/')+'index.html');await unlockPresets(page);await page.waitForTimeout(400);
  assert.deepEqual(errors,[]);
  const get=()=>page.evaluate(()=>JSON.parse(JSON.stringify(labTest.state)));
  const point=async(x,y)=>{await page.locator('#breadboardCanvas').scrollIntoViewIfNeeded();const r=await page.locator('#breadboardCanvas').boundingBox();return {x:r.x+(155+(x-120)*30/32)*r.width/1180,y:r.y+y*r.height/620};};
@@ -42,7 +43,7 @@ const assert=require('node:assert/strict');
  // Save/recall includes exact geometry and survives a page reload.
  await page.click('#saveLabBtn');const saved=JSON.parse(await page.evaluate(()=>localStorage.getItem('gds1202b-lab'))).state;
  await page.selectOption('#presetSelect','blank');await page.click('#loadPresetBtn');await page.click('#recallLabBtn');assert.deepEqual((await get()).components,saved.components);
- await page.reload();await page.click('#recallLabBtn');assert.deepEqual((await get()).leadHoles,saved.leadHoles);
+ await page.reload();await unlockPresets(page);await page.click('#recallLabBtn');assert.deepEqual((await get()).leadHoles,saved.leadHoles);
  const intact=JSON.stringify((await get()).components);await page.evaluate(()=>localStorage.setItem('gds1202b-lab','{broken'));await page.click('#recallLabBtn');assert.equal(JSON.stringify((await get()).components),intact);
  // A high-amplitude follower obeys output headroom and slew bounds.
  const limits=await page.evaluate(()=>{labTest.loadPreset('follower');labTest.state.generator.amplitude=20;labTest.state.generator.frequency=10000;const sim=labTest.solveCircuitWaveforms(),a=sim.traces.ch2;return {max:Math.max(...a),min:Math.min(...a),slew:Math.max(...a.slice(1).map((v,i)=>Math.abs(v-a[i])/sim.dt))};});

@@ -285,6 +285,13 @@ button { transition:background .12s,border-color .12s; }
 .preset-controls > .preset-row > label { flex:1; }
 .preset-row select { width:100%; min-width:0; }
 .preset-manager { margin-top:10px; }
+.preset-access { margin-top:10px; }
+.preset-unlock-form { padding:12px 0 4px; }
+.preset-unlock-form label { display:block; color:var(--muted); font-size:12px; margin-bottom:6px; }
+.preset-unlock-row { display:flex; gap:8px; }
+.preset-unlock-row input { width:100%; min-width:0; }
+#presetUnlockError { color:#ffaaa1; }
+.preset-manager[hidden],.preset-access[hidden],#presetUnlockError[hidden] { display:none; }
 summary { cursor:pointer; color:var(--muted); font-size:12px; }
 summary:hover { color:var(--text); }
 .preset-manager[open] { padding:10px; border:1px solid var(--line); border-radius:8px; background:#101a24; }

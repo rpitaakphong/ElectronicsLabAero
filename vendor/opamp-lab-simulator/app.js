@@ -1259,11 +1259,14 @@
   const presetNames=new Map([...presetSelect.options].map(option=>[option.value,option.textContent]));
   const presetStorageKey=name=>'gds1202b-preset-'+name;
   const customPresetIndexKey='gds1202b-custom-presets';
+  // Classroom access gate only: no server authentication or persisted unlock.
+  let presetsUnlocked=false;
   let customPresets=[];
   try{const data=JSON.parse(localStorage.getItem(customPresetIndexKey)||'[]');if(Array.isArray(data))customPresets=data.filter(p=>p&&typeof p.id==='string'&&/^custom-[a-z0-9-]+$/.test(p.id)&&typeof p.name==='string'&&p.name.trim().length>0&&p.name.length<=60);}catch{toast('Custom preset names could not be read from browser storage.');}
   for(const preset of customPresets){presetNames.set(preset.id,preset.name);presetSelect.add(new Option(preset.name,preset.id));}
   function presetSnapshot(){return {pinoutVersion:UA741.pinoutVersion,state:JSON.parse(boardSnapshot()),scope:{...scope,sideMenu:null,currentMenu:null,frozenFrame:null,frozenRecord:null,forcedTrigger:false,singleArmed:false,running:true}};}
   function createPreset(){
+    if(!requirePresetAccess())return;
     if(drag||state.pendingHole||moveRequest)return toast('Finish or cancel the current placement before saving a preset.');
     const input=document.getElementById('newPresetName'),name=input.value.trim();
     if(!name||name.length>60){toast('Enter a preset name from 1 to 60 characters.');input.focus();return;}
@@ -1274,6 +1277,7 @@
     customPresets.push(entry);presetNames.set(id,name);presetSelect.add(new Option(name,id));presetSelect.value=id;input.value='';refreshPresetControls();toast(`Created “${name}”. It is now available in the preset list.`,3000);
   }
   function exportSavedPresets(){
+    if(!requirePresetAccess())return;
     try{
       const names=new Map(presetNames),index=JSON.parse(localStorage.getItem(customPresetIndexKey)||'[]');
       if(!Array.isArray(index))throw new Error('The custom preset index is invalid.');
@@ -1299,19 +1303,27 @@
 
   function hasPresetOverride(name){try{return localStorage.getItem(presetStorageKey(name))!==null;}catch{return false;}}
   function refreshPresetControls(){
-    for(const option of presetSelect.options)option.textContent=presetNames.get(option.value)+(hasPresetOverride(option.value)?' · Saved':'');
+    for(const option of presetSelect.options){
+      option.disabled=!presetsUnlocked&&option.value!=='blank';
+      option.textContent=presetNames.get(option.value)+(presetsUnlocked&&hasPresetOverride(option.value)?' · Saved':'');
+    }
+    document.querySelector('.preset-manager').hidden=!presetsUnlocked;
+    document.getElementById('presetAccess').hidden=presetsUnlocked;
+    document.getElementById('presetAccessStatus').textContent=presetsUnlocked?'Presets unlocked for this visit. Reloading locks them again.':'Presets are locked. Build your circuit on the blank board.';
     const name=presetSelect.value,saved=hasPresetOverride(name);
     const custom=customPresets.some(p=>p.id===name),restore=document.getElementById('restorePresetBtn');restore.disabled=!saved&&!custom;restore.textContent=custom?'Delete preset':'Restore original';restore.title=custom?'Delete the selected saved preset; keep the current circuit open':'Remove your saved override and load the original built-in preset';
     document.getElementById('savePresetBtn').title=`Save the current circuit and scope settings over ${presetNames.get(name)}`;
-    document.getElementById('presetStatus').textContent=`${saved?'Saved version':'Original version'} selected. Save over preset replaces “${presetNames.get(name)}” in this browser.`;
+    document.getElementById('presetStatus').textContent=presetsUnlocked?`${saved?'Saved version':'Original version'} selected. Save over preset replaces “${presetNames.get(name)}” in this browser.`:'';
   }
   function saveOverPreset(){
+    if(!requirePresetAccess())return;
     if(drag||state.pendingHole||moveRequest)return toast('Finish or cancel the current placement before saving a preset.');
     const name=presetSelect.value;
     const preset=presetSnapshot();
     if(writeSaved(presetStorageKey(name),preset)){refreshPresetControls();toast(`Saved over “${presetNames.get(name)}”. Load will use your version.`,3000);}
   }
   function restoreOriginalPreset(){
+    if(!requirePresetAccess())return;
     const name=presetSelect.value;
     if(customPresets.some(p=>p.id===name)){
       const remaining=customPresets.filter(p=>p.id!==name);if(!writeSaved(customPresetIndexKey,remaining))return;
@@ -1324,9 +1336,29 @@
   }
   document.getElementById('savePresetBtn').onclick=saveOverPreset;
   document.getElementById('restorePresetBtn').onclick=restoreOriginalPreset;
-  presetSelect.addEventListener('change',refreshPresetControls);
+  function requirePresetAccess(){
+    if(presetsUnlocked)return true;
+    toast('Unlock presets with the instructor password first.');
+    return false;
+  }
+  document.getElementById('presetUnlockForm').addEventListener('submit',event=>{
+    event.preventDefault();
+    const input=document.getElementById('presetPassword'),error=document.getElementById('presetUnlockError');
+    if(input.value!=='aero1234'){
+      error.hidden=false;input.setAttribute('aria-invalid','true');input.setAttribute('aria-describedby','presetUnlockError');input.focus();input.select();return;
+    }
+    presetsUnlocked=true;input.value='';input.removeAttribute('aria-invalid');input.setAttribute('aria-describedby','presetAccessStatus');error.hidden=true;
+    refreshPresetControls();presetSelect.focus();
+  });
+  presetSelect.addEventListener('change',()=>{
+    if(!presetsUnlocked)presetSelect.value='blank';
+    refreshPresetControls();
+  });
   function loadPreset(name,originalOnly=false){
     if(!presetNames.has(name))return;
+    if(name!=='blank'&&!requirePresetAccess())return;
+    // A saved override of Blank board must not reveal a circuit while locked.
+    if(!presetsUnlocked)originalOnly=true;
     presetSelect.value=name;refreshPresetControls();
     if(!originalOnly&&hasPresetOverride(name)){const data=readSaved(presetStorageKey(name));if(data)restoreLab(data,`Loaded saved “${presetNames.get(name)}”.`);return;}
 
@@ -1405,6 +1437,6 @@
   SFG1013.mount({getGenerator:()=>state.generator,onChange:()=>{syncInputs();state.challenge.actions++;updateAll();},setTool});
 
   // Initial state
-  loadPreset('inverting');
+  loadPreset('blank',true);
   setTool('select');
 })();

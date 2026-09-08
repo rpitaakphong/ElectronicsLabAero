@@ -1,3 +1,4 @@
+const {unlockPresets}=require('./preset-helpers.cjs');
 const {chromium}=require('playwright');const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
 const legacy=JSON.parse(fs.readFileSync('tests/fixtures/legacy-pinout.json','utf8')).presets;
 (async()=>{
@@ -5,7 +6,7 @@ const legacy=JSON.parse(fs.readFileSync('tests/fixtures/legacy-pinout.json','utf
  page.on('pageerror',e=>errors.push(e.message));
  const expose='  window.labTest={state,opampPins,componentHoles,normalizeSavedLab,restoreLab,boardSnapshot,presetSnapshot,loadPreset,solveCircuitWaveforms,validateCircuit,buildConnectivity,buildNetlist};\n  // Initial state';
  await page.route('**/app.js',r=>r.fulfill({contentType:'text/javascript',body:fs.readFileSync('app.js','utf8').replace('  // Initial state',expose)}));
- await page.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/'));
+ await page.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/')+'index.html');await unlockPresets(page);
  const empty=await page.evaluate(()=>{labTest.loadPreset('blank',true);return labTest.boardSnapshot();});
  for(const [name,fixture] of Object.entries(legacy)){
    const raw=JSON.stringify(fixture.snapshot);
@@ -73,7 +74,7 @@ const legacy=JSON.parse(fs.readFileSync('tests/fixtures/legacy-pinout.json','utf
  // Startup overwritten presets, custom presets, and exports use the same conversion.
  const rawPreset=JSON.stringify(legacy.inverting.snapshot),rawCustom=JSON.stringify(legacy.follower.snapshot);
  await page.evaluate(({rawPreset,rawCustom})=>{localStorage.setItem('gds1202b-preset-inverting',rawPreset);localStorage.setItem('gds1202b-preset-custom-legacy',rawCustom);localStorage.setItem('gds1202b-custom-presets',JSON.stringify([{id:'custom-legacy',name:'Legacy follower'}]));},{rawPreset,rawCustom});
- await page.reload();assert(await page.locator('#pinoutNotice').isVisible());await page.selectOption('#presetSelect','custom-legacy');await page.click('#loadPresetBtn');assert(await page.locator('#pinoutNotice').isVisible());
+ await page.reload();await unlockPresets(page);assert(await page.locator('#pinoutNotice').isVisible());await page.selectOption('#presetSelect','custom-legacy');await page.click('#loadPresetBtn');assert(await page.locator('#pinoutNotice').isVisible());
  await page.click('#dismissPinoutNotice');assert(!await page.locator('#pinoutNotice').isVisible());await page.click('#loadPresetBtn');assert(await page.locator('#pinoutNotice').isVisible());
  const allStorage=()=>page.evaluate(()=>JSON.stringify(Object.fromEntries(Object.keys(localStorage).map(k=>[k,localStorage.getItem(k)]))));
  const beforeExport=await allStorage();await page.locator('.preset-manager > summary').click();const downloadEvent=page.waitForEvent('download');await page.click('#exportPresetsBtn');const download=await downloadEvent;const exported=JSON.parse(fs.readFileSync(await download.path(),'utf8'));assert.equal(exported.presets.length,2);assert(exported.presets.every(p=>p.preset.pinoutVersion===2));assert.equal(await allStorage(),beforeExport);
@@ -86,6 +87,6 @@ const legacy=JSON.parse(fs.readFileSync('tests/fixtures/legacy-pinout.json','utf
  const output=path.resolve('../../output/playwright/simulator-redesign');fs.mkdirSync(output,{recursive:true});
  for(const width of [1512,390]){await page.setViewportSize({width,height:1100});await page.locator('#pinGuide').evaluate(el=>el.open=true);await page.locator('#pinGuide').screenshot({path:path.join(output,`corrected-pinout-${width}.png`)});await page.locator('.breadboard-wrap').screenshot({path:path.join(output,`corrected-chip-${width}.png`)});assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));}
  // Portable version loads the same old data correctly, with no network assets.
- const portable=await browser.newPage();portable.on('pageerror',e=>errors.push(e.message));await portable.addInitScript(raw=>localStorage.setItem('gds1202b-preset-inverting',raw),rawPreset);const requests=[];portable.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url());});await portable.goto('file://'+path.resolve(process.env.SIMULATOR_OFFLINE_PATH || 'gds1202b_opamp_sim_single_file.html'));assert(await portable.locator('#pinoutNotice').isVisible());assert.equal(await portable.locator('#circuitStatus').textContent(),'Circuit electrically runnable');assert.deepEqual(requests,[]);
+ const portable=await browser.newPage();portable.on('pageerror',e=>errors.push(e.message));await portable.addInitScript(raw=>localStorage.setItem('gds1202b-preset-inverting',raw),rawPreset);const requests=[];portable.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url());});await portable.goto('file://'+path.resolve(process.env.SIMULATOR_OFFLINE_PATH || 'gds1202b_opamp_sim_single_file.html'));await unlockPresets(portable);assert(await portable.locator('#pinoutNotice').isVisible());assert.equal(await portable.locator('#circuitStatus').textContent(),'Circuit electrically runnable');assert.deepEqual(requests,[]);
  assert.deepEqual(errors,[]);await browser.close();console.log('PASS: physical follower, signed preset gains, legacy references, versioning, unchanged storage, atomic rejection, migration disclosures, export, diagrams, portable file');
 })().catch(e=>{console.error(e);process.exit(1)});

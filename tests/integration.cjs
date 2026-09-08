@@ -1,3 +1,4 @@
+const {unlockPresets}=require('../vendor/opamp-lab-simulator/tests/preset-helpers.cjs');
 const { chromium } = require('playwright');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -19,6 +20,11 @@ fs.mkdirSync(output, { recursive: true });
         const iframe = document.querySelector('iframe');
         return iframe && Math.abs(iframe.clientHeight - iframe.contentDocument.body.getBoundingClientRect().height) < 2;
       });
+      if (await frame.locator('#presetAccess').isVisible()) {
+        assert.equal(await frame.locator('#presetSelect').inputValue(), 'blank');
+        assert.equal(await frame.locator('#componentList option').count(), 1);
+        await unlockPresets(frame);
+      }
     };
     const frameHeight = () => page.locator('iframe').evaluate(el => el.clientHeight);
     const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('gds1202b-lab')));
@@ -132,6 +138,7 @@ fs.mkdirSync(output, { recursive: true });
     offline.on('request', request => { if (/^https?:/.test(request.url())) requests.push(request.url()); });
     await offline.goto('file://' + offlinePath);
     assert(await offline.locator('.lab-brand img').isVisible());
+    await unlockPresets(offline);
     await offline.locator('#presetSelect').selectOption('follower');
     await offline.locator('#loadPresetBtn').click();
     assert.equal(await offline.locator('#circuitStatus').textContent(), 'Circuit electrically runnable');

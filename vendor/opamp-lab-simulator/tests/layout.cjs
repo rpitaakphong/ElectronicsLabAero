@@ -1,3 +1,4 @@
+const {unlockPresets}=require('./preset-helpers.cjs');
 const {chromium}=require('playwright');
 const fs=require('node:fs');const path=require('node:path');const assert=require('node:assert/strict');
 (async()=>{
@@ -6,7 +7,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/app.js',r=>r.fulfill({contentType:'text/javascript',body:fs.readFileSync('app.js','utf8').replace('  // Initial state','  window.labTest={state,ensureRoutes,boardSnapshot,findComponentAt,leadPoint,updateAll,physicalHole};\n  // Initial state')}));
  const output=path.resolve('../../output/playwright/simulator-redesign');fs.mkdirSync(output,{recursive:true});
- await page.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/'));
+ await page.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/')+'index.html');await unlockPresets(page);
  assert.equal(await page.title(),'Op-Amp Lab Simulator');
  assert(await page.locator('.lab-brand img').evaluate(img=>img.complete&&img.naturalWidth>0));
  assert.equal(await page.locator('.preset-manager').evaluate(el=>el.open),false);
@@ -31,7 +32,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
    await page.locator('.board-section').screenshot({path:path.join(output,`${width}-workspace.png`)});
  }
  // Collapsed phone guide is set on initial load, not forcibly reset during resizing.
- await page.reload();assert.equal(await page.locator('#pinGuide').evaluate(el=>el.open),false);
+ await page.reload();await unlockPresets(page);assert.equal(await page.locator('#pinGuide').evaluate(el=>el.open),false);
  await page.setViewportSize({width:1512,height:1100});
  await page.selectOption('#presetSelect','blank');await page.click('#loadPresetBtn');
  const point=async(x,y)=>{await page.locator('#breadboardCanvas').scrollIntoViewIfNeeded();const r=await page.locator('#breadboardCanvas').boundingBox();return {x:r.x+x*r.width/1180,y:r.y+y*r.height/620};};
@@ -78,7 +79,7 @@ const fs=require('node:fs');const path=require('node:path');const assert=require
  await page.click('[data-tool=erase]');await click(leadTarget.x,leadTarget.y);assert.equal(await page.evaluate(()=>labTest.state.probes.ch1.tip),null);
  // Portable file works directly from disk and has no external runtime assets.
  const portable=await browser.newPage({viewport:{width:1512,height:1100}}),requests=[];portable.on('pageerror',e=>errors.push(e.message));portable.on('request',r=>{if(/^https?:/.test(r.url()))requests.push(r.url());});
- await portable.goto('file://'+path.resolve(process.env.SIMULATOR_OFFLINE_PATH || 'gds1202b_opamp_sim_single_file.html'));
+ await portable.goto('file://'+path.resolve(process.env.SIMULATOR_OFFLINE_PATH || 'gds1202b_opamp_sim_single_file.html'));await unlockPresets(portable);
  await portable.selectOption('#presetSelect','follower');await portable.click('#loadPresetBtn');
  assert.equal(await portable.title(),'Op-Amp Lab Simulator');assert(await portable.locator('.lab-brand img').evaluate(img=>img.complete&&img.naturalWidth>0));assert.deepEqual(requests,[]);
  assert.equal(await portable.locator('#circuitStatus').textContent(),'Circuit electrically runnable');

@@ -1,8 +1,9 @@
+const {unlockPresets}=require('./preset-helpers.cjs');
 const {chromium}=require('playwright');const fs=require('node:fs');const assert=require('node:assert/strict');
 (async()=>{
  const b=await chromium.launch();const p=await b.newPage({viewport:{width:1440,height:1100}});const errors=[];p.on('pageerror',e=>errors.push(e.message));
  await p.route('**/app.js',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync('app.js','utf8').replace('  // Initial state','  window.labTest={state,solveCircuitWaveforms,loadPreset,updateAll};\n  // Initial state')}));
- await p.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/')+'index.html');await p.waitForTimeout(200);assert.deepEqual(errors,[]);
+ await p.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/')+'index.html');await unlockPresets(p);await p.waitForTimeout(200);assert.deepEqual(errors,[]);
  const gen=()=>p.evaluate(()=>JSON.parse(JSON.stringify(labTest.state.generator)));
  const key=async k=>p.locator(`[data-sfg-key="${k}"]`).click();
  const sequence=async keys=>{for(const k of keys)await key(k);};

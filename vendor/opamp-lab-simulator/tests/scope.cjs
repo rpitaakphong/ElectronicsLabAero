@@ -1,8 +1,9 @@
+const {unlockPresets}=require('./preset-helpers.cjs');
 const {chromium}=require('playwright');const fs=require('node:fs');const assert=require('node:assert/strict');
 (async()=>{
  const browser=await chromium.launch();const page=await browser.newPage({viewport:{width:1440,height:1100}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/app.js',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync('app.js','utf8').replace('  // Initial state',`  window.labTest={state,get scope(){return scope},loadPreset,measurement,makeDisplayFrame,measurementResult,currentRecord,drawScope,simulateAndRender};\n  // Initial state`)}));
- await page.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/'));await page.waitForTimeout(300);assert.deepEqual(errors,[]);
+ await page.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/')+'index.html');await unlockPresets(page);await page.waitForTimeout(300);assert.deepEqual(errors,[]);
  const value=(name,source='CH1')=>page.evaluate(({name,source})=>labTest.measurementResult({name,source,source2:'CH2'},labTest.makeDisplayFrame(labTest.currentRecord())),{name,source});
  assert(Math.abs((await value('Frequency')).value-1000)<.1);assert(Math.abs((await value('Pk-Pk','CH2')).value-(9.4*10000/10050))<.01);assert(Math.abs((await value('RMS')).value-(Math.SQRT1_2*10000/10050))<.001);assert(Math.abs((await value('Mean')).value)<.001);
  const numeric=await page.evaluate(()=>{const t=Array.from({length:10001},(_,i)=>i*1e-6),sine=t.map(t=>Math.sin(2*Math.PI*1000*t)),square=t.map(t=>(t*1000)%1<.25?2:0);return Object.fromEntries(['Frequency','Period','RiseTime','FallTime','Cycle RMS','+Width','Duty Cycle','+Edges'].map(name=>[name,labTest.measurement(name==='Duty Cycle'||name==='+Width'?square:sine,t,name)]));});

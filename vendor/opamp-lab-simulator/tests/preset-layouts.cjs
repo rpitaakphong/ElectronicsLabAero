@@ -1,3 +1,4 @@
+const {unlockPresets}=require('./preset-helpers.cjs');
 const {chromium}=require('playwright'),fs=require('node:fs'),assert=require('node:assert/strict');
 const fixtures=JSON.parse(fs.readFileSync('tests/fixtures/legacy-pinout.json','utf8')).presets;
 const rows={VPLUS:70,GND_TOP:110,A:180,B:210,C:240,D:270,E:300,F:350,G:380,H:410,I:440,J:470,GND_BOTTOM:510,VMINUS:550};
@@ -22,7 +23,7 @@ function topology(s){
 (async()=>{
  const browser=await chromium.launch(),page=await browser.newPage({viewport:{width:1512,height:1100}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
  await page.route('**/app.js',r=>r.fulfill({contentType:'text/javascript',body:fs.readFileSync('app.js','utf8').replace('  // Initial state','  window.labTest={state,loadPreset,normalizeSavedLab,ensureRoutes,routeGeometry,boardSnapshot,solveCircuitWaveforms,validateCircuit,componentHoles};\n  // Initial state')}));
- await page.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/'));
+ await page.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/')+'index.html');await unlockPresets(page);
  for(const [name,fixture] of Object.entries(fixtures)){
   const data=await page.evaluate(({name,legacy})=>{
    labTest.loadPreset(name,true);const before=labTest.boardSnapshot(),routes=labTest.ensureRoutes(),geometry=labTest.routeGeometry(),sim=labTest.solveCircuitWaveforms(),samples=[];

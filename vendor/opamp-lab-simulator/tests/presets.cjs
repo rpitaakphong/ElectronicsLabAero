@@ -1,3 +1,4 @@
+const {unlockPresets}=require('./preset-helpers.cjs');
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 (async()=>{
@@ -6,8 +7,8 @@ const assert=require('node:assert/strict');
   const manage=async()=>{if(!await page.locator('.preset-manager').evaluate(el=>el.open))await page.locator('.preset-manager > summary').click();};
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   for(const entry of ['index.html','gds1202b_opamp_sim_single_file.html']){
-    await page.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/')+entry);
-    await page.evaluate(()=>localStorage.clear());await page.reload();
+    await page.goto((process.env.SIMULATOR_URL || 'http://127.0.0.1:8765/')+entry);await unlockPresets(page);
+    await page.evaluate(()=>localStorage.clear());await page.reload();await unlockPresets(page);
     await page.fill('#amplitudeInput','2');await page.locator('#amplitudeInput').press('Tab');
     await page.selectOption('#cursorSource','CH2');
     const resistor=await page.locator('#componentList option').evaluateAll(options=>options.find(o=>o.textContent.includes('resistor')).value);
@@ -19,11 +20,11 @@ const assert=require('node:assert/strict');
     await page.selectOption('#presetSelect','blank');await page.click('#loadPresetBtn');
     await page.selectOption('#presetSelect','inverting');await page.click('#loadPresetBtn');
     await page.waitForTimeout(100);assert.equal(await page.locator('#amplitudeInput').inputValue(),'2');assert.equal(await page.locator('#cursorSource').inputValue(),'CH2');
-    await page.reload();assert.equal(await page.locator('#amplitudeInput').inputValue(),'2');
-    await page.fill('#amplitudeInput','3');await page.locator('#amplitudeInput').press('Tab');await manage();await page.click('#savePresetBtn');await page.reload();assert.equal(await page.locator('#amplitudeInput').inputValue(),'3');
+    await page.reload();await unlockPresets(page);assert.equal(await page.locator('#amplitudeInput').inputValue(),'2');
+    await page.fill('#amplitudeInput','3');await page.locator('#amplitudeInput').press('Tab');await manage();await page.click('#savePresetBtn');await page.reload();await unlockPresets(page);assert.equal(await page.locator('#amplitudeInput').inputValue(),'3');
     await manage();await page.click('#restorePresetBtn');assert.equal(await page.locator('#amplitudeInput').inputValue(),'1');assert(await page.locator('#restorePresetBtn').isDisabled());assert.equal(await page.evaluate(()=>localStorage.getItem('gds1202b-preset-inverting')),null);
     await manage();await page.fill('#newPresetName','My custom amplifier');await page.click('#createPresetBtn');const customId=await page.locator('#presetSelect').inputValue();assert(customId.startsWith('custom-'));
-    await page.fill('#amplitudeInput','4');await page.locator('#amplitudeInput').press('Tab');await manage();await page.click('#savePresetBtn');await page.reload();await page.selectOption('#presetSelect',customId);await page.click('#loadPresetBtn');await page.waitForTimeout(100);assert.equal(await page.locator('#amplitudeInput').inputValue(),'4');
+    await page.fill('#amplitudeInput','4');await page.locator('#amplitudeInput').press('Tab');await manage();await page.click('#savePresetBtn');await page.reload();await unlockPresets(page);await page.selectOption('#presetSelect',customId);await page.click('#loadPresetBtn');await page.waitForTimeout(100);assert.equal(await page.locator('#amplitudeInput').inputValue(),'4');
     const count=await page.locator('#presetSelect option').count();await manage();await page.fill('#newPresetName','my custom amplifier');await page.click('#createPresetBtn');assert.equal(await page.locator('#presetSelect option').count(),count);
     assert.equal(await page.locator('#restorePresetBtn').textContent(),'Delete preset');await manage();await page.click('#restorePresetBtn');assert.equal(await page.locator('#amplitudeInput').inputValue(),'4');assert.equal(await page.locator('#presetSelect option').count(),count-1);
     // Reset stays blank even when the Blank board preset has an override.
