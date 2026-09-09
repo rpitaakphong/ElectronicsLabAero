@@ -39,3 +39,7 @@ yarn-error.log*
 
 # Packaged from the maintained simulator source by predev/prebuild
 /public/simulators/opamp/
+
+/public/simulators/voltage-divider/
+
+/public/simulators/rc-filter/

@@ -15,7 +15,7 @@ import {
   type Configuration,
 } from '@/lib/divider/simulator';
 import { INFO } from '@/lib/divider/content';
-import { TopicHeader } from './TopicHeader';
+import { TopicBreadcrumbs } from './TopicBreadcrumbs';
 export default function DividerLab() {
   const [config, setConfig] = useState(defaults),
     [error, setError] = useState('');
@@ -70,8 +70,17 @@ export default function DividerLab() {
   const upper = Number((result.upper / 1000).toPrecision(5)),
     lower = Number((result.effectiveLower / 1000).toPrecision(5));
   return (
-    <main className="lab-shell divider-lab">
-      <TopicHeader>
+    <main id="main-content" tabIndex={-1} className="lab-shell divider-lab">
+      <TopicBreadcrumbs />
+      <div className="intro page-heading">
+        <div>
+          <span className="eyebrow">RESISTANCE → VOLTAGE</span>
+          <h1>Interactive Learning</h1>
+          <p>
+            Change the circuit. Follow the current. Discover what sets the
+            output.
+          </p>
+        </div>
         <Button
           variant="ghost"
           onClick={() => {
@@ -82,13 +91,6 @@ export default function DividerLab() {
           <RotateCcw size={15} />
           Reset lab
         </Button>
-      </TopicHeader>
-      <div className="intro">
-        <span className="eyebrow">RESISTANCE → VOLTAGE</span>
-        <h1>Voltage Divider</h1>
-        <p>
-          Change the circuit. Follow the current. Discover what sets the output.
-        </p>
       </div>
       <RadioGroup
         aria-label="Divider configuration"

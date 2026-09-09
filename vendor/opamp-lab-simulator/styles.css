@@ -18,6 +18,7 @@ html, body { margin: 0; background: var(--bg); color: var(--text); font-family: 
 body { min-height: 100vh; }
 /* The parent supplies branding and the viewport; preserve the standalone defaults. */
 .embedded body { min-height: 0; }
+.embedded { scroll-padding-top: calc(var(--host-header-height, 0px) + 12px); }
 .embedded .lab-brand, .embedded .lab-intro { display: none; }
 .embedded .app-header { min-height: 0; border: 0; justify-content: flex-end; padding-block: 0 16px; }
 .embedded .breadboard-wrap { max-height: calc(var(--host-viewport-height, 800px) * .75); }
@@ -408,4 +409,32 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 }
 @media(max-width:760px) {
   .schematic-controls { flex-direction:column; align-items:stretch; gap:6px; }
+}
+
+/* DC workbench uses the same board and editor shell as the op-amp profile. */
+html[data-lab="voltage-divider"] .circuit-controls { min-width:0; }
+.dc-supply-panel, .dc-meter-panel { padding-top:18px; }
+.dc-meter-panel { background:#12242c; border:1px solid #32515c; border-radius:12px; padding:16px; }
+.meter-reading { display:block; padding:18px 8px; margin:12px 0; border-radius:8px; background:#d3e4cd; color:#172c24; font:600 clamp(24px,2.5vw,36px)/1.2 ui-monospace,monospace; text-align:center; overflow-wrap:anywhere; }
+.meter-reading[data-status="fault"] { background:#f1d2cc; color:#5b2424; }
+.divider-reference { display:block; width:100%; min-width:620px; max-height:310px; color:#d9e5e9; }
+.divider-reference text { fill:currentColor; stroke:none; font:15px Inter,system-ui,sans-serif; }
+.divider-measure-guide { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; font-size:13px; color:#b9c8d0; }
+.divider-measure-guide strong { display:block; color:#e4edf3; margin-bottom:6px; }
+.divider-model-note { max-width:1000px; margin:24px auto; padding:0 20px; text-align:center; color:#aabcc6; font-size:12px; line-height:1.7; }
+html[data-lab="voltage-divider"] .dc-supply-panel .eyebrow,
+html[data-lab="voltage-divider"] .dc-meter-panel .eyebrow { font-size:10px; letter-spacing:.1em; color:#83c5c8; }
+@media(max-width:760px) { .divider-measure-guide { grid-template-columns:1fr; gap:0; } .divider-reference { max-height:none; } .meter-reading { font-size:36px; } }
+
+.dc-supply-panel label.switch-row { display:flex; align-items:center; gap:8px; margin-top:14px; }
+.dc-supply-panel .switch-row input { width:auto; margin:0; }
+
+/* The app places Reset beside its page heading; standalone keeps this control. */
+.embedded #resetAllBtn { display:none; }
+
+.rc-reference text { stroke:none; fill:currentColor; font-size:15px; }
+
+/* Keep the scope connector strip inside tablet-width workbenches. */
+@media (min-width:761px) and (max-width:1000px) {
+  .scope-bottom-strip { grid-template-columns:repeat(4,minmax(0,1fr)); }
 }

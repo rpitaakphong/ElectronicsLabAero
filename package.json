@@ -9,7 +9,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "oxlint src components/lab components/divider lib vite.config.ts -A jsx-a11y/prefer-tag-over-role -A react/react-compiler",
+    "lint": "oxlint src components/lab components/divider components/rc lib vite.config.ts -A jsx-a11y/prefer-tag-over-role -A react/react-compiler",
     "format": "oxfmt",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/*.test.ts tests/*.test.tsx",

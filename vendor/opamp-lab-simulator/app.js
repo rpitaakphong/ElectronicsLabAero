@@ -1,5 +1,11 @@
 (() => {
   'use strict';
+  const profile=LabProfiles[document.documentElement.dataset.lab || 'opamp'];
+  const isDivider=profile.solver==='dc', isRc=profile.solver==='rc-periodic', independentRails=profile.connectivity==='independent';
+  const storagePrefix=profile.storage;
+  const {UnionFind,gaussianSolve}=CircuitEngine;
+  let dividerRuntime=null;
+  const terminalKeys=c=>c.type==='potentiometer'?['a','b','w']:['a','b'];
 
   // -----------------------------
   // Utility helpers
@@ -57,10 +63,11 @@
       ch1: { tip: null, gnd: null },
       ch2: { tip: null, gnd: null }
     },
-    supply: { plus: 12, minus: -12 },
+    supply: profile.instruments.includes('supply') ? { plus: 12, minus: -12 } : undefined,
     generator: { waveform: 'sine', frequency: 1000, amplitude: 1, offset: 0 },
     challenge: { enabled: false, actions: 0, autosetUsed: false, startTime: Date.now() },
     sim: { last: null, warnings: [], error: null },
+    ...(isDivider?{leads:{},meter:{mode:'voltage'},supply:{voltage:5,enabled:false}}:{}),
   };
 
   const VOLT_DIVS = [0.001,0.002,0.005,0.01,0.02,0.05,0.1,0.2,0.5,1,2,5,10];
@@ -88,7 +95,7 @@
     frozenFrame: null, frozenRecord:null,
     actionCount: 0,
   });
-  let scope = defaultScope();
+  let scope = profile.instruments.includes('scope') ? defaultScope() : null;
 
   // -----------------------------
   // Breadboard geometry
@@ -107,7 +114,9 @@
   };
 
   function colX(c) { return bb.x0 + (c - 1) * bb.dx; }
+  const railNames={VPLUS:'Top +',GND_TOP:'Top −',GND_BOTTOM:'Bottom +',VMINUS:'Bottom −'};
   function nodeFor(row, col) {
+    if(independentRails&&Object.hasOwn(railNames,row))return row;
     if (row === 'VPLUS') return 'VPLUS';
     if (row === 'VMINUS') return 'VMINUS';
     if (row === 'GND_TOP' || row === 'GND_BOTTOM') return 'GND';
@@ -117,6 +126,7 @@
   }
   function nodePosition(node, preferredRow = null) {
     if (!node) return null;
+    if(independentRails&&Object.hasOwn(railNames,node))return {x:colX(15),y:bb.rows[node]};
     if (node === 'VPLUS') return { x: colX(15), y: bb.rows.VPLUS };
     if (node === 'VMINUS') return { x: colX(15), y: bb.rows.VMINUS };
     if (node === 'GND') return { x: colX(15), y: preferredRow === 'bottom' ? bb.rows.GND_BOTTOM : bb.rows.GND_TOP };
@@ -126,6 +136,7 @@
   }
   function nodeLabel(node) {
     if (!node) return '—';
+    if(independentRails&&Object.hasOwn(railNames,node))return railNames[node]+' rail';
     if (node === 'VPLUS') return 'V+ rail';
     if (node === 'VMINUS') return 'V− rail';
     if (node === 'GND') return 'GND rail';
@@ -137,10 +148,10 @@
     const out = [];
     for (let c=1;c<=bb.cols;c++) {
       for (const row of 'ABCDEFGHIJ') out.push({ row, col:c, x:colX(c), y:bb.rows[row], node:nodeFor(row,c) });
-      out.push({ row:'VPLUS', col:c, x:colX(c), y:bb.rows.VPLUS, node:'VPLUS' });
-      out.push({ row:'GND_TOP', col:c, x:colX(c), y:bb.rows.GND_TOP, node:'GND' });
-      out.push({ row:'GND_BOTTOM', col:c, x:colX(c), y:bb.rows.GND_BOTTOM, node:'GND' });
-      out.push({ row:'VMINUS', col:c, x:colX(c), y:bb.rows.VMINUS, node:'VMINUS' });
+      out.push({ row:'VPLUS', col:c, x:colX(c), y:bb.rows.VPLUS, node:nodeFor('VPLUS',c) });
+      out.push({ row:'GND_TOP', col:c, x:colX(c), y:bb.rows.GND_TOP, node:nodeFor('GND_TOP',c) });
+      out.push({ row:'GND_BOTTOM', col:c, x:colX(c), y:bb.rows.GND_BOTTOM, node:nodeFor('GND_BOTTOM',c) });
+      out.push({ row:'VMINUS', col:c, x:colX(c), y:bb.rows.VMINUS, node:nodeFor('VMINUS',c) });
     }
     return out;
   }
@@ -165,7 +176,7 @@
   // Breadboard drawing
   // -----------------------------
   let routeSignature='', visualRoutes=new Map(), visualDocks=new Map();
-  const leadStyle={generator:['#d99a38','MAIN',176],genttl:['#dc8be0','TTL',224],gengnd:['#4c6058','GEN GND',128],ch1tip:['#f1d63a','CH1 tip',272],ch1gnd:['#5e5e5e','CH1 GND',80],ch2tip:['#63b9ff','CH2 tip',464],ch2gnd:['#333333','CH2 GND',544]};
+  const leadStyle=profile.leads;
   function instrumentDocks(leads) {
     const docks=new Map();
     for(const side of ['left','right']){
@@ -183,7 +194,7 @@
     return docks;
   }
   function routeGeometry() {
-    const geometry=state.components.map(comp=>comp.type==='opamp'?{id:comp.id,type:comp.type,startCol:comp.startCol}:{id:comp.id,type:comp.type,value:comp.value,a:representativePoint(comp.a,comp,'a'),b:representativePoint(comp.b,comp,'b')});
+    const geometry=state.components.map(comp=>comp.type==='opamp'?{id:comp.id,type:comp.type,startCol:comp.startCol}:{id:comp.id,type:comp.type,value:comp.value,a:representativePoint(comp.a,comp,'a'),b:representativePoint(comp.b,comp,'b'),w:comp.type==='potentiometer'?representativePoint(comp.w,comp,'w'):null});
     const leads=Object.keys(leadStyle).filter(key=>getLead(key)).map(key=>({id:key,a:leadPoint(key)}));
     const docks=instrumentDocks(leads),obstacles=[],connections=[];
     for(const comp of geometry) {
@@ -207,7 +218,12 @@
             obstacles.push({left:mx-half-8,right:mx+half+8,top:my-39,bottom:my-10,owner:comp.id,kind:'label'});
           }
         }
-        for(const p of [comp.a,comp.b])obstacles.push({left:p.x-14,right:p.x+14,top:p.y-14,bottom:p.y+14,terminal:true,owner:comp.id});
+        if(comp.w){
+          const mid={x:(comp.a.x+comp.b.x)/2,y:(comp.a.y+comp.b.y)/2},steps=Math.max(1,Math.ceil(Math.hypot(comp.w.x-mid.x,comp.w.y-mid.y)/8));
+          for(let i=0;i<=steps;i++){const x=lerp(comp.w.x,mid.x,i/steps),y=lerp(comp.w.y,mid.y,i/steps);obstacles.push({left:x-10,right:x+10,top:y-10,bottom:y+10,owner:comp.id,kind:'lead'});}
+          obstacles.push({left:mid.x-55,right:mid.x+55,top:mid.y-45,bottom:mid.y+15,owner:comp.id,kind:'label'});
+        }
+        for(const p of [comp.a,comp.b,comp.w].filter(Boolean))obstacles.push({left:p.x-14,right:p.x+14,top:p.y-14,bottom:p.y+14,terminal:true,owner:comp.id});
       }
     }
     for(const lead of leads){
@@ -218,7 +234,7 @@
     return {geometry,leads,docks,connections,obstacles};
   }
   function ensureRoutes() {
-    const signature=JSON.stringify([state.components.map(({id,type,startCol,a,b,aHole,bHole,value})=>({id,type,startCol,a,b,aHole,bHole,value})),state.leadHoles,Object.keys(leadStyle).map(key=>getLead(key))]);
+    const signature=JSON.stringify([state.components.map(({id,type,startCol,a,b,aHole,bHole,w,wHole,position,variant,value})=>({id,type,startCol,a,b,aHole,bHole,w,wHole,position,variant,value})),state.leadHoles,Object.keys(leadStyle).map(key=>getLead(key))]);
     if(signature===routeSignature)return visualRoutes;
     const {docks,connections,obstacles}=routeGeometry();
     visualDocks=docks;visualRoutes=WireRouting.routeAll(connections,obstacles,{left:90,right:1090,top:45,bottom:575});routeSignature=signature;return visualRoutes;
@@ -262,10 +278,10 @@
 
     // Reset alignment each frame: row/column labels leave the context centered.
     c.fillStyle='#6f6557'; c.font='15px system-ui'; c.textAlign='left'; c.textBaseline='alphabetic';
-    c.fillText(`+${state.supply.plus} V`,35,bb.rows.VPLUS+5);
-    c.fillText('GND',35,bb.rows.GND_TOP+5);
-    c.fillText('GND',35,bb.rows.GND_BOTTOM+5);
-    c.fillText(`${state.supply.minus} V`,35,bb.rows.VMINUS+5);
+    c.fillText(independentRails?'Top +':`+${state.supply.plus} V`,35,bb.rows.VPLUS+5);
+    c.fillText(independentRails?'Top −':'GND',35,bb.rows.GND_TOP+5);
+    c.fillText(independentRails?'Bottom +':'GND',35,bb.rows.GND_BOTTOM+5);
+    c.fillText(independentRails?'Bottom −':`${state.supply.minus} V`,35,bb.rows.VMINUS+5);
 
     // Gap
     c.fillStyle='#cfc7b3'; c.fillRect(bb.x0-16,316,(bb.cols-1)*bb.dx+32,18);
@@ -297,7 +313,7 @@
     const selectedPart=state.components.find(c=>c.id===state.selectedId);if(selectedPart&&selectedPart.type!=='wire')drawComponent(c,selectedPart,true);
 
     const selected=state.components.find(c=>c.id===state.selectedId);
-    if(selected && selected.type!=='opamp') for(const end of ['a','b']) { const p=representativePoint(selected[end],selected,end); c.fillStyle='#fff'; c.strokeStyle='#0874cb'; c.lineWidth=3; c.beginPath(); c.arc(p.x,p.y,8,0,Math.PI*2); c.fill(); c.stroke(); c.fillStyle='#164978'; c.font='bold 13px system-ui'; c.fillText(`${end.toUpperCase()} · ${holeName(physicalHole(selected,end))}`,p.x,p.y-14); }
+    if(selected && selected.type!=='opamp') for(const end of terminalKeys(selected)) { const p=representativePoint(selected[end],selected,end); c.fillStyle='#fff'; c.strokeStyle='#0874cb'; c.lineWidth=3; c.beginPath(); c.arc(p.x,p.y,8,0,Math.PI*2); c.fill(); c.stroke(); c.fillStyle='#164978'; c.font='bold 13px system-ui'; c.fillText(`${end.toUpperCase()} · ${holeName(physicalHole(selected,end))}`,p.x,p.y-14); }
     if (state.pendingNode) {
       const p=state.pendingHole ? holePoint(state.pendingHole) : nodePosition(state.pendingNode);
       if (p) { c.strokeStyle='#ffffff'; c.lineWidth=2; c.beginPath(); c.arc(p.x,p.y,10,0,Math.PI*2); c.stroke(); }
@@ -306,6 +322,7 @@
 
   function representativePoint(node, comp, which) {
     if (!node) return null;
+    if(independentRails&&Object.hasOwn(railNames,node)&&!comp?.[which+'Hole'])return nodePosition(node);
     if (comp?.[which+'Hole']) return holePoint(comp[which+'Hole']);
     if (node === 'GND') {
       const other = which === 'a' ? comp?.b : comp?.a;
@@ -323,18 +340,20 @@
   function drawComponent(c, comp, selected) {
     c.save();
     if (selected) { c.shadowColor='#70b6ff'; c.shadowBlur=10; }
-    if (comp.type === 'wire' || comp.type === 'resistor' || comp.type === 'capacitor') {
+    if (comp.type === 'wire' || comp.type === 'resistor' || comp.type === 'capacitor' || comp.type === 'potentiometer') {
       const a=representativePoint(comp.a,comp,'a'), b=representativePoint(comp.b,comp,'b');
       if (!a||!b) return c.restore();
       if (comp.type === 'wire') {
         drawRoute(c,comp.id,comp.color||'#47a86e',4);
-      } else if (comp.type === 'resistor') {
+      } else if (comp.type === 'resistor' || comp.type === 'potentiometer') {
         const mx=(a.x+b.x)/2, my=(a.y+b.y)/2,angle=Math.atan2(b.y-a.y,b.x-a.x),ux=Math.cos(angle),uy=Math.sin(angle);
         c.strokeStyle='#474038'; c.lineWidth=3; c.beginPath(); c.moveTo(a.x,a.y); c.lineTo(mx-32*ux,my-32*uy); c.stroke();
         c.beginPath(); c.moveTo(mx+32*ux,my+32*uy); c.lineTo(b.x,b.y); c.stroke();
+        if(comp.type==='potentiometer'){const w=representativePoint(comp.w,comp,'w'),length=Math.hypot(w.x-mx,w.y-my)||1,wx=(w.x-mx)/length,wy=(w.y-my)/length,tx=mx+wx*14,ty=my+wy*14;c.strokeStyle='#15677b';c.beginPath();c.moveTo(w.x,w.y);c.lineTo(tx,ty);c.stroke();c.beginPath();c.moveTo(tx+wx*12-wy*6,ty+wy*12+wx*6);c.lineTo(tx,ty);c.lineTo(tx+wx*12+wy*6,ty+wy*12-wx*6);c.stroke();}
         c.translate(mx,my); c.rotate(Math.atan2(b.y-a.y,b.x-a.x));
-        c.fillStyle='#d8c7a0'; c.strokeStyle='#78684e'; c.lineWidth=2; c.fillRect(-32,-10,64,20); c.strokeRect(-32,-10,64,20);
+        c.fillStyle=comp.variant==='sensor'?'#a4d9c5':comp.type==='potentiometer'?'#a4cad9':'#d8c7a0'; c.strokeStyle='#78684e'; c.lineWidth=2; c.fillRect(-32,-10,64,20); c.strokeRect(-32,-10,64,20);
         c.fillStyle='#3b3328'; c.font='13px system-ui'; c.textAlign='center'; c.textBaseline='middle'; c.fillText(fmt(comp.value,'Ω'),0,0);
+        if(comp.type==='potentiometer'||comp.variant==='sensor'){c.font='bold 12px system-ui';c.fillText(comp.variant==='sensor'?'SENSOR':`W ${Math.round(comp.position*100)}%`,0,-21);}
       } else {
         c.strokeStyle='#474038'; c.lineWidth=3;
         const mx=(a.x+b.x)/2, my=(a.y+b.y)/2, ang=Math.atan2(b.y-a.y,b.x-a.x);
@@ -378,14 +397,14 @@
   // -----------------------------
   // Breadboard interaction
   // -----------------------------
-  const leadKeys=['generator','genttl','gengnd','ch1tip','ch1gnd','ch2tip','ch2gnd'];
+  const leadKeys=Object.keys(leadStyle);
   let drag=null, hoverHole=null, moveRequest=null, pan=null;
   const clone=value=>JSON.parse(JSON.stringify(value));
   function holePoint(h) { return {x:colX(h.col),y:bb.rows[h.row]}; }
   function holeRef(h) { return {row:h.row,col:h.col}; }
   function holeName(h) { return `${h.row} ${h.col}`; }
-  function getLead(key) { return key==='genttl'?state.generator.ttlNode:key==='gengnd'?state.generator.groundNode:key==='generator'?state.generatorNode:state.probes[key.slice(0,3)][key.slice(3)]; }
-  function setLead(key,h) { if(key==='generator')state.generatorNode=h?nodeFor(h.row,h.col):null;else if(key==='genttl'||key==='gengnd')state.generator[key==='genttl'?'ttlNode':'groundNode']=h?nodeFor(h.row,h.col):null;else state.probes[key.slice(0,3)][key.slice(3)]=h?nodeFor(h.row,h.col):null; if(h)state.leadHoles[key]=holeRef(h);else delete state.leadHoles[key]; }
+  function getLead(key) { if(isDivider)return state.leads[key]??null;return key==='genttl'?state.generator.ttlNode:key==='gengnd'?state.generator.groundNode:key==='generator'?state.generatorNode:state.probes[key.slice(0,3)][key.slice(3)]; }
+  function setLead(key,h) { if(isDivider){state.leads[key]=h?nodeFor(h.row,h.col):null;if(h)state.leadHoles[key]=holeRef(h);else delete state.leadHoles[key];return;}if(key==='generator')state.generatorNode=h?nodeFor(h.row,h.col):null;else if(key==='genttl'||key==='gengnd')state.generator[key==='genttl'?'ttlNode':'groundNode']=h?nodeFor(h.row,h.col):null;else state.probes[key.slice(0,3)][key.slice(3)]=h?nodeFor(h.row,h.col):null; if(h)state.leadHoles[key]=holeRef(h);else delete state.leadHoles[key]; }
   function leadPoint(key) { return state.leadHoles[key]?holePoint(state.leadHoles[key]):nodePosition(getLead(key),key.startsWith('ch2')?'bottom':null); }
   function physicalHole(comp,end) { return comp[end+'Hole'] || holeRef(nearestHole(...Object.values(representativePoint(comp[end],comp,end)))); }
   function putEnd(comp,end,h) { comp[end+'Hole']=holeRef(h);comp[end]=nodeFor(h.row,h.col); }
@@ -394,7 +413,7 @@
   const leadOwner=key=>'lead:'+key;
   function componentHoles(comp){
     if(comp.type==='opamp')return UA741.holes(comp).map(item=>({hole:item.hole,label:`${comp.id} pin ${item.pin} (${item.function})`}));
-    return ['a','b'].map(end=>({hole:physicalHole(comp,end),label:`${comp.id} terminal ${end.toUpperCase()}`}));
+    return terminalKeys(comp).map(end=>({hole:physicalHole(comp,end),label:`${comp.id} terminal ${end.toUpperCase()}`}));
   }
   function holeOccupants(){
     const entries=[];
@@ -418,12 +437,12 @@
   // Work on a copy so a full strip or overlapping IC cannot partially load a lab.
   function prepareLayout(board,repairExisting=false){
     const result=clone(board),used=new Set(),pending=[];let relocated=0;
-    SFG1013.normalize(result.generator);result.leadHoles ||= {};
+    if(!isDivider)SFG1013.normalize(result.generator);result.leadHoles ||= {};
     const reserve=(hole,label)=>{const id=holeId(hole);if(used.has(id))throw new Error(`${holeName(hole)} is occupied (${label}).`);used.add(id);};
     for(const comp of result.components)if(comp.type==='opamp')for(const item of componentHoles(comp))reserve(item.hole,item.label);
     const terminals=[];
-    for(const comp of result.components)if(comp.type!=='opamp')for(const end of ['a','b'])terminals.push({node:comp[end],preferred:physicalHole(comp,end),explicit:!!comp[end+'Hole'],label:`${comp.id} ${end.toUpperCase()}`,set:hole=>putEnd(comp,end,hole)});
-    for(const key of leadKeys){const node=key==='generator'?result.generatorNode:key==='genttl'?result.generator.ttlNode:key==='gengnd'?result.generator.groundNode:result.probes[key.slice(0,3)][key.slice(3)];if(node)terminals.push({node,preferred:result.leadHoles[key]||holeRef(nearestHole(...Object.values(nodePosition(node,key.startsWith('ch2')?'bottom':null)))),explicit:!!result.leadHoles[key],label:key,set:hole=>result.leadHoles[key]=holeRef(hole)});}
+    for(const comp of result.components)if(comp.type!=='opamp')for(const end of terminalKeys(comp))terminals.push({node:comp[end],preferred:physicalHole(comp,end),explicit:!!comp[end+'Hole'],label:`${comp.id} ${end.toUpperCase()}`,set:hole=>putEnd(comp,end,hole)});
+    for(const key of leadKeys){const node=isDivider?result.leads[key]:key==='generator'?result.generatorNode:key==='genttl'?result.generator.ttlNode:key==='gengnd'?result.generator.groundNode:result.probes[key.slice(0,3)][key.slice(3)];if(node)terminals.push({node,preferred:result.leadHoles[key]||holeRef(nearestHole(...Object.values(nodePosition(node,key.startsWith('ch2')?'bottom':null)))),explicit:!!result.leadHoles[key],label:key,set:hole=>result.leadHoles[key]=holeRef(hole)});}
     // Preserve existing unique holes before assigning generated positions.
     for(const item of terminals){if(item.explicit&&nodeFor(item.preferred.row,item.preferred.col)!==item.node)throw new Error(`Hole and electrical net disagree for ${item.label}.`);if(item.explicit&&!used.has(holeId(item.preferred))){reserve(item.preferred,item.label);item.set(item.preferred);}else{if(item.explicit&&!repairExisting)throw new Error(`${holeName(item.preferred)} is occupied (${item.label}).`);pending.push(item);}}
     for(const item of pending){
@@ -434,18 +453,19 @@
     return {board:result,relocated};
   }
   function leadAt(p) { return leadKeys.slice().reverse().find(key=>{const h=getLead(key)&&leadPoint(key);return h&&Math.hypot(h.x-p.x,h.y-p.y)<13;}); }
-  function boardSnapshot() { return JSON.stringify({components:state.components,generatorNode:state.generatorNode,probes:state.probes,leadHoles:state.leadHoles,supply:state.supply,generator:state.generator}); }
+  function boardSnapshot() { if(isDivider)return JSON.stringify({components:state.components,leads:state.leads,leadHoles:state.leadHoles,supply:state.supply,meter:state.meter});return JSON.stringify({components:state.components,generatorNode:state.generatorNode,probes:state.probes,leadHoles:state.leadHoles,supply:state.supply,generator:state.generator}); }
   const history={past:[],future:[],current:null};
   function recordBoard() { const next=boardSnapshot();if(history.current!==next){if(history.current)history.past.push(history.current);if(history.past.length>100)history.past.shift();history.current=next;history.future=[];}updateHistoryButtons(); }
   function updateHistoryButtons() { document.getElementById('undoBtn').disabled=!history.past.length;document.getElementById('redoBtn').disabled=!history.future.length; }
-  function undoBoard(redo=false) { cancelGesture();document.getElementById('pinoutNotice').hidden=true;const from=redo?history.future:history.past,to=redo?history.past:history.future;if(!from.length)return;to.push(history.current);history.current=from.pop();Object.assign(state,JSON.parse(history.current));state.selectedId=null;syncInputs();updateAll();toast(redo?'Circuit edit redone.':'Circuit edit undone.'); }
-  function cancelGesture() { pan=null;if(drag){if(drag.comp)Object.assign(drag.comp,drag.original);else setLead(drag.key,drag.original);drag=null;}moveRequest=null;state.pendingNode=null;state.pendingHole=null;hoverHole=null;drawBreadboard(); }
+  function undoBoard(redo=false) { cancelGesture();if(!isDivider)document.getElementById('pinoutNotice').hidden=true;const from=redo?history.future:history.past,to=redo?history.past:history.future;if(!from.length)return;to.push(history.current);history.current=from.pop();Object.assign(state,JSON.parse(history.current));state.selectedId=null;syncInputs();updateAll();toast(redo?'Circuit edit redone.':'Circuit edit undone.'); }
+  function cancelGesture() { pan=null;if(drag){if(drag.comp)Object.assign(drag.comp,drag.original);else setLead(drag.key,drag.original);drag=null;}moveRequest=null;state.pendingNode=null;state.pendingHole=null;state.pendingSecond=null;hoverHole=null;drawBreadboard(); }
   function hint(text) { document.getElementById('placementHint').textContent=text; }
   function setTool(tool) {
     cancelGesture();state.selectedTool=tool;
     document.querySelectorAll('#toolBar button').forEach(b=>{b.classList.toggle('active',b.dataset.tool===tool);b.setAttribute('aria-pressed',String(b.dataset.tool===tool));});
-    const hints={pan:'Drag to pan the zoomed board. Use Select to move components.',select:'Drag a part to move it. Select a part, then drag its A / B handles to reconnect a terminal. Arrow keys nudge; Esc cancels.',wire:'Click two holes for a wire. Esc cancels the first hole.',resistor:'Click two holes for a resistor. Esc cancels the first hole.',capacitor:'Click two holes for a capacitor. Esc cancels the first hole.',opamp:'Click the main board to place an UA741 across the center gap.',generator:'Click a hole for the SFG MAIN output.',genttl:'Click a hole for the SFG TTL output.',gengnd:'Click a hole for the common grounded generator return.',ch1tip:'Click a hole for CH1 tip.',ch1gnd:'Click a hole for CH1 ground.',ch2tip:'Click a hole for CH2 tip.',ch2gnd:'Click a hole for CH2 ground.',erase:'Click a part or a lead endpoint to remove it. Undo restores it.'};
+    const hints={pan:'Drag to pan the zoomed board. Use Select to move components.',select:'Drag a part to move it. Select a part, then drag its terminal handles to reconnect a terminal. Arrow keys nudge; Esc cancels.',wire:'Click two holes for a wire. Esc cancels the first hole.',resistor:'Click two holes for a resistor. Esc cancels the first hole.',capacitor:'Click two holes for a capacitor. Esc cancels the first hole.',opamp:'Click the main board to place an UA741 across the center gap.',generator:'Click a hole for the SFG MAIN output.',genttl:'Click a hole for the SFG TTL output.',gengnd:'Click a hole for the common grounded generator return.',ch1tip:'Click a hole for CH1 tip.',ch1gnd:'Click a hole for CH1 ground.',ch2tip:'Click a hole for CH2 tip.',ch2gnd:'Click a hole for CH2 ground.',erase:'Click a part or a lead endpoint to remove it. Undo restores it.'};
     document.querySelectorAll('#toolBar [data-tool]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tool===tool)));
+    Object.assign(hints,{potentiometer:'Choose terminal A, terminal B, then wiper W. Escape cancels the whole part.',sensor:'Choose two holes for an adjustable resistance sensor.',supplyPositive:'Connect the DC positive lead to a free hole.',supplyNegative:'Connect the DC negative lead to a free hole.',meterRed:'Connect the red meter probe to a free hole.',meterBlack:'Connect the black meter probe to a free hole.'});
     hint(hints[tool]);bb.canvas.style.cursor=['select','pan'].includes(tool)?'grab':'crosshair';drawBreadboard();
   }
   function opFits(comp,col) { return col>=1&&col<=27&&!componentConflict({...comp,startCol:col}); }
@@ -453,7 +473,7 @@
     const next=clone(comp);
     if(comp.type==='opamp'){if(dr||!opFits(comp,comp.startCol+dc))return null;next.startCol+=dc;return next;}
     const rows=Object.keys(bb.rows).sort((a,b)=>bb.rows[a]-bb.rows[b]);
-    for(const end of ['a','b']){const h=physicalHole(comp,end),row=rows[rows.indexOf(h.row)+dr],col=h.col+dc;if(!row||col<1||col>30)return null;putEnd(next,end,{row,col});}
+    for(const end of terminalKeys(comp)){const h=physicalHole(comp,end),row=rows[rows.indexOf(h.row)+dr],col=h.col+dc;if(!row||col<1||col>30)return null;putEnd(next,end,{row,col});}
     return componentConflict(next)?null:next;
   }
   function commitMove(comp,next) { if(!next){toast('That move uses an occupied hole or goes outside the board.');return;}Object.assign(comp,next);state.challenge.actions++;updateAll(); }
@@ -465,7 +485,7 @@
     if(moveRequest){if(hole){const {comp,end}=moveRequest;const other=physicalHole(comp,end==='a'?'b':'a');if(other.row===hole.row&&other.col===hole.col)return toast('Terminals need distinct physical holes.');if(!reconnectEnd(comp,end,hole))return;moveRequest=null;updateAll();hint('Terminal moved. Drag a part or select another terminal.');}return;}
     if(tool==='select'||tool==='erase'){
       const selected=state.components.find(c=>c.id===state.selectedId);
-      const end=selected&&selected.type!=='opamp'&&['a','b'].find(k=>{const h=representativePoint(selected[k],selected,k);return Math.hypot(h.x-p.x,h.y-p.y)<13;});
+      const end=selected&&selected.type!=='opamp'&&terminalKeys(selected).find(k=>{const h=representativePoint(selected[k],selected,k);return Math.hypot(h.x-p.x,h.y-p.y)<13;});
       let key=!end&&leadAt(p),hit=end?selected:(!key&&findComponentAt(p.x,p.y));
       if(!end&&!key&&!hit)key=leadKeys.slice().reverse().find(k=>getLead(k)&&WireRouting.hit(ensureRoutes().get(k).points,p,8));
       if(tool==='erase'){if(key){setLead(key,null);updateAll();}else if(hit)removeComponent(hit.id);return;}
@@ -474,19 +494,20 @@
       return;
     }
     if(!hole){toast('Choose a breadboard hole.');return;}
-    if(tool==='opamp'){
+    if(tool==='opamp'&&profile.tools.includes('opamp')){
       if(!/^[TB]:/.test(hole.node))return toast('Place the IC on the main board.');
       const comp={id:uid('U'),type:'opamp',model:'UA741',startCol:clamp(hole.col-1,1,27),openLoopGain:200000,gainBandwidth:1e6,outputHeadroom:2,slewRate:0.5e6};
       if(!opFits(comp,comp.startCol))return toast(componentConflict(comp)||'The IC does not fit here.');
       state.components.push(comp);state.selectedId=comp.id;updateAll();return;
     }
     if(leadKeys.includes(tool)){const error=leadConflict(tool,hole);if(error)return toast(error);setLead(tool,hole);state.selectedId=tool;updateAll();return;}
-    if(['wire','resistor','capacitor'].includes(tool)){
+    if(profile.tools.includes(tool)){
       const hit=occupiedAt(hole);if(hit)return toast(`${holeName(hole)} is occupied by ${hit.label}. Choose another hole.`);
       if(!state.pendingHole){state.pendingHole=holeRef(hole);state.pendingNode=hole.node;hint(`First terminal: ${holeName(hole)}. Choose the second hole; Esc cancels.`);drawBreadboard();return;}
       if(state.pendingHole.row===hole.row&&state.pendingHole.col===hole.col)return toast('Choose a different hole for the second terminal.');
-      const comp={id:uid(tool[0].toUpperCase()),type:tool,value:{wire:null,resistor:10000,capacitor:100e-9}[tool],color:'#48a26a'};
-      putEnd(comp,'a',state.pendingHole);putEnd(comp,'b',hole);const error=componentConflict(comp);if(error)return toast(error);state.components.push(comp);state.selectedId=comp.id;state.pendingNode=null;state.pendingHole=null;state.challenge.actions++;updateAll();hint('Part placed. Choose two holes for another, or Select to move it.');
+      if(tool==='potentiometer'&&!state.pendingSecond){state.pendingSecond=holeRef(hole);hint('Now choose the wiper terminal W; Escape cancels the whole potentiometer.');drawBreadboard();return;}
+      const comp={id:uid(tool[0].toUpperCase()),type:tool==='sensor'?'resistor':tool,value:{wire:null,resistor:10000,sensor:10000,potentiometer:10000,capacitor:profile.defaults.capacitor??100e-9}[tool],color:'#48a26a',...(tool==='sensor'?{variant:'sensor'}:{}),...(tool==='potentiometer'?{position:0.5}:{})};
+      putEnd(comp,'a',state.pendingHole);putEnd(comp,'b',state.pendingSecond||hole);if(tool==='potentiometer')putEnd(comp,'w',hole);const error=componentConflict(comp);if(error)return toast(error);state.components.push(comp);state.selectedId=comp.id;state.pendingNode=null;state.pendingHole=null;state.pendingSecond=null;state.challenge.actions++;updateAll();hint('Part placed. Choose two holes for another, or Select to move it.');
     }
   });
   bb.canvas.addEventListener('pointermove',e=>{
@@ -538,6 +559,7 @@
         const route=ensureRoutes().get(comp.id);if(route&&WireRouting.hit(route.points,{x,y},10))return comp;
       } else {
         const a=representativePoint(comp.a,comp,'a'),b=representativePoint(comp.b,comp,'b'); if(!a||!b) continue;
+        if(comp.type==='potentiometer'){const w=representativePoint(comp.w,comp,'w');if(WireRouting.hit([w,{x:(a.x+b.x)/2,y:(a.y+b.y)/2}],{x,y},12))return comp;}
         const dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy; const t=clamp(((x-a.x)*dx+(y-a.y)*dy)/(len2||1),0,1);
         const px=a.x+t*dx,py=a.y+t*dy;
         if ((x-px)**2+(y-py)**2 < (comp.type==='wire'?10:18)**2) return comp;
@@ -550,7 +572,7 @@
   }
 
   function normalizePositions() {
-    SFG1013.normalize(state.generator);
+    if(!isDivider)SFG1013.normalize(state.generator);
     state.leadHoles ||= {};
     for(const comp of state.components)if(comp.type==='opamp'){comp.model='UA741';comp.gainBandwidth??=1e6;comp.outputHeadroom??=2;}
     const prepared=prepareLayout(JSON.parse(boardSnapshot()));
@@ -564,7 +586,7 @@
   function updateEditor() {
     const el=document.getElementById('selectedComponentEditor'),list=document.getElementById('componentList');
     list.replaceChildren(new Option('Choose a part or connected lead…',''));
-    for(const c of state.components)list.add(new Option(`${c.id} · ${c.type}${c.value?' · '+fmt(c.value,c.type==='resistor'?'Ω':'F'):''}`,c.id));
+    for(const c of state.components)list.add(new Option(`${c.id} · ${c.variant==='sensor'?'resistance sensor':c.type}${c.value?' · '+fmt(c.value,c.type==='resistor'||c.type==='potentiometer'?'Ω':'F'):''}`,c.id));
     for(const key of leadKeys)if(getLead(key))list.add(new Option(key==='generator'?'SFG MAIN lead':key==='genttl'?'SFG TTL lead':key==='gengnd'?'SFG common return':key.toUpperCase(),key));
     list.value=state.selectedId||'';
     const comp=state.components.find(c=>c.id===state.selectedId),key=leadKeys.includes(state.selectedId)&&state.selectedId;
@@ -577,37 +599,40 @@
       el.querySelector('#deleteSelected').onclick=()=>{setLead(key,null);state.selectedId=null;updateAll();};return;
     }
     el.innerHTML=`<strong>${comp.id} · ${comp.type==='opamp'?'UA741 DIP-8':comp.type}</strong>`;
-    if(comp.type==='resistor'||comp.type==='capacitor')el.innerHTML+=`<label>${comp.type==='resistor'?'Resistance (Ω)':'Capacitance (F)'}<input id="editValue" type="text" value="${comp.value}" spellcheck="false"></label><span class="small">Accepts values such as 10k, 1M, 100n or 0.000001.</span>`;
+    if(comp.type==='resistor'||comp.type==='capacitor'||comp.type==='potentiometer')el.innerHTML+=`<label>${comp.type==='potentiometer'?'Total track resistance (Ω)':comp.type==='resistor'?'Resistance (Ω)':'Capacitance (F)'}<input id="editValue" type="text" value="${comp.value}" spellcheck="false"></label><span class="small">Accepts values such as 10k, 1M, 100n or 0.000001.</span>`;
     if(comp.type==='wire')el.innerHTML+=`<label>Wire color<input id="editColor" type="color" value="${comp.color||'#48a26a'}"></label>`;
     if(comp.type==='opamp'){
       el.innerHTML+=`<label>Start column (pins 1 / 8)<input id="editColumn" type="number" min="1" max="27" step="1" value="${comp.startCol}"></label><label>Open-loop gain<input id="editGain" type="number" min="1" value="${comp.openLoopGain}"></label><label>Slew rate (V/µs)<input id="editSlew" type="number" min="0.01" step="0.1" value="${comp.slewRate/1e6}"></label><p class="small">UA741 behavioral model: 1 MHz gain-bandwidth, 2 V output headroom approximation. Slides along the center gap. Existing wires stay in their holes; reconnect them after moving the IC.</p>`;
     }else{
       el.innerHTML+=positionFields(physicalHole(comp,'a'),'a','Terminal A')+positionFields(physicalHole(comp,'b'),'b','Terminal B')+'<button id="applyPosition">Apply positions</button><div class="edit-actions"><button id="moveA">Reconnect A…</button><button id="moveB">Reconnect B…</button></div>';
+      if(comp.type==='potentiometer')el.innerHTML+=positionFields(physicalHole(comp,'w'),'w','Wiper W')+'<button id="moveW">Reconnect W…</button><label>Wiper position (%)<input id="editWiper" type="range" min="0" max="100" step="1" value="'+comp.position*100+'"></label><output id="wiperReadout">'+comp.position*100+'%</output>';
+      if(comp.variant==='sensor')el.innerHTML+='<label>Sensor resistance (logarithmic)<input id="editSensor" type="range" min="2" max="6" step="0.01" value="'+Math.log10(comp.value)+'"></label>';
       el.innerHTML+=`<p class="small">A: ${nodeLabel(comp.a)}<br>B: ${nodeLabel(comp.b)}<br>Each A–E column is connected; each F–J column is connected. Moving within a strip preserves the connection.</p>`;
     }
     el.innerHTML+='<div class="edit-actions"><button id="nudgeLeft" aria-label="Move left one column">← Move</button><button id="nudgeRight" aria-label="Move right one column">Move →</button></div><button id="deleteSelected" class="danger">Delete part</button>';
-    function numberEdit(id,apply,min){const input=el.querySelector('#'+id);if(input)input.onchange=()=>{const v=id==='editValue'?engParse(input.value):Number(input.value);if(!input.value.trim()||!Number.isFinite(v)||v<min){toast('Enter a valid positive value.');updateEditor();return;}apply(v);updateAll();};}
+    function numberEdit(id,apply,min){const input=el.querySelector('#'+id);if(input)input.onchange=()=>{const v=id==='editValue'?engParse(input.value):Number(input.value);if(!input.value.trim()||!Number.isFinite(v)||v<min||(isDivider&&id==='editValue'&&(v<100||v>1e6))||(id==='editValue'&&profile.ranges?.[comp.type]&&(v<profile.ranges[comp.type][0]||v>profile.ranges[comp.type][1]))){toast(isRc?'Use 100 Ω–1 MΩ resistors or 100 pF–10 µF capacitors.':isDivider?'Enter a resistance from 100 Ω to 1 MΩ.':'Enter a valid positive value.');updateEditor();return;}apply(v);updateAll();};}
     numberEdit('editValue',v=>comp.value=v,1e-15);numberEdit('editGain',v=>comp.openLoopGain=v,1);numberEdit('editSlew',v=>comp.slewRate=v*1e6,.01);
+    for(const [id,apply] of [['editWiper',v=>comp.position=v/100],['editSensor',v=>comp.value=10**v]]){const input=el.querySelector('#'+id);if(input){input.oninput=()=>{apply(Number(input.value));drawBreadboard();simulateAndRender();const readout=el.querySelector('#wiperReadout');if(readout)readout.textContent=input.value+'%';};input.onchange=()=>updateAll();}}
     const col=el.querySelector('#editColumn');if(col)col.onchange=()=>{const n=Number(col.value);if(!Number.isInteger(n)||!opFits(comp,n)){toast('Choose an available start column from 1 to 27.');updateEditor();return;}comp.startCol=n;updateAll();};
     const color=el.querySelector('#editColor');if(color)color.onchange=()=>{comp.color=color.value;updateAll();};
-    const apply=el.querySelector('#applyPosition');if(apply)apply.onclick=()=>{const a=readPosition('a'),b=readPosition('b');if(!a||!b)return;if(a.row===b.row&&a.col===b.col)return toast('Terminals need distinct physical holes.');const next=clone(comp);putEnd(next,'a',a);putEnd(next,'b',b);const error=componentConflict(next);if(error)return toast(error);Object.assign(comp,next);updateAll();};
-    for(const end of ['a','b']){const button=el.querySelector('#move'+end.toUpperCase());if(button)button.onclick=()=>{setTool('select');moveRequest={comp,end};bb.canvas.scrollIntoView({block:'center'});hint(`Click the new hole for ${comp.id} terminal ${end.toUpperCase()}. Esc cancels.`);};}
+    const apply=el.querySelector('#applyPosition');if(apply)apply.onclick=()=>{const a=readPosition('a'),b=readPosition('b');if(!a||!b)return;if(a.row===b.row&&a.col===b.col)return toast('Terminals need distinct physical holes.');const next=clone(comp);putEnd(next,'a',a);putEnd(next,'b',b);if(comp.type==='potentiometer'){const w=readPosition('w');if(!w)return;putEnd(next,'w',w);}const error=componentConflict(next);if(error)return toast(error);Object.assign(comp,next);updateAll();};
+    for(const end of terminalKeys(comp)){const button=el.querySelector('#move'+end.toUpperCase());if(button)button.onclick=()=>{setTool('select');moveRequest={comp,end};bb.canvas.scrollIntoView({block:'center'});hint(`Click the new hole for ${comp.id} terminal ${end.toUpperCase()}. Esc cancels.`);};}
     el.querySelector('#nudgeLeft').onclick=()=>commitMove(comp,translated(comp,-1,0));el.querySelector('#nudgeRight').onclick=()=>commitMove(comp,translated(comp,1,0));
     el.querySelector('#deleteSelected').onclick=()=>removeComponent(comp.id);
   }
   function readPosition(prefix) {const row=document.getElementById(prefix+'Row').value,col=Number(document.getElementById(prefix+'Col').value);if(!Number.isInteger(col)||col<1||col>30){toast('Choose a column from 1 to 30.');return null;}return {row,col};}
   document.getElementById('componentList').onchange=e=>{setTool('select');state.selectedId=e.target.value||null;updateEditor();drawBreadboard();};
 
+  if(isDivider){
+    dividerRuntime=DividerRuntime.create({state,profile,fmt,engParse,toast,boardSnapshot,prepareLayout,clone,setTool,setLead,putEnd,nodeFor,terminalKeys,cancelGesture,
+      isEditing:()=>!!(drag||state.pendingHole||moveRequest),
+      refreshBoard(){normalizePositions();recordBoard();drawBreadboard();updateEditor();},history});
+    dividerRuntime.init();return;
+  }
+
   // -----------------------------
   // Union-find and circuit solver
   // -----------------------------
-  class UnionFind {
-    constructor(){this.p=new Map();}
-    add(x){if(!this.p.has(x))this.p.set(x,x);}
-    find(x){this.add(x);let p=this.p.get(x);if(p!==x){p=this.find(p);this.p.set(x,p);}return p;}
-    union(a,b){a=this.find(a);b=this.find(b);if(a!==b)this.p.set(b,a);}
-  }
-
   function buildConnectivity(includeProbeGrounds=true) {
     SFG1013.normalize(state.generator);
     const uf=new UnionFind();
@@ -630,6 +655,7 @@
   function isConnected(uf,a,b){return uf.find(a)===uf.find(b);}
 
   function validateCircuit() {
+    if(isRc){try{return RcEngine.prepare(state);}catch(error){return {warnings:[error.message],uf:new UnionFind()};}}
     const warnings=[]; const uf=buildConnectivity();
     const ops=state.components.filter(c=>c.type==='opamp');
     if(!state.generatorNode&&!state.generator.ttlNode)warnings.push('Function generator lead is not connected.');
@@ -651,19 +677,6 @@
     return {warnings,uf};
   }
 
-  function gaussianSolve(A,b){
-    const n=b.length; const M=A.map((r,i)=>r.slice().concat([b[i]]));
-    for(let k=0;k<n;k++){
-      let p=k,max=Math.abs(M[k][k]);
-      for(let i=k+1;i<n;i++){const v=Math.abs(M[i][k]);if(v>max){max=v;p=i;}}
-      if(max<1e-13) throw new Error('Circuit matrix is singular. Check for floating nodes, shorted voltage sources, or missing return paths.');
-      if(p!==k){const tmp=M[k];M[k]=M[p];M[p]=tmp;}
-      const pivot=M[k][k]; for(let j=k;j<=n;j++)M[k][j]/=pivot;
-      for(let i=0;i<n;i++)if(i!==k){const f=M[i][k]; if(Math.abs(f)<1e-18)continue; for(let j=k;j<=n;j++)M[i][j]-=f*M[k][j];}
-    }
-    return M.map(r=>r[n]);
-  }
-
   function generatorVoltage(t){return SFG1013.voltage(state.generator,t);}
 
   function buildNetlist(uf) {
@@ -680,6 +693,7 @@
   }
 
   function solveCircuitWaveforms() {
+    if(isRc)return RcEngine.solve(state,{window:Math.max(horizontalDiv()*10,1e-7),sourceAt:(t,port)=>SFG1013.voltage(state.generator,t,port)});
     const {warnings,uf}=validateCircuit(); state.sim.warnings=warnings;
     const net=buildNetlist(uf), ground=net.ground;
     const window=Math.max(horizontalDiv()*10, 1e-7);
@@ -713,12 +727,8 @@
     const probeDiff=(sol,ch)=>nodeV(sol,probeNode(ch,'tip'))-nodeV(sol,probeNode(ch,'gnd'));
     const nodeV=(sol,n)=>n===ground?0:(sol[ni.get(n)]??0);
 
-    function stampG(A,a,b,g){
-      if(a!==ground)A[ni.get(a)][ni.get(a)]+=g;
-      if(b!==ground)A[ni.get(b)][ni.get(b)]+=g;
-      if(a!==ground&&b!==ground){A[ni.get(a)][ni.get(b)]-=g;A[ni.get(b)][ni.get(a)]-=g;}
-    }
-    function stampI(rhs,a,b,i){if(a!==ground)rhs[ni.get(a)]-=i;if(b!==ground)rhs[ni.get(b)]+=i;}
+    function stampG(A,a,b,g){TransientEngine.stampG(A,ni,ground,a,b,g);}
+    function stampI(rhs,a,b,i){TransientEngine.stampI(rhs,ni,ground,a,b,i);}
 
     function solveStep(t, clamps = new Map()) {
       const sources=[];
@@ -740,7 +750,7 @@
       if(mainActive)stampG(A,genInternal,net.gen,1/50);
       if(net.gen&&state.generator.termination&&state.generator.groundNode)stampG(A,net.gen,ground,1/50);
       for(const r of net.resistors){const g=1/Math.max(r.value,1e-12);stampG(A,r.a,r.b,g);}
-      for(const cap of net.capacitors){const g=cap.value/actualDt;stampG(A,cap.a,cap.b,g);stampI(rhs,cap.a,cap.b,-g*capPrev.get(cap.id));}
+      for(const cap of net.capacitors)TransientEngine.stampCapacitor(A,rhs,ni,ground,cap,actualDt,capPrev.get(cap.id));
       sources.forEach((s,si)=>{
         const k=nodes.length+si;
         if(s.p!==ground){A[ni.get(s.p)][k]+=1;A[k][ni.get(s.p)]+=1;}
@@ -857,7 +867,7 @@
   }
   function normalizeMeasurements(){scope.measure={...defaultScope().measure,...scope.measure};scope.measure.items=scope.measure.items.slice(0,8).map(item=>typeof item==='string'?{name:item==='Vpp'?'Pk-Pk':item,source:scope.measure.source}:item);}
   function measurementResult(item,frame) {
-    const missing=source=>source==='Math'?(!scope.math.enabled?'Math is off':null):!scope[source.toLowerCase()]?.enabled?`${source} is off`:!state.probes[source.toLowerCase()]?.tip&&scope.running?'Probe tip disconnected':!state.probes[source.toLowerCase()]?.gnd&&scope.running?'Probe ground disconnected':null;
+    const missing=source=>(scope.running&&currentRecord()?.channelStatus?.[source.toLowerCase()])|| (source==='Math'?(!scope.math.enabled?'Math is off':(scope.running&&(currentRecord()?.channelStatus?.ch1||currentRecord()?.channelStatus?.ch2))||null):!scope[source.toLowerCase()]?.enabled?`${source} is off`:!state.probes[source.toLowerCase()]?.tip&&scope.running?'Probe tip disconnected':!state.probes[source.toLowerCase()]?.gnd&&scope.running?'Probe ground disconnected':null);
     let reason=missing(item.source);if(measureGroups.Delay.includes(item.name))reason ||=missing(item.source2||'CH2');
     if(!frame?.visible)return {value:NaN,reason:scope.singleArmed?'Waiting for single trigger':'Waiting for trigger or acquisition'};
     if(reason)return {value:NaN,reason};
@@ -887,10 +897,10 @@
     normalizeMeasurements();
     const sim=currentRecord();
     let frame=makeDisplayFrame(sim);
-    if(scope.running&&frame?.visible){scope.frozenFrame=frame;scope.frozenRecord={traces:sim.traces,dt:sim.dt,window:sim.window,frequency:sim.frequency,triggerTime:frame.triggerTime,triggered:frame.triggered};if(scope.singleArmed&&frame.triggered){scope.running=false;scope.singleArmed=false;}}
+    if(scope.running&&frame?.visible){scope.frozenFrame=frame;scope.frozenRecord={channelStatus:sim.channelStatus,traces:sim.traces,dt:sim.dt,window:sim.window,frequency:sim.frequency,triggerTime:frame.triggerTime,triggered:frame.triggered};if(scope.singleArmed&&frame.triggered){scope.running=false;scope.singleArmed=false;}}
     syncScopeControls();
     if(frame){
-      if(frame.visible){if(scope.acquire.xy)drawXY(frame);else{if(scope.ch1.enabled)drawTrace(frame.t,frame.c1,scope.ch1,'#f1d63a');if(scope.ch2.enabled)drawTrace(frame.t,frame.c2,scope.ch2,'#63b9ff');}if(scope.math.enabled)drawMath(frame);if(scope.ref.enabled&&scope.ref.data)drawRef();}
+      if(frame.visible){if(scope.acquire.xy){if(!sim.channelStatus?.ch1&&!sim.channelStatus?.ch2)drawXY(frame);}else{if(scope.ch1.enabled&&!sim.channelStatus?.ch1)drawTrace(frame.t,frame.c1,scope.ch1,'#f1d63a');if(scope.ch2.enabled&&!sim.channelStatus?.ch2)drawTrace(frame.t,frame.c2,scope.ch2,'#63b9ff');}if(scope.math.enabled&&!sim.channelStatus?.ch1&&!sim.channelStatus?.ch2)drawMath(frame);if(scope.ref.enabled&&scope.ref.data)drawRef();}
       drawStatus(frame);
       drawMeasurements(frame);
       drawCursors(frame);
@@ -1113,7 +1123,7 @@
     ];
     if(menu==='app')return [menuItem('Go/NoGo\nApp',()=>toast('Go/NoGo menu is represented, but the physical rear-panel output is not emulated.')),menuItem('Options\nNone',()=>{}),...Array(5).fill(0).map(()=>menuItem('—',()=>{}))];
     if(menu==='bus')return [menuItem('Bus\nOff',()=>toast('Serial-bus decode is outside this analog op-amp lab build.')),menuItem('UART',()=>toast('UI scaffold only.')),menuItem('I²C',()=>toast('UI scaffold only.')),menuItem('SPI',()=>toast('UI scaffold only.')),menuItem('CAN',()=>toast('UI scaffold only.')),menuItem('LIN',()=>toast('UI scaffold only.')),menuItem('Help',()=>toast('GDS-1000B supports serial bus decode; this lab does not synthesize digital buses.'))];
-    if(menu==='help')return [menuItem('Controls',()=>toast('Swipe knobs vertically. Use the soft keys aligned with the menu labels on screen.')),menuItem('Breadboard',()=>toast('Each A–E column is connected internally; each F–J column is connected internally. Power rails run horizontally.')),menuItem('Trigger',()=>toast('A stable trace needs a valid source, level, slope, and time scale.')),menuItem('Probes',()=>toast('Probe tip measures relative to its ground clip. Bench-scope grounds are common.')),menuItem('Op-Amp',()=>toast('UA741 pins: 2 −IN, 3 +IN, 4 V−, 6 OUT, 7 V+. Pins 1, 5, 8 are unused in this model.')),menuItem('Limits',()=>toast('Not SPICE. Intended for first-pass teaching and scope-operation practice.')),menuItem('Close',()=>{scope.currentMenu=null;scope.sideMenu=null;drawScope();})];
+    if(menu==='help')return [menuItem('Controls',()=>toast('Swipe knobs vertically. Use the soft keys aligned with the menu labels on screen.')),menuItem('Breadboard',()=>toast('Each A–E column is connected internally; each F–J column is connected internally. Power rails run horizontally.')),menuItem('Trigger',()=>toast('A stable trace needs a valid source, level, slope, and time scale.')),menuItem('Probes',()=>toast('Probe tip measures relative to its ground clip. Bench-scope grounds are common.')),menuItem(isRc?'RC Filters':'Op-Amp',()=>toast(isRc?'Measure gain = CH2 Vpp / CH1 Vpp. Set phase Source 1 to CH2 and Source 2 to CH1 for output relative to input.':'UA741 pins: 2 −IN, 3 +IN, 4 V−, 6 OUT, 7 V+. Pins 1, 5, 8 are unused in this model.')),menuItem('Limits',()=>toast('Not SPICE. Intended for first-pass teaching and scope-operation practice.')),menuItem('Close',()=>{scope.currentMenu=null;scope.sideMenu=null;drawScope();})];
     return Array(7).fill(0).map(()=>menuItem('—',()=>{}));
   }
 
@@ -1196,10 +1206,10 @@
   function savedScope(data) { const defaults=defaultScope();const result={...defaults,...data,sideMenu:null,currentMenu:null};for(const key of ['ch1','ch2','horizontal','trigger','acquire','display','measure','cursor','math','ref'])result[key]={...defaults[key],...data?.[key]};return result; }
   function writeSaved(key,data) { try{localStorage.setItem(key,JSON.stringify(data));return true;}catch{toast('Browser storage is unavailable or full. Your current circuit is still open.',3500);return false;} }
   function readSaved(key) { try{const raw=localStorage.getItem(key);if(!raw){toast('No saved settings found in this browser.');return null;}return JSON.parse(raw);}catch{toast('Saved settings could not be read. Your current circuit is unchanged.',3500);return null;} }
-  function savePanel(){if(writeSaved('gds1202b-panel',{...scope,sideMenu:null}))toast('Panel settings saved.');}
-  function recallPanel(){const data=readSaved('gds1202b-panel');if(!data||typeof data!=='object')return;scope=savedScope(data);simulateAndRender();toast('Panel settings recalled.');}
-  function saveLab(){if(drag)return toast('Finish moving the part before saving.');if(writeSaved('gds1202b-lab',{pinoutVersion:UA741.pinoutVersion,state:JSON.parse(boardSnapshot()),scope:{...scope,sideMenu:null}}))toast('Lab and exact hole positions saved in this browser.');}
-  function recallLab(){const d=readSaved('gds1202b-lab');if(d)restoreLab(d);}
+  function savePanel(){if(writeSaved(storagePrefix+'-panel',{...scope,sideMenu:null}))toast('Panel settings saved.');}
+  function recallPanel(){const data=readSaved(storagePrefix+'-panel');if(!data||typeof data!=='object')return;if(isRc){try{validateSavedScope(data);}catch(error){return toast('Cannot recall panel: '+error.message);}}scope=savedScope(data);simulateAndRender();toast('Panel settings recalled.');}
+  function saveLab(){if(isRc){if(drag||state.pendingHole||moveRequest)return toast('Finish or cancel the current edit before saving.');if(writeSaved(storagePrefix+'-lab',presetSnapshot()))toast('RC circuit and instrument settings saved.');return;}if(drag)return toast('Finish moving the part before saving.');if(writeSaved('gds1202b-lab',{pinoutVersion:UA741.pinoutVersion,state:JSON.parse(boardSnapshot()),scope:{...scope,sideMenu:null}}))toast('Lab and exact hole positions saved in this browser.');}
+  function recallLab(){const d=readSaved(storagePrefix+'-lab');if(d)restoreLab(d);}
   function validateSavedScope(data){
     if(data==null)return;
     const object=v=>v&&typeof v==='object'&&!Array.isArray(v);
@@ -1207,7 +1217,7 @@
       if(model===null)return;
       if(Array.isArray(model)){
         if(!Array.isArray(value))throw new Error(`Invalid saved scope field: ${path}.`);
-        if(path==='measure.items'&&value.some(item=>typeof item!=='string'&&(!object(item)||typeof item.name!=='string'||!['CH1','CH2'].includes(item.source))))throw new Error('Invalid saved measurements.');
+        if(path==='measure.items'&&value.some(item=>typeof item!=='string'&&(!object(item)||typeof item.name!=='string'||!(isRc?['CH1','CH2','Math']:['CH1','CH2']).includes(item.source))))throw new Error('Invalid saved measurements.');
       }else if(typeof model==='object'){
         if(!object(value))throw new Error(`Invalid saved scope field: ${path}.`);
         for(const key of Object.keys(model))if(Object.hasOwn(value,key))check(value[key],model[key],path?`${path}.${key}`:key);
@@ -1221,6 +1231,7 @@
     if(data.frozenRecord!=null){const r=data.frozenRecord;if(!object(r)||!object(r.traces)||!['t','ch1','ch2'].every(key=>array(r.traces[key]))||r.traces.t.length!==r.traces.ch1.length||r.traces.t.length!==r.traces.ch2.length||!Number.isFinite(r.dt)||r.dt<=0)throw new Error('Invalid saved acquisition.');}
   }
   function normalizeSavedLab(d){
+    if(profile.validation==='rc')return RcProfile.validate(d,prepareLayout,validateSavedScope);
     if(!d||typeof d!=='object'||Array.isArray(d))throw new Error('Saved lab is invalid.');
     if(Object.hasOwn(d,'pinoutVersion')&&d.pinoutVersion!==UA741.pinoutVersion)throw new Error('Unsupported saved pinout version.');
     validateSavedScope(d.scope);
@@ -1257,14 +1268,14 @@
   function addOp(startCol=14){const op={id:uid('U'),type:'opamp',model:'UA741',startCol,openLoopGain:200000,gainBandwidth:1e6,outputHeadroom:2,slewRate:0.5e6};state.components.push(op);return op;}
   const presetSelect=document.getElementById('presetSelect');
   const presetNames=new Map([...presetSelect.options].map(option=>[option.value,option.textContent]));
-  const presetStorageKey=name=>'gds1202b-preset-'+name;
-  const customPresetIndexKey='gds1202b-custom-presets';
+  const presetPrefix=storagePrefix+'-preset-',presetStorageKey=name=>presetPrefix+name;
+  const customPresetIndexKey=storagePrefix+'-custom-presets';
   // Classroom access gate only: no server authentication or persisted unlock.
   let presetsUnlocked=false;
   let customPresets=[];
   try{const data=JSON.parse(localStorage.getItem(customPresetIndexKey)||'[]');if(Array.isArray(data))customPresets=data.filter(p=>p&&typeof p.id==='string'&&/^custom-[a-z0-9-]+$/.test(p.id)&&typeof p.name==='string'&&p.name.trim().length>0&&p.name.length<=60);}catch{toast('Custom preset names could not be read from browser storage.');}
   for(const preset of customPresets){presetNames.set(preset.id,preset.name);presetSelect.add(new Option(preset.name,preset.id));}
-  function presetSnapshot(){return {pinoutVersion:UA741.pinoutVersion,state:JSON.parse(boardSnapshot()),scope:{...scope,sideMenu:null,currentMenu:null,frozenFrame:null,frozenRecord:null,forcedTrigger:false,singleArmed:false,running:true}};}
+  function presetSnapshot(){return {...(isRc?{lab:profile.id,version:1}:{pinoutVersion:UA741.pinoutVersion}),state:JSON.parse(boardSnapshot()),scope:{...scope,sideMenu:null,currentMenu:null,frozenFrame:null,frozenRecord:null,forcedTrigger:false,singleArmed:false,running:true}};}
   function createPreset(){
     if(!requirePresetAccess())return;
     if(drag||state.pendingHole||moveRequest)return toast('Finish or cancel the current placement before saving a preset.');
@@ -1284,16 +1295,16 @@
       for(const item of index)if(item&&typeof item.id==='string'&&typeof item.name==='string')names.set(item.id,item.name);
       const presets=[];
       for(let i=0;i<localStorage.length;i++){
-        const key=localStorage.key(i);if(!key.startsWith('gds1202b-preset-'))continue;
-        const id=key.slice('gds1202b-preset-'.length),preset=JSON.parse(localStorage.getItem(key));
+        const key=localStorage.key(i);if(!key.startsWith(presetPrefix))continue;
+        const id=key.slice(presetPrefix.length),preset=JSON.parse(localStorage.getItem(key));
         if(!preset?.state||!Array.isArray(preset.state.components))throw new Error(`Saved preset ${names.get(id)||id} is invalid.`);
         presets.push({id,name:names.get(id)||id,preset:normalizeSavedLab(preset).envelope});
       }
       if(!presets.length)return toast('No locally saved presets were found in this browser tab.');
       presets.sort((a,b)=>a.id.localeCompare(b.id));
-      const bundle={format:'gds1202b-presets',version:1,exportedAt:new Date().toISOString(),presets};
+      const bundle={format:storagePrefix+'-presets',version:1,exportedAt:new Date().toISOString(),presets};
       const url=URL.createObjectURL(new Blob([JSON.stringify(bundle,null,2)],{type:'application/json'})),link=document.createElement('a');
-      link.href=url;link.download='gds1202b-saved-presets.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
+      link.href=url;link.download=storagePrefix+'-saved-presets.json';document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);
       toast(`Exported ${presets.length} saved presets. Your local presets are unchanged.`,3500);
     }catch(error){toast(`Presets could not be exported: ${error.message}`,4000);}
   }
@@ -1328,7 +1339,7 @@
     if(customPresets.some(p=>p.id===name)){
       const remaining=customPresets.filter(p=>p.id!==name);if(!writeSaved(customPresetIndexKey,remaining))return;
       try{localStorage.removeItem(presetStorageKey(name));}catch{}
-      const label=presetNames.get(name);customPresets=remaining;presetNames.delete(name);[...presetSelect.options].find(o=>o.value===name)?.remove();presetSelect.value='inverting';refreshPresetControls();toast(`Deleted “${label}”. Your current circuit is still open.`);return;
+      const label=presetNames.get(name);customPresets=remaining;presetNames.delete(name);[...presetSelect.options].find(o=>o.value===name)?.remove();presetSelect.value=isRc?'lowpass':'inverting';refreshPresetControls();toast(`Deleted “${label}”. Your current circuit is still open.`);return;
     }
 
     try{localStorage.removeItem(presetStorageKey(name));}catch{return toast('Could not restore this preset because browser storage is unavailable.');}
@@ -1365,11 +1376,11 @@
     if(customPresets.some(p=>p.id===name))return toast('This saved preset is missing. Your current circuit is unchanged.');
     document.getElementById('pinoutNotice').hidden=true;
     cancelGesture();state.leadHoles={};state.components=[];state.selectedId=null;state.pendingNode=null;state.generatorNode=null;state.probes={ch1:{tip:null,gnd:null},ch2:{tip:null,gnd:null}};
-    state.supply={plus:12,minus:-12};state.generator={waveform:'sine',frequency:1000,amplitude:1,offset:0};
+    state.supply=profile.instruments.includes('supply')?{plus:12,minus:-12}:undefined;state.generator={waveform:'sine',frequency:1000,amplitude:1,offset:0};
     scope=defaultScope();
     if(name==='blank'){state.generator.groundNode=null;state.generator.output=false;syncInputs();updateAll();return;}
-    const placement=PresetLayouts.layout(name);
-    addOp(placement.startCol);
+    const placement=isRc?RcProfile.layout(name):PresetLayouts.layout(name);
+    if(!isRc)addOp(placement.startCol);
     const hole=address=>{const [row,col]=address.split(':');return {row,col:Number(col)};};
     for(const [type,a,b,value] of placement.parts){
       const comp={id:uid(type==='wire'?'W':type==='resistor'?'R':'C'),type};
@@ -1379,7 +1390,7 @@
     }
     for(const [key,address] of Object.entries(placement.leads))setLead(key,hole(address));
     if(name==='inverting'||name==='noninverting')scope.ch2.voltsDiv=1;
-    if(name==='lowpass')state.generator.frequency=500;
+    if(!isRc&&name==='lowpass')state.generator.frequency=500;
     if(name==='integrator'){Object.assign(state.generator,{waveform:'square',frequency:200,amplitude:.5});scope.horizontal.timeDiv=.001;scope.ch2.voltsDiv=.5;}
     syncInputs();updateAll();
   }
@@ -1396,13 +1407,14 @@
     for(const ch of ['ch1','ch2'])sim.traces[ch]=sim.traces[ch].map((_,i)=>averageCapture.records.reduce((sum,r)=>sum+r[ch][i],0)/averageCapture.records.length);return sim;
   }
   function simulateAndRender(){
+    if(isDivider)return dividerRuntime.render();
     if(!scope.powered){drawScope();return;}
     try{state.sim.error=null;state.sim.last=averageAcquisition(solveCircuitWaveforms());if(scope.running)acquisitionVersion++;}
     catch(err){state.sim.error=err.message;state.sim.last=null;}
     drawScope();updateReadouts();updateStatus();
   }
   let updateTimer=null;
-  function updateAll(){normalizePositions();recordBoard();drawBreadboard();updateEditor();clearTimeout(updateTimer);updateTimer=setTimeout(simulateAndRender,20);updateStatus();updateReadouts();}
+  function updateAll(){if(isDivider)return dividerRuntime.update();normalizePositions();recordBoard();drawBreadboard();updateEditor();clearTimeout(updateTimer);updateTimer=setTimeout(simulateAndRender,20);updateStatus();updateReadouts();}
 
   function updateStatus(){
     const {warnings}=validateCircuit();const el=document.getElementById('circuitStatus'),list=document.getElementById('circuitWarnings');
@@ -1419,23 +1431,26 @@
     document.getElementById('ch1ProbeReadout').textContent=pr('ch1');document.getElementById('ch2ProbeReadout').textContent=pr('ch2');
     document.getElementById('simReadout').textContent=state.sim.error?state.sim.error:(state.sim.last?`updated · ${state.sim.last.traces.t.length} acquired samples`:'waiting');
     const score=document.getElementById('challengeScore');
+    if(!score)return;
     if(!state.challenge.enabled)score.textContent='—';else {let s=100-Math.min(50,state.challenge.actions*2)-(state.challenge.autosetUsed?20:0);score.textContent=`${Math.max(0,s)}/100`;}
   }
 
   function syncInputs(){
+    if(isDivider)return dividerRuntime.syncInputs();
     SFG1013.normalize(state.generator);SFG1013.render();
-    document.getElementById('vplusInput').value=state.supply.plus;document.getElementById('vminusInput').value=state.supply.minus;
+    if(profile.instruments.includes('supply')){document.getElementById('vplusInput').value=state.supply.plus;document.getElementById('vminusInput').value=state.supply.minus;}
     document.getElementById('waveformSelect').value=state.generator.waveform;document.getElementById('frequencyInput').value=state.generator.frequency;
     document.getElementById('amplitudeInput').value=state.generator.amplitude;document.getElementById('offsetInput').value=state.generator.offset;
   }
-  function bindNumber(id,fn){document.getElementById(id).addEventListener('change',e=>{if(!e.target.value.trim()||!Number.isFinite(Number(e.target.value))){toast('Enter a finite number.');syncInputs();return;}fn(Number(e.target.value));syncInputs();state.challenge.actions++;updateAll();});}
+  function bindNumber(id,fn){document.getElementById(id)?.addEventListener('change',e=>{if(!e.target.value.trim()||!Number.isFinite(Number(e.target.value))){toast('Enter a finite number.');syncInputs();return;}fn(Number(e.target.value));syncInputs();state.challenge.actions++;updateAll();});}
   bindNumber('vplusInput',v=>state.supply.plus=v);bindNumber('vminusInput',v=>state.supply.minus=v);bindNumber('frequencyInput',v=>SFG1013.setFrequency(v));bindNumber('amplitudeInput',v=>state.generator.amplitude=clamp(v,.2,10));bindNumber('offsetInput',v=>{state.generator.offset=clamp(v,-10,10);state.generator.offsetEnabled=v!==0;});
   document.getElementById('waveformSelect').addEventListener('change',e=>{state.generator.waveform=e.target.value;SFG1013.setFrequency(state.generator.frequency);syncInputs();updateAll();});
-  document.getElementById('challengeMode').addEventListener('change',e=>{state.challenge={enabled:e.target.checked,actions:0,autosetUsed:false,startTime:Date.now()};if(e.target.checked){scope.ch1.voltsDiv=5;scope.ch2.voltsDiv=5;scope.horizontal.timeDiv=1e-5;scope.trigger.level=4;scope.trigger.mode='Normal';toast('Challenge mode scrambled the scope. Adjust scale and trigger settings to recover the waveform.');simulateAndRender();}updateReadouts();});
+  document.getElementById('challengeMode')?.addEventListener('change',e=>{state.challenge={enabled:e.target.checked,actions:0,autosetUsed:false,startTime:Date.now()};if(e.target.checked){scope.ch1.voltsDiv=5;scope.ch2.voltsDiv=5;scope.horizontal.timeDiv=1e-5;scope.trigger.level=4;scope.trigger.mode='Normal';toast('Challenge mode scrambled the scope. Adjust scale and trigger settings to recover the waveform.');simulateAndRender();}updateReadouts();});
   document.getElementById('resetAllBtn').addEventListener('click',()=>{if(!confirm('Reset the entire lab?'))return;loadPreset('blank',true);});
 
   SFG1013.mount({getGenerator:()=>state.generator,onChange:()=>{syncInputs();state.challenge.actions++;updateAll();},setTool});
 
+  if(profile.references==='rc')RcProfile.references();
   // Initial state
   loadPreset('blank',true);
   setTool('select');

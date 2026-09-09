@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en" data-lab="voltage-divider">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Voltage Divider Lab Simulator</title>
+  <link rel="icon" href="assets/favicon.svg" />
+  <script src="embed.js"></script>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="lab-brand"><img src="assets/chula-logo.webp" width="132" height="64" alt="Chulalongkorn University" /><span class="brand-divider"></span><strong>Electronics Lab<br>For Aerospace Engineering</strong></div>
+    <div class="header-actions">
+      <button id="resetAllBtn" class="danger">Reset lab</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="lab-intro"><span class="eyebrow">THE INTERACTIVE LEARNING LAB</span><h1>Voltage Divider Lab Simulator</h1><p>Build your circuit. Connect the instruments. Measure voltage, current, and resistance.</p></div>
+    <section class="workspace-card board-section">
+      <div class="section-title-row">
+        <div>
+          <h2>1. Breadboard and circuit</h2>
+          <p>Start with a blank board and select a tool to build your circuit.</p>
+        </div>
+        <div class="preset-controls"><div class="preset-row">
+          <label>Preset
+            <select id="presetSelect">
+              <option value="blank">Blank board</option>
+              <option value="basic" disabled>Basic divider</option>
+              <option value="loaded" disabled>Loaded divider</option>
+              <option value="potentiometer" disabled>Potentiometer</option>
+              <option value="sensor" disabled>Sensor divider</option>
+            </select>
+          </label>
+          <button id="loadPresetBtn">Load</button>
+        </div>
+        <p id="presetAccessStatus" class="small" role="status">Presets are locked. Build your circuit on the blank board.</p>
+        <details id="presetAccess" class="preset-access">
+          <summary>Unlock presets</summary>
+          <form id="presetUnlockForm" class="preset-unlock-form">
+            <label for="presetPassword">Instructor password</label>
+            <div class="preset-unlock-row"><input id="presetPassword" type="password" autocomplete="off" required aria-describedby="presetAccessStatus" /><button type="submit">Unlock</button></div>
+            <p id="presetUnlockError" class="small" role="alert" hidden>Incorrect password. Try again.</p>
+          </form>
+        </details>
+        <details class="preset-manager" hidden><summary>Manage presets</summary><div class="preset-row">          <button id="savePresetBtn">Save over preset</button>
+          <button id="exportPresetsBtn" title="Download all locally saved presets, including overwritten built-in presets">Export saved presets</button>
+          <button id="restorePresetBtn" title="Remove your saved override and load the original built-in preset">Restore original</button>
+        </div><div class="preset-row new-preset-row"><label>New preset name<input id="newPresetName" type="text" maxlength="60" placeholder="e.g. My divider lab" autocomplete="off"></label><button id="createPresetBtn">Create new preset</button></div></details><p id="presetStatus" class="small" role="status"></p></div>
+      </div>
+
+      <details class="pin-guide" id="pinGuide" open>
+        <summary><span>Divider circuits &amp; measurement guide</span><span class="guide-action">View diagrams</span></summary>
+        <div class="pin-guide-content">
+          <section class="schematic-reference" aria-labelledby="schematicSelectLabel">
+            <div class="schematic-controls"><label id="schematicSelectLabel" for="schematicSelect">Circuit schematic</label><select id="schematicSelect"><option value="basic">Basic divider</option><option value="loaded">Loaded divider</option><option value="potentiometer">Potentiometer</option><option value="sensor">Sensor divider</option></select></div>
+            <p class="reference-note">Reference schematic · Changing this diagram does not change your breadboard.</p>
+            <div id="schematicViewport" class="schematic-viewport" tabindex="0" role="region" aria-label="Circuit reference diagram" aria-describedby="schematicScrollHint"><div id="schematicDiagram"></div></div>
+            <p id="schematicScrollHint" class="schematic-scroll-hint">On small screens, scroll sideways to see the full schematic.</p>
+            <p id="schematicDescription" class="schematic-description"></p>
+            <div class="divider-measure-guide"><p><strong>V · Voltage</strong> Place probes across the part. Red minus black sets the sign.</p><p><strong>A · Current</strong> Open the branch and insert the meter in series. Current mode connects its probes together.</p><p><strong>Ω · Resistance</strong> Turn supply output off. Parallel paths affect the reading; disconnect a part to measure it alone.</p></div>
+          </section>
+        </div>
+      </details>
+      <div class="lab-grid">
+        <nav class="toolbar" id="toolBar" aria-labelledby="toolsSelectionTitle"><h3 id="toolsSelectionTitle" class="toolbar-title">Tools Selection</h3>
+          <div class="tool-group"><h3>Edit</h3><button data-tool="select" aria-pressed="true" class="active">Select / Move</button><button data-tool="pan" aria-pressed="false">Pan view</button><button data-tool="erase" aria-pressed="false">Erase</button></div>
+          <div class="tool-group"><h3>Components</h3><button data-tool="wire" aria-pressed="false">Wire</button><button data-tool="resistor" aria-pressed="false">Resistor</button><button data-tool="potentiometer" aria-pressed="false">Potentiometer</button><button data-tool="sensor" aria-pressed="false">Resistance sensor</button></div>
+          <div class="tool-group"><h3>DC supply leads</h3><button data-tool="supplyPositive" aria-pressed="false">DC positive (+)</button><button data-tool="supplyNegative" aria-pressed="false">DC negative (−)</button></div>
+          <div class="tool-group"><h3>Meter probes</h3><button data-tool="meterRed" aria-pressed="false">Red probe</button><button data-tool="meterBlack" aria-pressed="false">Black probe</button></div>
+        </nav>
+        <div class="breadboard-area">
+          <div class="board-actions" aria-label="Breadboard controls">
+            <div><button id="undoBtn" title="Undo circuit edit (Ctrl / ⌘ Z)">↶ Undo</button> <button id="redoBtn" title="Redo circuit edit (Ctrl / ⌘ Shift Z)">↷ Redo</button> <button id="cancelPlacementBtn">Cancel / Select</button> <button id="saveLabBtn">Save lab</button> <button id="recallLabBtn">Recall lab</button></div>
+            <div><button id="zoomOutBtn" aria-label="Zoom out">−</button> <span id="zoomReadout">100%</span> <button id="zoomInBtn" aria-label="Zoom in">+</button> <button id="fitBoardBtn">Fit board</button></div>
+          </div>
+          <div class="breadboard-wrap">
+            <canvas id="breadboardCanvas" width="1180" height="620" tabindex="0" aria-label="Virtual breadboard. Select parts from the component list for keyboard editing. Arrow keys move selected parts; Delete removes them; Escape cancels." aria-describedby="placementHint"></canvas>
+          </div>
+          <p class="mobile-board-help">Use + to enlarge the board, then Pan view to move around.</p>
+          <div id="holeReadout" class="hole-readout">Hover over a hole to see its connection</div>
+          <details class="status-group" id="statusDetails"><summary>Circuit status <span id="circuitStatus" class="status-pill warn">No complete circuit yet</span></summary><ul id="circuitWarnings" class="warning-list"></ul></details>
+          <div id="placementHint" role="status" class="hint">Select a tool. Resistors need two hole taps; potentiometers need A, B, then W. Each rail is independent until wired.</div>
+        </div>
+
+        <aside class="circuit-controls">
+          <div class="control-group component-editor">
+            <h3>Selected component</h3>
+            <label for="componentList">Parts and leads</label><select id="componentList" aria-label="Select a part or lead"></select>
+            <div id="selectedComponentEditor" class="editor-empty">Tap a component on the board.</div>
+          </div>
+
+          <div class="control-group dc-supply-panel">
+            <span class="eyebrow">POWER THE CIRCUIT</span><h3>DC supply</h3>
+            <label for="dcVoltage">Output voltage</label><div class="field-with-unit"><input id="dcVoltage" type="number" min="0" max="24" step="0.1" value="5"><span>V</span></div>
+            <label class="switch-row"><input id="dcOutput" type="checkbox"> Output enabled</label>
+            <p id="dcSupplyStatus" class="small">Output off · terminals disconnected</p>
+            <p class="small">Connect both supply leads. Rails and strips have no built-in power or ground connection.</p>
+          </div>
+          <div class="control-group dc-meter-panel">
+            <span class="eyebrow">MEASURE THE CIRCUIT</span><h3>Multimeter</h3>
+            <label for="meterMode">Measurement mode</label><select id="meterMode"><option value="voltage">V · DC voltage</option><option value="current">A · DC current</option><option value="resistance">Ω · Resistance</option></select>
+            <output id="meterReading" class="meter-reading" aria-label="Multimeter reading" aria-live="polite">—</output>
+            <p id="meterMessage" class="small" role="status">Connect both probes.</p>
+            <p class="small">Ideal meter · automatic units</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <footer class="divider-model-note">Ideal DC supply and resistive components. Voltage mode draws no current; current mode has zero resistance. No component tolerances, meter ranges, or fuse behavior are modeled. Sensor resistance is adjusted directly.</footer>
+  </main>
+  <div id="toast" class="toast" role="status"></div>
+  <script src="profiles.js"></script>
+  <script src="engine.js"></script>
+  <script src="dc-engine.js"></script>
+  <script src="routing.js"></script>
+  <script src="divider.js"></script>
+  <script src="app.js"></script>
+  <script src="layout.js"></script>
+</body>
+</html>

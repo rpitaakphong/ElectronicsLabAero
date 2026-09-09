@@ -23,14 +23,14 @@ afterEach(() => {
   delete (document as Document & { modelContext?: LabContext }).modelContext;
 });
 
-test('renders the Chula logo and aerospace engineering lab title', () => {
+test('lesson owns its main content and reset without duplicating global branding', () => {
   render(<App />);
-  const logo = screen.getByRole('img', {
-    name: 'Chulalongkorn University',
-  });
-  assert.ok(logo.classList.contains('brand-logo'));
-  assert.ok(screen.getByText('Electronics Lab For Aerospace Engineering'));
-  assert.equal(screen.queryByText('Interactive electronics'), null);
+  assert.equal(screen.getAllByRole('main').length, 1);
+  assert.equal(screen.queryByRole('banner'), null);
+  assert.ok(
+    screen.getByRole('heading', { name: 'Interactive Learning', level: 1 }),
+  );
+  assert.ok(screen.getByRole('button', { name: 'Reset lab' }));
 });
 
 test('circuit selection preserves signal settings and updates schematic and equation', async () => {

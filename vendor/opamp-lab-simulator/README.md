@@ -1,3 +1,5 @@
+> Shared workbench update: this directory now also maintains the Voltage Divider Lab Simulator. `profiles.js` selects components, lead types and storage. `engine.js` provides shared union-find and matrix solving; `dc-engine.js` adds an ideal DC operating-point model. `divider.html` and `divider.js` provide the DC supply, multimeter, four divider references and isolated saves. The existing op-amp profile retains its instruments, transient model, storage keys and pinout migration. Root packaging publishes each lab and its offline download from these sources. See the root README for divider usage and tests.
+
 > This is the maintained simulator source for Electronics Lab. The temporary clone is not used by the webapp. Run `npm run package:simulator` at the repository root after changes. This packages both the standalone runtime and the offline download. Browser regressions accept `SIMULATOR_URL` for testing the packaged location; the default remains the original local port.
 
 # Op-Amp Lab Simulator
@@ -247,3 +249,9 @@ Loading an unversioned save that contains an op-amp first validates and allocate
 A dismissible notice identifies converted circuits. Loading and exporting do not overwrite stored originals. Explicitly saving the lab or preset writes the corrected version; later loads do not reflect it again. Exported preset copies are normalized and versioned while the export bundle format remains version 1. Unsupported pinout versions or malformed data are rejected before changing the current circuit or downloading a partial export.
 
 `node tests/ua741.cjs` checks the literal physical pin table and connection reflection. `node tests/pinout.cjs` uses explicit physical-hole wiring, signed complex preset gains, pre-correction waveform fixtures, two cascaded op-amps, migration/export/storage checks, and desktop/mobile guide screenshots. Run it with the same Playwright setup and local server as the other browser tests. Rebuild the portable HTML after editing the shared pin definition.
+
+### RC filter profile
+
+`rc.html` uses the same editor and instrument runtime as the op-amp lab, with independent rails and only wire/resistor/capacitor tools. `rc.js` owns its three presets, references, and atomic version-1 recall validation; storage uses `rc-filter-v1-*`. `rc-engine.js` solves arbitrary passive wiring with generator 50 Ω resistance, shared instrument grounds, periodic boundary conditions, and timestep refinement. `transient-engine.js` supplies pure shared matrix stamping/factorization; the original op-amp equations and divider DC solver remain separate. Invalid or unresolved RC measurements report a reason and clear readings without artificial grounding.
+
+The application README documents controls, model limits, phase convention, and verification. Package all profiles using the root `npm run package:simulator`; it produces `public/simulators/rc-filter/` and the self-contained `rc_filter_sim_single_file.html`. Do not edit generated assets. Run root RC numerical/component tests and `tests/rc-integration.cjs` in addition to this directory's existing regressions.

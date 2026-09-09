@@ -30,6 +30,7 @@ fs.mkdirSync(output, { recursive: true });
     const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('gds1202b-lab')));
 
     await page.goto(origin);
+    await page.getByRole('link', { name: 'Browse topics', exact: true }).click();
     await page.getByRole('link', { name: 'Open Operational Amplifier topic' }).click();
     await page.waitForURL('**/operational-amplifier');
     await page.getByRole('link', { name: 'Start learning' }).waitFor();
@@ -44,7 +45,7 @@ fs.mkdirSync(output, { recursive: true });
     assert.equal(await page.title(), 'Op-Amp Lab Simulator | Electronics Lab');
     assert.equal(await frame.locator('.lab-brand').isVisible(), false);
     assert.equal(await frame.locator('.lab-intro').isVisible(), false);
-    assert(await frame.locator('#resetAllBtn').isVisible());
+    assert(await page.getByRole('button', { name: 'Reset lab', exact: true }).isVisible());
     await frame.locator('#challengeMode').check();
     await frame.locator('#challengeMode').uncheck();
     await page.goBack();

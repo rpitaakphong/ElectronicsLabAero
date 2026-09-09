@@ -1,7 +1,7 @@
+import { getTopic, getTool } from '@/lib/catalog';
 import { Link } from 'react-router-dom';
-import { TopicHeader } from './TopicHeader';
 import { TopicArt } from './TopicArt';
-import { OpAmpBreadcrumbs } from './OpAmpBreadcrumbs';
+import { TopicBreadcrumbs } from './TopicBreadcrumbs';
 
 function BreadboardArt() {
   return (
@@ -41,13 +41,13 @@ function BreadboardArt() {
 }
 
 export function OpAmpTopic() {
+  const topic = getTopic('opamp');
   return (
-    <main className="lab-shell">
-      <TopicHeader home />
-      <OpAmpBreadcrumbs />
+    <main id="main-content" tabIndex={-1} className="lab-shell">
+      <TopicBreadcrumbs />
       <div className="intro topics-intro opamp-topic-intro">
         <span className="eyebrow">SIGNALS &amp; WAVEFORMS</span>
-        <h1>Operational Amplifier</h1>
+        <h1>{topic.title}</h1>
         <p>
           Explore how an op-amp works, then build a circuit and measure its
           signals.
@@ -69,7 +69,7 @@ export function OpAmpTopic() {
               comparison shape the output. Connect the equations to a live
               waveform.
             </p>
-            <Link className="open-lab" to="/operational-amplifier/learn">
+            <Link className="open-lab" to={getTool('opamp', 'learn').path}>
               Start learning <span aria-hidden="true">↗</span>
             </Link>
           </div>
@@ -88,7 +88,7 @@ export function OpAmpTopic() {
               Wire a UA741 circuit on the breadboard, connect the function
               generator, and measure the result with the oscilloscope.
             </p>
-            <Link className="open-lab" to="/operational-amplifier/simulator">
+            <Link className="open-lab" to={getTool('opamp', 'simulator').path}>
               Open simulator <span aria-hidden="true">↗</span>
             </Link>
           </div>

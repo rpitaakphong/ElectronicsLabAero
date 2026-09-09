@@ -10,7 +10,7 @@ for name in ['inter-400.woff2', 'inter-600.woff2']:
     data = base64.b64encode((root / 'assets' / name).read_bytes()).decode()
     css = css.replace('assets/' + name, 'data:font/woff2;base64,' + data)
 html = html.replace('<link rel="stylesheet" href="styles.css" />', '<style>\n' + css + '\n</style>')
-for name in ['embed.js', 'sfg1013.js', 'routing.js', 'ua741.js', 'presets.js', 'app.js', 'layout.js', 'schematics.js']:
+for name in ['embed.js', 'profiles.js', 'engine.js', 'transient-engine.js', 'sfg1013.js', 'routing.js', 'ua741.js', 'presets.js', 'app.js', 'layout.js', 'schematics.js']:
     html = html.replace(f'<script src="{name}"></script>', '<script>\n' + (root / name).read_text() + '\n</script>')
 for name, mime in [('chula-logo.webp', 'image/webp'), ('favicon.svg', 'image/svg+xml')]:
     data = base64.b64encode((root / 'assets' / name).read_bytes()).decode()

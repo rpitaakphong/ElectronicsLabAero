@@ -1,5 +1,4 @@
-import { TopicHeader } from './TopicHeader';
-import { OpAmpBreadcrumbs } from './OpAmpBreadcrumbs';
+import { TopicBreadcrumbs } from './TopicBreadcrumbs';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import {
@@ -103,14 +102,9 @@ export default function OpAmpLab() {
   const p = config.components,
     isComp = config.circuit === 'comparator';
   return (
-    <main className="lab-shell">
-      <TopicHeader home>
-        <Button variant="ghost" onClick={reset}>
-          <RotateCcw size={15} /> Reset lab
-        </Button>
-      </TopicHeader>
-      <OpAmpBreadcrumbs current="Interactive Learning" />
-      <div className="intro">
+    <main id="main-content" tabIndex={-1} className="lab-shell">
+      <TopicBreadcrumbs />
+      <div className="intro page-heading">
         <div>
           <h1>Interactive Learning</h1>
           <p>
@@ -118,6 +112,9 @@ export default function OpAmpLab() {
             happens.
           </p>
         </div>
+        <Button variant="ghost" onClick={reset}>
+          <RotateCcw size={15} /> Reset lab
+        </Button>
       </div>
       <RadioGroup
         aria-label="Circuit configuration"

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-lab="rc-filter">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Op-Amp Lab Simulator</title>
+  <title>RC Filter Lab Simulator</title>
   <link rel="icon" href="assets/favicon.svg" />
   <script src="embed.js"></script>
   <link rel="stylesheet" href="styles.css" />
@@ -12,13 +12,12 @@
   <header class="app-header">
     <div class="lab-brand"><img src="assets/chula-logo.webp" width="132" height="64" alt="Chulalongkorn University" /><span class="brand-divider"></span><strong>Electronics Lab<br>For Aerospace Engineering</strong></div>
     <div class="header-actions">
-      <label class="switch-row"><input id="challengeMode" type="checkbox" /> Challenge mode</label>
       <button id="resetAllBtn" class="danger">Reset lab</button>
     </div>
   </header>
 
   <main>
-    <div class="lab-intro"><span class="eyebrow">THE INTERACTIVE LEARNING LAB</span><h1>Op-Amp Lab Simulator</h1><p>Build your circuit. Connect the instruments. Explore the signal.</p></div>
+    <div class="lab-intro"><span class="eyebrow">THE INTERACTIVE LEARNING LAB</span><h1>RC Filter Lab Simulator</h1><p>Build a filter. Change the frequency. Measure the response.</p></div>
     <section class="workspace-card board-section">
       <div class="section-title-row">
         <div>
@@ -27,14 +26,7 @@
         </div>
         <div class="preset-controls"><div class="preset-row">
           <label>Preset
-            <select id="presetSelect">
-              <option value="blank">Blank board</option>
-              <option value="follower" disabled>Voltage follower</option>
-              <option value="inverting" disabled>Inverting amplifier, gain −4.7</option>
-              <option value="noninverting" disabled>Non-inverting amplifier, gain 5.7</option>
-              <option value="lowpass" disabled>RC low-pass + buffer</option>
-              <option value="integrator" disabled>Practical op-amp integrator</option>
-            </select>
+            <select id="presetSelect"><option value="blank">Blank board</option><option value="lowpass" disabled>Low-pass filter</option><option value="highpass" disabled>High-pass filter</option><option value="bandpass" disabled>Band-pass filter</option></select>
           </label>
           <button id="loadPresetBtn">Load</button>
         </div>
@@ -50,13 +42,12 @@
         <details class="preset-manager" hidden><summary>Manage presets</summary><div class="preset-row">          <button id="savePresetBtn">Save over preset</button>
           <button id="exportPresetsBtn" title="Download all locally saved presets, including overwritten built-in presets">Export saved presets</button>
           <button id="restorePresetBtn" title="Remove your saved override and load the original built-in preset">Restore original</button>
-        </div><div class="preset-row new-preset-row"><label>New preset name<input id="newPresetName" type="text" maxlength="60" placeholder="e.g. My amplifier lab" autocomplete="off"></label><button id="createPresetBtn">Create new preset</button></div></details><p id="presetStatus" class="small" role="status"></p></div>
+        </div><div class="preset-row new-preset-row"><label>New preset name<input id="newPresetName" type="text" maxlength="60" placeholder="e.g. My RC filter" autocomplete="off"></label><button id="createPresetBtn">Create new preset</button></div></details><p id="presetStatus" class="small" role="status"></p></div>
       </div>
 
       <details class="pin-guide" id="pinGuide" open>
-        <summary><span>Circuit schematics &amp; UA741 pin guide</span><span class="guide-action">View diagrams</span></summary>
-        <div class="pin-guide-content reference-grid">
-          <div class="pin-reference"><div class="pin-diagrams" id="ua741Guides"></div><p class="small">UA741CP · Pins 1, 5 and 8 are not connected.<br><a href="https://www.ti.com/lit/ds/symlink/ua741.pdf" target="_blank" rel="noopener">TI pinout ↗</a></p></div>
+        <summary><span>RC filter reference diagrams</span><span class="guide-action">View diagrams</span></summary>
+        <div class="pin-guide-content">
           <section class="schematic-reference" aria-labelledby="schematicSelectLabel">
             <div class="schematic-controls"><label id="schematicSelectLabel" for="schematicSelect">Circuit schematic</label><select id="schematicSelect" aria-describedby="schematicReferenceNote"></select></div>
             <p id="schematicReferenceNote" class="reference-note">Reference schematic · Changing this diagram does not change your breadboard.</p>
@@ -66,9 +57,9 @@
           </section>
         </div>
       </details>
-      <aside class="pinout-notice" id="pinoutNotice" role="status" hidden><p>This older circuit was mirrored across the breadboard gap to correct the UA741 pinout and preserve its behavior. The stored original is unchanged unless you save over it.</p><button id="dismissPinoutNotice" type="button" aria-label="Dismiss pinout conversion notice">Dismiss</button></aside>
+      <aside class="pinout-notice" id="pinoutNotice" role="status" hidden><p>RC circuit loaded.</p><button id="dismissPinoutNotice" type="button" aria-label="Dismiss notice">Dismiss</button></aside>
       <div class="lab-grid">
-        <nav class="toolbar" id="toolBar" aria-labelledby="toolsSelectionTitle"><h3 id="toolsSelectionTitle" class="toolbar-title">Tools Selection</h3><div class="tool-group"><h3>Edit</h3><button data-tool="select" aria-pressed="true" class="active">Select / Move</button><button data-tool="pan" aria-pressed="false">Pan view</button><button data-tool="erase" aria-pressed="false">Erase</button></div><div class="tool-group"><h3>Components</h3><button data-tool="wire" aria-pressed="false">Wire</button><button data-tool="resistor" aria-pressed="false">Resistor</button><button data-tool="capacitor" aria-pressed="false">Capacitor</button><button data-tool="opamp" aria-pressed="false">UA741</button></div><div class="tool-group"><h3>Function generator leads</h3><button data-tool="generator" aria-pressed="false">MAIN lead</button><button data-tool="genttl" aria-pressed="false">TTL lead</button><button data-tool="gengnd" aria-pressed="false">GEN return</button></div><div class="tool-group"><h3>Oscilloscope leads</h3><button data-tool="ch1tip" aria-pressed="false">CH1 tip</button><button data-tool="ch1gnd" aria-pressed="false">CH1 ground</button><button data-tool="ch2tip" aria-pressed="false">CH2 tip</button><button data-tool="ch2gnd" aria-pressed="false">CH2 ground</button></div></nav>
+        <nav class="toolbar" id="toolBar" aria-labelledby="toolsSelectionTitle"><h3 id="toolsSelectionTitle" class="toolbar-title">Tools Selection</h3><div class="tool-group"><h3>Edit</h3><button data-tool="select" aria-pressed="true" class="active">Select / Move</button><button data-tool="pan" aria-pressed="false">Pan view</button><button data-tool="erase" aria-pressed="false">Erase</button></div><div class="tool-group"><h3>Components</h3><button data-tool="wire" aria-pressed="false">Wire</button><button data-tool="resistor" aria-pressed="false">Resistor</button><button data-tool="capacitor" aria-pressed="false">Capacitor</button></div><div class="tool-group"><h3>Function generator leads</h3><button data-tool="generator" aria-pressed="false">MAIN lead</button><button data-tool="genttl" aria-pressed="false">TTL lead</button><button data-tool="gengnd" aria-pressed="false">GEN return</button></div><div class="tool-group"><h3>Oscilloscope leads</h3><button data-tool="ch1tip" aria-pressed="false">CH1 tip</button><button data-tool="ch1gnd" aria-pressed="false">CH1 ground</button><button data-tool="ch2tip" aria-pressed="false">CH2 tip</button><button data-tool="ch2gnd" aria-pressed="false">CH2 ground</button></div></nav>
         <div class="breadboard-area">
           <div class="board-actions" aria-label="Breadboard controls">
             <div><button id="undoBtn" title="Undo circuit edit (Ctrl / ⌘ Z)">↶ Undo</button> <button id="redoBtn" title="Redo circuit edit (Ctrl / ⌘ Shift Z)">↷ Redo</button> <button id="cancelPlacementBtn">Cancel / Select</button> <button id="saveLabBtn">Save lab</button> <button id="recallLabBtn">Recall lab</button></div>
@@ -80,7 +71,7 @@
           <p class="mobile-board-help">Use + to enlarge the board, then Pan view to move around.</p>
           <div id="holeReadout" class="hole-readout">Hover over a hole to see its connection</div>
           <details class="status-group" id="statusDetails"><summary>Circuit status <span id="circuitStatus" class="status-pill warn">No complete circuit yet</span></summary><ul id="circuitWarnings" class="warning-list"></ul></details>
-          <div id="placementHint" role="status" class="hint">Select a tool. Two-terminal parts need two hole taps; the UA741 needs one tap near the center gap.</div>
+          <div id="placementHint" role="status" class="hint">Select a tool. Resistors and capacitors need two hole taps. Escape cancels placement.</div>
         </div>
 
         <aside class="circuit-controls">
@@ -90,16 +81,7 @@
             <div id="selectedComponentEditor" class="editor-empty">Tap a component on the board.</div>
           </div>
 
-          <div class="control-group">
-            <h3>Power rails</h3>
-            <label>Top red rail V+
-              <div class="field-with-unit"><input id="vplusInput" type="number" step="0.5" value="12" /><span>V</span></div>
-            </label>
-            <label>Bottom blue rail V−
-              <div class="field-with-unit"><input id="vminusInput" type="number" step="0.5" value="-12" /><span>V</span></div>
-            </label>
-            <p class="small">Top blue and bottom red rails are ground. Oscilloscope ground clips share instrument ground.</p>
-          </div>
+
 
           <div class="control-group">
             <h3>Generator quick setup</h3><p class="small">These shortcuts adjust the signal directly. Use the SFG-1013 panel below for instrument practice.</p>
@@ -317,7 +299,6 @@
         <div><strong>CH1:</strong> <span id="ch1ProbeReadout">not connected</span></div>
         <div><strong>CH2:</strong> <span id="ch2ProbeReadout">not connected</span></div>
         <div><strong>Simulation:</strong> <span id="simReadout">waiting</span></div>
-        <div><strong>Challenge score:</strong> <span id="challengeScore">—</span></div>
       </div>
     </section>
 
@@ -325,12 +306,12 @@
       <h2>4. Instructor / student notes</h2>
       <div class="learning-grid">
         <div>
-          <h3>What this simulator models</h3>
+          <h3>Build and measure</h3><p>Connect MAIN and GEN return. Put CH1 at the filter input and CH2 at its output, with all ground clips on the return. Change generator frequency manually. Gain = CH2 Vpp / CH1 Vpp. For output phase relative to input, select Phase with Source 1 = CH2 and Source 2 = CH1; a lag is negative. The 50 Ω generator amplitude convention differs from an ideal voltage source: measure Vin with CH1.</p>
           <ul>
             <li>Breadboard connectivity and user-created jumper wiring.</li>
-            <li>Resistors, capacitors, a UA741 behavioral op-amp model, dual supply rails, and a function generator.</li>
+            <li>Ideal resistors and capacitors wired to independent, initially unpowered breadboard rails. MAIN includes the generator’s 50 Ω source resistance.</li>
             <li>Two oscilloscope probes referenced to common instrument ground. CH1 and CH2 share the same instrument ground in the real scope, so mismatched grounds are flagged.</li>
-            <li>Time-domain RC behavior, op-amp saturation, finite open-loop gain, a 1 MHz dominant-pole bandwidth model, and a slew-rate limit.</li>
+            <li>Periodic steady-state RC behavior with timestep convergence checks. A circuit that exceeds the numerical budget reports an unavailable calculation instead of a guessed trace.</li>
             <li>Oscilloscope vertical/horizontal scale, coupling, position, trigger source/slope/level/mode, sample/average/peak acquire modes, channel-colored cursors, automatic measurements with gating and statistics, arithmetic math, run/stop, single, autoset, save/recall, and help.</li>
           </ul>
         </div>
@@ -339,7 +320,7 @@
           <ul>
             <li>This is a training simulator, not a SPICE replacement and not a manufacturer firmware emulator.</li>
             <li>Serial-bus decode, LAN/USB remote control, Go/NoGo hardware I/O, printer/PictBridge behavior, and calibration procedures are represented in the UI but not electrically emulated.</li>
-            <li>High-frequency probe loading, noise spectral density, temperature drift, input protection, and other non-ideal 741 parameters are outside the teaching model.</li>
+            <li>Resistors and capacitors are ideal. No tolerances, parasitics, dielectric effects, or scope input loading are modeled.</li>
           </ul>
         </div>
       </div>
@@ -352,10 +333,10 @@
   <script src="transient-engine.js"></script>
   <script src="sfg1013.js"></script>
   <script src="routing.js"></script>
-  <script src="ua741.js"></script>
-  <script src="presets.js"></script>
+  <script src="rc-engine.js"></script>
+  <script src="rc.js"></script>
 <script src="app.js"></script>
   <script src="layout.js"></script>
-  <script src="schematics.js"></script>
+
 </body>
 </html>
