@@ -2092,3 +2092,12 @@ html {
 @media(max-width:1024px) { .rc-theory-grid { grid-template-columns:1fr; } .rc-workbench { grid-template-columns:minmax(0,1fr) 290px; } }
 @media(max-width:768px) { .rc-workbench { display:flex; flex-direction:column; } .rc-controls { width:100%; order:-1; } .rc-control-body { grid-template-columns:repeat(2,minmax(0,1fr)); } .rc-results { width:100%; } .rc-picker .circuit-choice { font-size:12px; } }
 @media(max-width:500px) { .rc-control-body { grid-template-columns:1fr; } .rc-picker { grid-template-columns:1fr; } .rc-picker .circuit-choice { justify-content:flex-start; border-right:0; border-bottom:1px solid var(--border); } .rc-lab .section-heading { flex-wrap:wrap; } .rc-theory { padding:18px; } }
+
+.rc-signal-objective { margin-top:22px; padding:24px; border-left:3px solid var(--primary); }
+.rc-signal-objective h2 { font-size:23px; margin:10px 0; }
+.rc-signal-objective p { color:var(--muted-foreground); line-height:1.7; margin:8px 0 0; }
+.rc-advanced-signal { min-width:0; border-block:1px solid var(--border); padding:12px 0; }
+.rc-advanced-signal summary { cursor:pointer; font-size:13px; padding:4px 0; }
+.rc-advanced-signal > div { display:grid; gap:18px; padding-top:18px; }
+.rc-advanced-signal p { font-size:12px; line-height:1.6; color:var(--muted-foreground); margin:0; }
+.rc-advanced-signal summary:focus-visible { outline:2px solid var(--primary); outline-offset:4px; }

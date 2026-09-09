@@ -90,10 +90,19 @@ export function RcSchematic({ config }: { config: RcFilterConfig }) {
 const H = 215,
   L = 72,
   R = 24,
-  T = 22,
   B = 45;
+type Marker = {
+  x: number;
+  label: string;
+  selected?: boolean;
+  role?: 'useful' | 'interference';
+  annotation?: string;
+};
 function Plot({
   points,
+  traceClasses = [],
+  seriesLabels = [],
+  stems = false,
   xMin,
   xMax,
   yMin,
@@ -105,6 +114,9 @@ function Plot({
   markers = [],
 }: {
   points: { x: number; y: number }[][];
+  traceClasses?: string[];
+  seriesLabels?: string[];
+  stems?: boolean;
   xMin: number;
   xMax: number;
   yMin: number;
@@ -113,15 +125,34 @@ function Plot({
   xUnit: string;
   yUnit: string;
   label: string;
-  markers?: { x: number; label: string; selected?: boolean }[];
+  markers?: Marker[];
 }) {
   const { ref, width } = useWidth();
   const W = Math.max(320, width || 760);
   const transform = (x: number) => (logX ? Math.log10(Math.max(x, 1e-30)) : x),
     min = transform(xMin),
     span = transform(xMax) - min;
-  const x = (v: number) => L + ((transform(v) - min) / span) * (W - L - R),
-    y = (v: number) => T + ((yMax - v) / (yMax - yMin)) * (H - T - B);
+  const x = (v: number) => L + ((transform(v) - min) / span) * (W - L - R);
+  // Stack nearby labels, and combine coincident tones, without moving their markers.
+  const annotations: { x: number; text: string; row: number }[] = [];
+  for (const marker of markers
+    .filter((m) => m.annotation)
+    .sort((a, b) => a.x - b.x)) {
+    const position = x(marker.x);
+    const same = annotations.find((a) => Math.abs(a.x - position) < 0.1);
+    if (same) {
+      same.text += ` / ${marker.annotation}`;
+      continue;
+    }
+    let row = 0;
+    while (
+      annotations.some((a) => a.row === row && Math.abs(a.x - position) < 65)
+    )
+      row++;
+    annotations.push({ x: position, text: marker.annotation!, row });
+  }
+  const T = 22 + annotations.reduce((max, a) => Math.max(max, a.row * 15), 0);
+  const y = (v: number) => T + ((yMax - v) / (yMax - yMin)) * (H - T - B);
   return (
     <div ref={ref}>
       <svg
@@ -131,7 +162,11 @@ function Plot({
         aria-label={label}
       >
         {Array.from({ length: 5 }, (_, i) => {
-          const v = yMin + ((yMax - yMin) * i) / 4;
+          const raw = yMin + ((yMax - yMin) * i) / 4;
+          const v =
+            Math.abs(raw) < 1e-12 * Math.max(1, Math.abs(yMin), Math.abs(yMax))
+              ? 0
+              : raw;
           return (
             <g key={`y${i}`}>
               <path className="rc-grid" d={`M${L} ${y(v)}H${W - R}`} />
@@ -160,7 +195,7 @@ function Plot({
         {markers.map((m, i) => (
           <g key={i}>
             <path
-              className={m.selected ? 'rc-marker selected' : 'rc-marker'}
+              className={`rc-marker${m.selected ? ' selected' : ''}${m.role ? ` marker-${m.role}` : ''}`}
               d={`M${x(m.x)} ${T}V${H - B}`}
             />
             <title>
@@ -168,53 +203,205 @@ function Plot({
             </title>
           </g>
         ))}
-        {points.map((series, i) => (
-          <path
+        {annotations.map((a, i) => (
+          <text
+            className="rc-marker-label"
             key={i}
-            className={`rc-trace trace-${i}`}
-            d={series
-              .map(
-                (p, j) =>
-                  `${j ? 'L' : 'M'}${x(p.x).toFixed(2)},${y(Math.max(yMin, Math.min(yMax, p.y))).toFixed(2)}`,
-              )
-              .join(' ')}
-          />
+            x={a.x}
+            y={14 + a.row * 15}
+            textAnchor="middle"
+          >
+            {a.text}
+          </text>
+        ))}
+        {points.map((series, i) => (
+          <g key={i} data-series={seriesLabels[i]}>
+            <title>{seriesLabels[i]}</title>
+            <path
+              className={`rc-trace trace-${i} ${traceClasses[i] ?? ''}`}
+              d={series
+                .map((p, j) =>
+                  stems
+                    ? `M${x(p.x).toFixed(2)},${y(0).toFixed(2)}L${x(p.x).toFixed(2)},${y(p.y).toFixed(2)}`
+                    : `${j ? 'L' : 'M'}${x(p.x).toFixed(2)},${y(Math.max(yMin, Math.min(yMax, p.y))).toFixed(2)}`,
+                )
+                .join(' ')}
+            />
+            {stems &&
+              series.map((p, j) => (
+                <g
+                  key={j}
+                  className={`rc-spectrum-point ${traceClasses[i] ?? ''}`}
+                >
+                  {i === 0 ? (
+                    <circle cx={x(p.x)} cy={y(p.y)} r="5" />
+                  ) : (
+                    <path
+                      d={`M${x(p.x)} ${y(p.y) - 3.5}l3.5 3.5-3.5 3.5-3.5-3.5Z`}
+                    />
+                  )}
+                  <title>
+                    {seriesLabels[i]} · {eng(p.x, 'Hz')}: {eng(p.y, 'V peak')}
+                  </title>
+                </g>
+              ))}
+          </g>
         ))}
       </svg>
     </div>
   );
 }
 export function RcFrequencyPlots({ result }: { result: RcResult }) {
-  const markers = [
+  const toneMarkers: Marker[] = result.tones.map((tone, index) => ({
+    x: tone.frequency,
+    label: tone.label,
+    selected: tone.role === 'useful',
+    role: tone.role,
+    annotation: tone.role === 'useful' ? 'U' : `I${index}`,
+  }));
+  const markers: Marker[] = [
     ...result.cutoffs.map((x) => ({ x, label: 'Half-power frequency' })),
-    {
-      x: result.selected.frequency,
-      label: 'Selected frequency',
-      selected: true,
-    },
+    ...(result.isExample
+      ? toneMarkers
+      : [
+          {
+            x: result.selected.frequency,
+            label: 'Selected frequency',
+            selected: true,
+          },
+        ]),
   ];
+  const spectralComponents = new Map<
+    number,
+    { frequency: number; input: number; output: number }
+  >();
+  for (const tone of result.tones) {
+    const entry = spectralComponents.get(tone.frequency) ?? {
+      frequency: tone.frequency,
+      input: 0,
+      output: 0,
+    };
+    entry.input += tone.amplitude;
+    entry.output += tone.outputAmplitude;
+    spectralComponents.set(tone.frequency, entry);
+  }
+  const spectrum = [...spectralComponents.values()].sort(
+    (a, b) => a.frequency - b.frequency,
+  );
   const min = result.sweep[0].frequency,
     max = result.sweep.at(-1)!.frequency;
   return (
     <section className="panel rc-frequency">
       <div className="section-heading">
         <h2>Frequency response</h2>
-        <span className="pill">Sinusoidal transfer function</span>
+        <span className="pill">Input → output</span>
       </div>
+      {result.isExample && (
+        <ul className="rc-marker-legend" aria-label="Frequency markers">
+          {toneMarkers.map((marker, index) => (
+            <li key={index}>
+              <span className={`rc-frequency-key marker-${marker.role}`}>
+                {marker.annotation}
+              </span>
+              <span>
+                {marker.label} · {eng(marker.x, 'Hz')}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {result.isExample && (
+        <div className="rc-spectrum">
+          <h3>Input and output amplitudes</h3>
+          <ul
+            className="rc-signal-legend"
+            aria-label="Frequency amplitude traces"
+          >
+            <li>
+              <span className="rc-line-key signal-input" />
+              Input signal
+            </li>
+            <li>
+              <span className="rc-line-key signal-output" />
+              Filtered output
+            </li>
+          </ul>
+          <Plot
+            points={[
+              spectrum.map((p) => ({ x: p.frequency, y: p.input })),
+              spectrum.map((p) => ({ x: p.frequency, y: p.output })),
+            ]}
+            traceClasses={['signal-input', 'signal-output']}
+            seriesLabels={['Input amplitude', 'Output amplitude']}
+            stems
+            xMin={min}
+            xMax={max}
+            yMin={0}
+            yMax={
+              Math.max(
+                0.1,
+                ...spectrum.map((p) => Math.max(p.input, p.output)),
+              ) * 1.15
+            }
+            logX
+            xUnit="Hz"
+            yUnit="V peak"
+            label="Input and output signal amplitudes versus logarithmic frequency"
+            markers={toneMarkers}
+          />
+          <p className="rc-caption">
+            Each peak shows a frequency in the signal. Teal circles mark input
+            amplitude; amber diamonds mark output amplitude. Compare their
+            heights to see what the filter removes. Coincident tones are
+            combined.
+          </p>
+        </div>
+      )}
+      <h3 className="rc-response-subheading">Filter gain and phase</h3>
+      <ul className="rc-signal-legend" aria-label="Filter response traces">
+        <li>
+          <span className="rc-line-key signal-input" />
+          Input reference · 0 dB / 0°
+        </li>
+        <li>
+          <span className="rc-line-key signal-output" />
+          Output relative to input
+        </li>
+      </ul>
       <Plot
-        points={[result.sweep.map((p) => ({ x: p.frequency, y: p.db }))]}
+        points={[
+          [
+            { x: min, y: 0 },
+            { x: max, y: 0 },
+          ],
+          result.sweep.map((p) => ({ x: p.frequency, y: p.db })),
+        ]}
+        traceClasses={['signal-input', 'signal-output']}
+        seriesLabels={['Input gain reference', 'Output gain']}
         xMin={min}
         xMax={max}
-        yMin={Math.floor(Math.min(...result.sweep.map((p) => p.db)) / 20) * 20}
-        yMax={0}
+        yMin={
+          Math.floor(
+            result.sweep.reduce((min, p) => Math.min(min, p.db), 0) / 20,
+          ) * 20
+        }
+        yMax={3}
         logX
         xUnit="Hz"
         yUnit="dB"
-        label="Gain in decibels versus logarithmic frequency"
+        label="Input reference and output gain in decibels versus logarithmic frequency"
         markers={markers}
       />
       <Plot
-        points={[result.sweep.map((p) => ({ x: p.frequency, y: p.phase }))]}
+        points={[
+          [
+            { x: min, y: 0 },
+            { x: max, y: 0 },
+          ],
+          result.sweep.map((p) => ({ x: p.frequency, y: p.phase })),
+        ]}
+        traceClasses={['signal-input', 'signal-output']}
+        seriesLabels={['Input phase reference', 'Output phase']}
         xMin={min}
         xMax={max}
         yMin={-90}
@@ -222,13 +409,19 @@ export function RcFrequencyPlots({ result }: { result: RcResult }) {
         logX
         xUnit="Hz"
         yUnit="°"
-        label="Output phase relative to input versus logarithmic frequency"
+        label="Input reference and output phase versus logarithmic frequency"
         markers={markers}
       />
       <p className="rc-caption">
-        At {eng(result.selected.frequency, 'Hz')}:{' '}
-        {result.selected.db.toFixed(2)} dB · {result.selected.phase.toFixed(1)}
-        °. Teal: selected frequency. Dashed: −3 dB relative to passband or peak.
+        {result.isExample ? 'Useful frequency' : 'At'}{' '}
+        {eng(result.selected.frequency, 'Hz')}: {result.selected.db.toFixed(2)}{' '}
+        dB · {result.selected.phase.toFixed(1)}°.{' '}
+        {result.isExample
+          ? 'U: useful signal. I: interference.'
+          : 'Teal: selected frequency.'}{' '}
+        Gray dashed: −3 dB relative to passband or peak. The input reference is
+        0 dB and 0°; the output curves show the filter’s gain and phase, rather
+        than signal amplitudes.
       </p>
     </section>
   );
@@ -240,23 +433,55 @@ export function RcTimePlot({
   result: RcResult;
   step: boolean;
 }) {
-  const ys = result.samples.flatMap((p) => [p.input, p.output]),
-    min = Math.min(0, ...ys),
-    max = Math.max(0, ...ys),
-    pad = Math.max(0.1, (max - min) * 0.12);
+  const example = result.isExample && !step;
+  const [min, max] = result.samples.reduce(
+    ([min, max], p) => [
+      Math.min(min, p.input, p.output, p.desired ?? 0),
+      Math.max(max, p.input, p.output, p.desired ?? 0),
+    ],
+    [0, 0],
+  );
+  const pad = Math.max(0.1, (max - min) * 0.12);
+  const series = example
+    ? (['desired', 'input', 'output'] as const)
+    : (['input', 'output'] as const);
   return (
-    <section className="panel">
+    <section className="panel rc-time-panel">
       <div className="section-heading">
-        <h2>{step ? 'Step response' : 'Input and output'}</h2>
-        <span className="small-muted">Vin · teal / Vout · amber</span>
-      </div>
-      <Plot
-        points={['input', 'output'].map((key) =>
-          result.samples.map((p) => ({
-            x: p.time,
-            y: p[key as 'input' | 'output'],
-          })),
+        <h2>
+          {step
+            ? 'Step response'
+            : example
+              ? 'Filtering comparison'
+              : 'Input and output'}
+        </h2>
+        {!example && (
+          <span className="small-muted">Vin · teal / Vout · amber</span>
         )}
+      </div>
+      {example && (
+        <ul className="rc-signal-legend" aria-label="Waveform traces">
+          <li>
+            <span className="rc-line-key signal-desired" />
+            Desired signal
+          </li>
+          <li>
+            <span className="rc-line-key signal-input" />
+            Measured input
+          </li>
+          <li>
+            <span className="rc-line-key signal-output" />
+            Filtered output
+          </li>
+        </ul>
+      )}
+      <Plot
+        points={series.map((key) =>
+          result.samples.map((p) => ({ x: p.time, y: p[key] ?? 0 })),
+        )}
+        traceClasses={
+          example ? ['signal-desired', 'signal-input', 'signal-output'] : []
+        }
         xMin={0}
         xMax={result.duration}
         yMin={min - pad}
@@ -266,14 +491,70 @@ export function RcTimePlot({
         label={
           step
             ? 'RC response to a positive voltage step'
-            : 'Four periods of input and steady-state output'
+            : example
+              ? 'Desired signal, measured input, and actual filtered output on common time and voltage axes'
+              : 'Four periods of input and steady-state output'
         }
       />
+      {result.windowLimited && (
+        <p className="rc-window-notice" role="status">
+          Showing {eng(result.duration, 's')} of the requested{' '}
+          {eng(result.requestedDuration, 's')}. This frequency combination
+          cannot be resolved over the requested span within the sampling budget.{' '}
+          The window is shortened to preserve the fastest tone. Bring the signal
+          frequencies closer together to see the full span.
+        </p>
+      )}
       <p className="rc-caption">
         {step
           ? 'Initially uncharged capacitors. Eight times the slowest circuit time constant.'
-          : 'Periodic steady state over four cycles. Frequency plots describe sine-wave gain and phase, even when the input waveform is square or triangle.'}
+          : example
+            ? `${result.exampleWindow === 'overview' ? 'Long overview includes at least one cycle of the slowest active interference tone, when the sampling budget allows.' : 'Signal detail requests four periods of the useful signal.'} The output retains its actual attenuation and phase shift; the desired signal is a reference, not a corrected output.`
+            : 'Periodic steady state over four cycles. Frequency plots describe sine-wave gain and phase, even when the input waveform is square or triangle.'}
       </p>
+      {example && (
+        <div className="rc-tone-table-container">
+          <table className="rc-tone-table">
+            <caption>Signal components</caption>
+            <thead>
+              <tr>
+                <th scope="col">Tone</th>
+                <th scope="col">Frequency</th>
+                <th scope="col">
+                  Input
+                  <br />
+                  <span>V peak</span>
+                </th>
+                <th scope="col">
+                  Output
+                  <br />
+                  <span>V peak</span>
+                </th>
+                <th scope="col">
+                  Gain
+                  <br />
+                  <span>dB</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {result.tones.map((tone) => (
+                <tr key={tone.id}>
+                  <th scope="row">{tone.label}</th>
+                  <td>{eng(tone.frequency, 'Hz')}</td>
+                  <td>{Number(tone.amplitude.toPrecision(4))}</td>
+                  <td>{Number(tone.outputAmplitude.toPrecision(4))}</td>
+                  <td>{tone.response.db.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="rc-tone-note">
+            Theoretical gain applies to each sine wave separately. A mixed
+            signal does not have one Vpp gain.
+          </p>
+        </div>
+      )}
     </section>
   );
 }

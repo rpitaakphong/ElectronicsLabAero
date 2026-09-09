@@ -16,11 +16,13 @@ export function Choice({
   value,
   options,
   onChange,
+  alignItemWithTrigger = true,
 }: {
   label: string;
   value: string;
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
+  alignItemWithTrigger?: boolean;
 }) {
   const id = useId();
   return (
@@ -36,7 +38,7 @@ export function Choice({
         <SelectTrigger aria-labelledby={id} className="w-full h-10">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent alignItemWithTrigger={alignItemWithTrigger}>
           {options.map((o) => (
             <SelectItem key={o.value} value={o.value}>
               {o.label}

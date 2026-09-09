@@ -2,6 +2,40 @@
 export const CONFIGURATIONS = ['lowpass', 'highpass', 'bandpass'] as const;
 export type RcKind = (typeof CONFIGURATIONS)[number];
 export type Waveform = 'sine' | 'square' | 'triangle';
+export type RcInputMode = 'clean' | 'interference' | 'custom';
+export interface RcExampleSettings {
+  input: RcInputMode;
+  frequency: number;
+  amplitude: number;
+  strength: number;
+  interferenceFrequencies: number[];
+  window: 'detail' | 'overview';
+}
+export const EXAMPLE_DEFAULTS: Record<
+  RcKind,
+  {
+    frequency: number;
+    interference: { label: string; frequency: number; amplitude: number }[];
+  }
+> = {
+  lowpass: {
+    frequency: 200,
+    interference: [
+      { label: 'Fast interference', frequency: 10000, amplitude: 0.35 },
+    ],
+  },
+  highpass: {
+    frequency: 5000,
+    interference: [{ label: 'Slow drift', frequency: 50, amplitude: 0.6 }],
+  },
+  bandpass: {
+    frequency: 500,
+    interference: [
+      { label: 'Slow drift', frequency: 20, amplitude: 0.6 },
+      { label: 'Fast interference', frequency: 10000, amplitude: 0.35 },
+    ],
+  },
+};
 export interface RcComponents {
   r1: number;
   c1: number;
@@ -13,6 +47,7 @@ export interface RcComponents {
 export interface RcFilterConfig {
   kind: RcKind;
   circuits: Record<RcKind, RcComponents>;
+  examples: Record<RcKind, RcExampleSettings>;
   source: {
     waveform: Waveform;
     frequency: number;
@@ -40,6 +75,18 @@ export interface RcSample {
   time: number;
   input: number;
   output: number;
+  desired?: number;
+}
+export interface RcTone {
+  id: string;
+  label: string;
+  role: 'useful' | 'interference';
+  frequency: number;
+  amplitude: number;
+}
+export interface RcToneResult extends RcTone {
+  response: RcFrequencyPoint;
+  outputAmplitude: number;
 }
 export interface RcResult {
   transfer: RcTransfer;
@@ -53,6 +100,11 @@ export interface RcResult {
   slowTau: number;
   stageCorners: number[];
   duration: number;
+  isExample: boolean;
+  tones: RcToneResult[];
+  requestedDuration: number;
+  windowLimited: boolean;
+  exampleWindow: RcExampleSettings['window'] | null;
 }
 export const defaults = (): RcFilterConfig => ({
   kind: 'lowpass',
@@ -69,6 +121,21 @@ export const defaults = (): RcFilterConfig => ({
       },
     ]),
   ) as Record<RcKind, RcComponents>,
+  examples: Object.fromEntries(
+    CONFIGURATIONS.map((kind) => [
+      kind,
+      {
+        input: 'interference',
+        frequency: EXAMPLE_DEFAULTS[kind].frequency,
+        amplitude: 1,
+        strength: 100,
+        interferenceFrequencies: EXAMPLE_DEFAULTS[kind].interference.map(
+          (tone) => tone.frequency,
+        ),
+        window: 'detail',
+      },
+    ]),
+  ) as Record<RcKind, RcExampleSettings>,
   source: { waveform: 'sine', frequency: 1000, amplitude: 1, offset: 0 },
   view: 'periodic',
   stepVoltage: 1,
@@ -84,13 +151,37 @@ export function validate(c: RcFilterConfig): RcFilterConfig {
     if (!Number.isFinite(v) || v < min || v > max)
       throw new Error(`${name} must be between ${min} and ${max}.`);
   };
-  for (const p of Object.values(c.circuits)) {
+  for (const kind of CONFIGURATIONS) {
+    const p = c.circuits[kind],
+      example = c.examples?.[kind];
+    if (!p || !example)
+      throw new Error(
+        'Include circuit and signal settings for every RC category.',
+      );
     for (const k of ['r1', 'r2', 'load'] as const)
       bounded(p[k], 100, 1e6, 'Resistance (Ω)');
     for (const k of ['c1', 'c2'] as const)
       bounded(p[k], 1e-10, 1e-5, 'Capacitance (F)');
     if (typeof p.loaded !== 'boolean')
       throw new Error('Choose whether a load is connected.');
+    if (
+      !['clean', 'interference', 'custom'].includes(example.input) ||
+      !['detail', 'overview'].includes(example.window)
+    )
+      throw new Error('Choose a valid input signal and waveform window.');
+    bounded(example.frequency, 0.1, 1e6, 'Useful-signal frequency (Hz)');
+    bounded(example.amplitude, 0, 5, 'Useful-signal amplitude (V peak)');
+    bounded(example.strength, 0, 200, 'Interference strength (%)');
+    if (
+      !Array.isArray(example.interferenceFrequencies) ||
+      example.interferenceFrequencies.length !==
+        EXAMPLE_DEFAULTS[kind].interference.length
+    )
+      throw new Error(
+        'Include the interference frequencies for this RC category.',
+      );
+    for (const frequency of example.interferenceFrequencies)
+      bounded(frequency, 0.1, 1e6, 'Interference frequency (Hz)');
   }
   bounded(c.source.frequency, 0.1, 1e6, 'Frequency (Hz)');
   bounded(c.source.amplitude, 0, 5, 'Amplitude (V peak)');
@@ -257,21 +348,108 @@ export function simulate(config: RcFilterConfig): RcResult {
           2 / (Math.sqrt(h.a * h.a + 4 * h.b) + h.a) / (2 * Math.PI),
           (Math.sqrt(h.a * h.a + 4 * h.b) + h.a) / (2 * h.b) / (2 * Math.PI),
         ];
-  const slowTau = Math.max(...h.modes.map((m) => m.tau)),
-    duration = c.view === 'step' ? 8 * slowTau : 4 / c.source.frequency;
-  const lo = Math.log10(Math.min(...cutoffs, c.source.frequency) / 100),
-    hi = Math.log10(Math.max(...cutoffs, c.source.frequency) * 100);
+  const example = c.examples[c.kind],
+    isExample = c.view === 'periodic' && example.input !== 'custom',
+    selectedFrequency = isExample ? example.frequency : c.source.frequency,
+    slowTau = Math.max(...h.modes.map((m) => m.tau));
+  const toneDefinitions: RcTone[] = isExample
+    ? [
+        {
+          id: 'useful',
+          label: 'Useful signal',
+          role: 'useful',
+          frequency: example.frequency,
+          amplitude: example.amplitude,
+        },
+        ...(example.input === 'interference' && example.strength > 0
+          ? EXAMPLE_DEFAULTS[c.kind].interference.map((tone, i) => ({
+              id: `interference-${i}`,
+              label: tone.label,
+              role: 'interference' as const,
+              frequency: example.interferenceFrequencies[i],
+              amplitude: (tone.amplitude * example.strength) / 100,
+            }))
+          : []),
+      ]
+    : [];
+  const tones = toneDefinitions.map((tone) => {
+    const point = response(h, tone.frequency);
+    return {
+      ...tone,
+      response: point,
+      outputAmplitude: tone.amplitude * point.gain,
+    };
+  });
+  const requestedDuration =
+    c.view === 'step'
+      ? 8 * slowTau
+      : isExample
+        ? Math.max(
+            4 / example.frequency,
+            ...(example.window === 'overview'
+              ? tones
+                  .filter((tone) => tone.role === 'interference')
+                  .map((tone) => 1 / tone.frequency)
+              : []),
+          )
+        : 4 / c.source.frequency;
+  // Bound the window, not the sample rate: a large frequency ratio must never
+  // silently alias a faster tone into an apparent slow signal.
+  const fastestActive = Math.max(
+      0,
+      ...tones
+        .filter((tone) => tone.amplitude > 0)
+        .map((tone) => tone.frequency),
+    ),
+    requiredIntervals = requestedDuration * fastestActive * 32,
+    windowLimited = isExample && requiredIntervals > 32768,
+    duration = windowLimited ? 32768 / (32 * fastestActive) : requestedDuration,
+    intervals = isExample
+      ? windowLimited
+        ? 32768
+        : Math.max(1000, Math.ceil(requiredIntervals))
+      : 1000;
+  const markedFrequencies = [
+    selectedFrequency,
+    ...tones.map((tone) => tone.frequency),
+  ];
+  const lo = Math.log10(Math.min(...cutoffs, ...markedFrequencies) / 100),
+    hi = Math.log10(Math.max(...cutoffs, ...markedFrequencies) * 100);
   const frequencies = [
     ...Array.from(
       { length: 241 },
       (_, i) => 10 ** (lo + ((hi - lo) * i) / 240),
     ),
     ...cutoffs,
-    c.source.frequency,
+    ...markedFrequencies,
     ...(peakFrequency ? [peakFrequency] : []),
   ].sort((a, b) => a - b);
-  const samples = Array.from({ length: 1001 }, (_, i) => {
-    const time = (duration * i) / 1000;
+  const samples: RcSample[] = Array.from({ length: intervals + 1 }, (_, i) => {
+    const time = (duration * i) / intervals;
+    if (isExample) {
+      const desired =
+        example.amplitude * Math.sin(2 * Math.PI * example.frequency * time);
+      return {
+        time,
+        desired,
+        input: tones.reduce(
+          (sum, tone) =>
+            sum +
+            tone.amplitude * Math.sin(2 * Math.PI * tone.frequency * time),
+          0,
+        ),
+        output: tones.reduce(
+          (sum, tone) =>
+            sum +
+            tone.outputAmplitude *
+              Math.sin(
+                2 * Math.PI * tone.frequency * time +
+                  (tone.response.phase * Math.PI) / 180,
+              ),
+          0,
+        ),
+      };
+    }
     return {
       time,
       input:
@@ -288,7 +466,7 @@ export function simulate(config: RcFilterConfig): RcResult {
   });
   return {
     transfer: h,
-    selected: response(h, c.source.frequency),
+    selected: response(h, selectedFrequency),
     sweep: frequencies.map((f) => response(h, f)),
     samples,
     cutoffs,
@@ -301,6 +479,11 @@ export function simulate(config: RcFilterConfig): RcResult {
       ...(c.kind === 'bandpass' ? [1 / (2 * Math.PI * p.r2 * p.c2)] : []),
     ],
     duration,
+    requestedDuration,
+    isExample,
+    tones,
+    windowLimited,
+    exampleWindow: isExample ? example.window : null,
   };
 }
 

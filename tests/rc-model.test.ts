@@ -92,6 +92,7 @@ test('extreme components and frequency produce finite learning results', () => {
           for (const waveform of ['sine', 'square', 'triangle'] as const) {
             const c = defaults();
             c.kind = kind;
+            c.examples[kind].input = 'custom';
             Object.assign(c.circuits[kind], {
               r1: resistance,
               r2: resistance,
