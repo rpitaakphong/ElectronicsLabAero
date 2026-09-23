@@ -1,8 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 import {
   CONFIGURATIONS,
   EXAMPLE_DEFAULTS,
+  UAV_PHASES,
+  toneSpectrum,
   defaults,
   periodicAt,
   simulate,
@@ -59,25 +63,34 @@ test('each RC category begins with its intended useful signal and interference',
   const c = defaults();
   const expected = {
     lowpass: [0.9921966, 0.1571767],
-    highpass: [0.9528905, 0.0314004],
+    highpass: [0.9721344, 0.0414334, 0.1031199],
     bandpass: [0.8333283, 0.124451, 0.1567123],
   };
   for (const kind of CONFIGURATIONS) {
     c.kind = kind;
     const result = simulate(c);
     assert.equal(result.isExample, true);
-    assert.equal(result.exampleWindow, 'detail');
+    assert.equal(
+      result.exampleWindow,
+      kind === 'highpass' ? 'overview' : 'detail',
+    );
+    assert.equal(result.isUav, kind === 'highpass');
     assert.equal(result.selected.frequency, EXAMPLE_DEFAULTS[kind].frequency);
     assert.equal(result.tones[0].role, 'useful');
-    assert.equal(result.tones[0].label, 'Useful signal');
+    assert.equal(
+      result.tones[0].label,
+      kind === 'highpass' ? 'Motor vibration' : 'Useful signal',
+    );
     assert.equal(result.tones[0].amplitude, 1);
     assert.equal(result.tones.length, expected[kind].length);
     result.tones.forEach((tone, i) => {
       near(tone.response.gain, expected[kind][i], 1e-7);
       near(tone.outputAmplitude, tone.amplitude * tone.response.gain);
     });
-    assert.equal(result.samples[0].input, 0);
-    assert.equal(result.samples[0].desired, 0);
+    if (kind !== 'highpass') {
+      assert.equal(result.samples[0].input, 0);
+      assert.equal(result.samples[0].desired, 0);
+    }
     const firstDefaults = defaults();
     firstDefaults.examples[kind].interferenceFrequencies[0] = 123;
     assert.notEqual(defaults().examples[kind].interferenceFrequencies[0], 123);
@@ -112,7 +125,7 @@ test('mixed inputs and outputs match independent complex network equations', () 
         let input = 0,
           output = 0;
         for (const tone of result.tones) {
-          const phase = 2 * Math.PI * tone.frequency * sample.time,
+          const phase = 2 * Math.PI * tone.frequency * sample.time + tone.phase,
             [re, im] = impedanceResponse(
               kind,
               c.circuits[kind],
@@ -126,7 +139,17 @@ test('mixed inputs and outputs match independent complex network equations', () 
         near(sample.output, output, 1e-11);
         near(
           sample.desired!,
-          Math.sin(2 * Math.PI * c.examples[kind].frequency * sample.time),
+          result.tones
+            .filter((tone) => tone.role === 'useful')
+            .reduce(
+              (sum, tone) =>
+                sum +
+                tone.amplitude *
+                  Math.sin(
+                    2 * Math.PI * tone.frequency * sample.time + tone.phase,
+                  ),
+              0,
+            ),
         );
       }
     }
@@ -161,17 +184,19 @@ test('zero useful amplitude preserves interference and zero inputs remain define
     assert(mixed.samples.every((sample) => sample.desired === 0));
     assert(mixed.samples.some((sample) => Math.abs(sample.input) > 0.2));
     for (const sample of mixed.samples.filter((_, i) => i % 43 === 0)) {
-      const expected = mixed.tones.slice(1).reduce((sum, tone) => {
-        const [re, im] = impedanceResponse(
-            kind,
-            c.circuits[kind],
-            tone.frequency,
-          ),
-          phase = 2 * Math.PI * tone.frequency * sample.time;
-        return (
-          sum + tone.amplitude * (re * Math.sin(phase) + im * Math.cos(phase))
-        );
-      }, 0);
+      const expected = mixed.tones
+        .filter((tone) => tone.role === 'interference')
+        .reduce((sum, tone) => {
+          const [re, im] = impedanceResponse(
+              kind,
+              c.circuits[kind],
+              tone.frequency,
+            ),
+            phase = 2 * Math.PI * tone.frequency * sample.time + tone.phase;
+          return (
+            sum + tone.amplitude * (re * Math.sin(phase) + im * Math.cos(phase))
+          );
+        }, 0);
       near(sample.output, expected, 1e-11);
     }
     c.examples[kind].strength = 0;
@@ -184,7 +209,7 @@ test('zero useful amplitude preserves interference and zero inputs remain define
 });
 
 test('coincident useful and interference frequencies add with their actual attenuation and phase', () => {
-  for (const kind of CONFIGURATIONS) {
+  for (const kind of ['lowpass', 'bandpass'] as const) {
     const c = defaults();
     c.kind = kind;
     c.examples[kind].interferenceFrequencies.fill(c.examples[kind].frequency);
@@ -212,7 +237,7 @@ test('coincident useful and interference frequencies add with their actual atten
 test('detail and overview resolve fast interference and reveal slow drift', () => {
   const expectedDurations = {
     lowpass: [0.02, 0.02],
-    highpass: [0.0008, 0.02],
+    highpass: [0.02, 1],
     bandpass: [0.008, 0.05],
   };
   for (const kind of CONFIGURATIONS)
@@ -321,6 +346,7 @@ test('custom waveforms and separate step response retain existing calculations',
       });
       const result = simulate(c);
       assert.equal(result.isExample, false);
+      assert.equal(result.isUav, false);
       assert.equal(result.exampleWindow, null);
       assert.deepEqual(result.tones, []);
       assert.equal(result.selected.frequency, 730);
@@ -337,6 +363,7 @@ test('custom waveforms and separate step response retain existing calculations',
       c.stepVoltage = 2;
       const step = simulate(c);
       assert.equal(step.isExample, false);
+      assert.equal(step.isUav, false);
       assert.equal(step.selected.frequency, 730);
       assert.deepEqual(step.tones, []);
       assert.equal(step.duration, 8 * step.slowTau);
@@ -380,4 +407,151 @@ test('all categories are validated without mutating or sharing example settings'
       assert.throws(() => simulate(invalid));
     }
   }
+});
+
+test('UAV default circuit meets the vibration retention and movement rejection objectives', () => {
+  const c = defaults();
+  c.kind = 'highpass';
+  const result = simulate(c);
+  near(result.cutoffs[0], 48.22877063390768);
+  near(result.slowTau, 0.0033);
+  assert.equal(result.selected.frequency, 200);
+  assert.deepEqual(
+    result.tones.map((tone) => tone.marker),
+    ['V', 'M1', 'M2'],
+  );
+  assert(result.tones[0].response.gain >= 0.95);
+  assert(result.tones[1].response.gain < 0.05);
+  assert(result.tones[2].response.gain < 0.15);
+  // Raising cutoff to 482 Hz demonstrates the cost of stronger movement rejection.
+  c.circuits.highpass.r1 = 3300;
+  const raised = simulate(c);
+  assert(raised.tones[0].response.gain < 0.4);
+  assert(raised.tones[1].response.gain < result.tones[1].response.gain);
+});
+
+test('UAV fixed phases and actual voltages match the breadboard source', () => {
+  const context: {
+    RcSignals?: {
+      describe(input: unknown): {
+        tones: { frequency: number; amplitude: number; phase: number }[];
+      };
+    };
+  } = {};
+  runInNewContext(
+    readFileSync(
+      new URL('../vendor/opamp-lab-simulator/rc-signals.js', import.meta.url),
+      'utf8',
+    ),
+    context,
+  );
+  const c = defaults();
+  c.kind = 'highpass';
+  for (const strength of [0, 50, 100, 200]) {
+    c.examples.highpass.strength = strength;
+    const result = simulate(c);
+    const source = context.RcSignals!.describe({
+      mode: 'uav',
+      enabled: true,
+      noiseEnabled: true,
+      noiseStrength: strength,
+    });
+    assert.deepEqual(
+      result.tones.map(({ frequency, amplitude, phase }) => ({
+        frequency,
+        amplitude,
+        phase,
+      })),
+      Array.from(source.tones, ({ frequency, amplitude, phase }) => ({
+        frequency,
+        amplitude,
+        phase,
+      })),
+    );
+    for (const sample of result.samples.filter((_, i) => i % 17 === 0)) {
+      const expectedInput = source.tones.reduce(
+        (sum, tone) =>
+          sum +
+          tone.amplitude *
+            Math.sin(2 * Math.PI * tone.frequency * sample.time + tone.phase),
+        0,
+      );
+      near(sample.input, expectedInput, 1e-12);
+    }
+    c.circuits.highpass.r1 = 44000;
+    assert.deepEqual(
+      simulate(c).tones.map((tone) => tone.phase),
+      result.tones.map((tone) => tone.phase),
+    );
+    c.examples.highpass.window = 'detail';
+    assert.deepEqual(
+      simulate(c).tones.map((tone) => tone.phase),
+      result.tones.map((tone) => tone.phase),
+    );
+  }
+  c.examples.highpass.input = 'clean';
+  const clean = simulate(c);
+  assert.equal(clean.tones.length, 1);
+  near(clean.samples[0].input, Math.sin(UAV_PHASES[0]));
+  c.examples.highpass.frequency = 350;
+  c.examples.highpass.amplitude = 2;
+  const edited = simulate(c);
+  assert.equal(edited.selected.frequency, 350);
+  near(edited.samples[0].input, 2 * Math.sin(UAV_PHASES[0]));
+});
+
+test('coincident UAV components combine their phases and cannot be separated by the filter', () => {
+  const c = defaults();
+  c.kind = 'highpass';
+  c.examples.highpass.interferenceFrequencies = [200, 200];
+  const result = simulate(c),
+    spectrum = toneSpectrum(result.tones),
+    re = result.tones.reduce(
+      (sum, tone) => sum + tone.amplitude * Math.cos(tone.phase),
+      0,
+    ),
+    im = result.tones.reduce(
+      (sum, tone) => sum + tone.amplitude * Math.sin(tone.phase),
+      0,
+    );
+  assert.equal(spectrum.length, 1);
+  near(spectrum[0].input, Math.hypot(re, im));
+  near(spectrum[0].output, spectrum[0].input * result.selected.gain);
+  assert(spectrum[0].input < 1.9);
+  for (const tone of result.tones) {
+    near(tone.response.gain, result.selected.gain);
+    near(tone.response.phase, result.selected.phase);
+  }
+  for (const sample of result.samples) {
+    const phase = 2 * Math.PI * 200 * sample.time;
+    near(sample.input, re * Math.sin(phase) + im * Math.cos(phase));
+  }
+  const tone = result.tones[0];
+  const cancelled = toneSpectrum([
+    tone,
+    { ...tone, phase: tone.phase + Math.PI },
+  ]);
+  near(cancelled[0].input, 0);
+  near(cancelled[0].output, 0);
+});
+
+test('UAV observation windows resolve motor vibration and two movement periods', () => {
+  const c = defaults();
+  c.kind = 'highpass';
+  const overview = simulate(c);
+  near(overview.requestedDuration, 1);
+  assert.equal(overview.windowLimited, false);
+  assert(overview.samples[1].time <= 1 / (200 * 32));
+  c.examples.highpass.window = 'detail';
+  near(simulate(c).duration, 0.02);
+  c.examples.highpass.window = 'overview';
+  c.examples.highpass.interferenceFrequencies[0] = 0.1;
+  const long = simulate(c);
+  assert.equal(long.requestedDuration, 20);
+  assert.equal(long.windowLimited, true);
+  assert.equal(long.samples.length, 32769);
+  near(long.duration, 5.12);
+  near(long.samples[1].time, 1 / (200 * 32));
+  c.examples.highpass.strength = 0;
+  near(simulate(c).duration, 0.02);
 });

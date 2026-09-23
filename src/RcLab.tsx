@@ -164,11 +164,43 @@ export default function RcLab() {
           <span className="eyebrow">THE SIGNAL YOU WANT TO KEEP</span>
           <h2 id="signal-objective">{info.example.title}</h2>
           <p>{info.example.objective}</p>
-          <p className="small-muted">
-            Switch between clean and measured signals, then adjust R and C. The
-            dashed desired signal is your reference; the output keeps its actual
-            attenuation and phase shift.
-          </p>
+          {result.isUav ? (
+            <>
+              <p>
+                This synthetic teaching signal represents an amplified and
+                conditioned accelerometer output: 200 Hz motor vibration at 1 V
+                peak, plus aircraft movement at 2 Hz (0.6 V peak) and 5 Hz (0.3
+                V peak). Slow movement is unwanted for this vibration-monitoring
+                task; it may be useful in other aircraft measurements.
+              </p>
+              <p>
+                With the default signals, preserve at least 95% of the 200 Hz
+                vibration while reducing the 2 Hz component below 5% and the 5
+                Hz component below 15% of their original amplitudes. Start with
+                33 kΩ and 100 nF, giving a cutoff near 48.2 Hz.
+              </p>
+              <p className="rc-uav-tradeoff">
+                At this cutoff, the useful vibration retains{' '}
+                {(result.selected.gain * 100).toFixed(1)}% of its amplitude.
+                Raising the cutoff improves movement rejection but eventually
+                weakens the vibration you want to measure. Check each component
+                in the table; a single RC filter reduces movement gradually.
+              </p>
+              <p className="small-muted">
+                Fixed phases make each comparison repeatable. These voltages
+                describe a conditioned sensor output and are teaching values,
+                not measurements from a particular aircraft. The dashed clean
+                motor vibration is your reference; the filtered output keeps its
+                actual attenuation and phase shift.
+              </p>
+            </>
+          ) : (
+            <p className="small-muted">
+              Switch between clean and measured signals, then adjust R and C.
+              The dashed desired signal is your reference; the output keeps its
+              actual attenuation and phase shift.
+            </p>
+          )}
         </section>
       )}
       {error && <p role="alert">{error}</p>}
@@ -221,8 +253,20 @@ export default function RcLab() {
                 label="Input signal"
                 value={example.input}
                 options={[
-                  { value: 'clean', label: 'Clean signal' },
-                  { value: 'interference', label: 'Signal with interference' },
+                  {
+                    value: 'clean',
+                    label:
+                      config.kind === 'highpass'
+                        ? 'Clean motor vibration'
+                        : 'Clean signal',
+                  },
+                  {
+                    value: 'interference',
+                    label:
+                      config.kind === 'highpass'
+                        ? 'Vibration + aircraft movement'
+                        : 'Signal with interference',
+                  },
                   { value: 'custom', label: 'Custom waveform' },
                 ]}
                 onChange={(v) => signal({ input: v as RcInputMode })}
@@ -252,7 +296,11 @@ export default function RcLab() {
                 {example.input === 'interference' && (
                   <>
                     <Field
-                      label="Interference strength"
+                      label={
+                        result.isUav
+                          ? 'Aircraft movement strength'
+                          : 'Interference strength'
+                      }
                       value={example.strength}
                       min={0}
                       max={200}
@@ -286,9 +334,9 @@ export default function RcLab() {
                           ),
                         )}
                         <p>
-                          These are controlled sine-wave disturbances. If an
-                          unwanted frequency overlaps the useful signal, the
-                          filter acts on both.
+                          {result.isUav
+                            ? 'These two slow components approximate aircraft movement. Move a disturbance frequency toward the useful vibration frequency to see why a filter cannot separate signals at the same frequency.'
+                            : 'These are controlled sine-wave disturbances. If an unwanted frequency overlaps the useful signal, the filter acts on both.'}
                         </p>
                       </div>
                     </details>

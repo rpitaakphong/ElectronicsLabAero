@@ -3,6 +3,14 @@ export const CONFIGURATIONS = ['lowpass', 'highpass', 'bandpass'] as const;
 export type RcKind = (typeof CONFIGURATIONS)[number];
 export type Waveform = 'sine' | 'square' | 'triangle';
 export type RcInputMode = 'clean' | 'interference' | 'custom';
+/** Repeatable phases for the conditioned UAV sensor, shared with RcSignals. */
+export const UAV_PHASES: readonly number[] = (() => {
+  let seed = 0x55415631;
+  return Array.from({ length: 3 }, () => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return (seed / 4294967296) * 2 * Math.PI;
+  });
+})();
 export interface RcExampleSettings {
   input: RcInputMode;
   frequency: number;
@@ -25,8 +33,11 @@ export const EXAMPLE_DEFAULTS: Record<
     ],
   },
   highpass: {
-    frequency: 5000,
-    interference: [{ label: 'Slow drift', frequency: 50, amplitude: 0.6 }],
+    frequency: 200,
+    interference: [
+      { label: 'Aircraft movement', frequency: 2, amplitude: 0.6 },
+      { label: 'Additional movement', frequency: 5, amplitude: 0.3 },
+    ],
   },
   bandpass: {
     frequency: 500,
@@ -83,6 +94,9 @@ export interface RcTone {
   role: 'useful' | 'interference';
   frequency: number;
   amplitude: number;
+  /** Input sine phase in radians, relative to the fixed signal epoch. */
+  phase: number;
+  marker?: string;
 }
 export interface RcToneResult extends RcTone {
   response: RcFrequencyPoint;
@@ -101,6 +115,7 @@ export interface RcResult {
   stageCorners: number[];
   duration: number;
   isExample: boolean;
+  isUav: boolean;
   tones: RcToneResult[];
   requestedDuration: number;
   windowLimited: boolean;
@@ -112,8 +127,8 @@ export const defaults = (): RcFilterConfig => ({
     CONFIGURATIONS.map((kind) => [
       kind,
       {
-        r1: 10000,
-        c1: kind === 'bandpass' ? 100e-9 : 10e-9,
+        r1: kind === 'highpass' ? 33000 : 10000,
+        c1: kind === 'lowpass' ? 10e-9 : 100e-9,
         r2: 10000,
         c2: 10e-9,
         loaded: false,
@@ -132,7 +147,7 @@ export const defaults = (): RcFilterConfig => ({
         interferenceFrequencies: EXAMPLE_DEFAULTS[kind].interference.map(
           (tone) => tone.frequency,
         ),
-        window: 'detail',
+        window: kind === 'highpass' ? 'overview' : 'detail',
       },
     ]),
   ) as Record<RcKind, RcExampleSettings>,
@@ -350,16 +365,19 @@ export function simulate(config: RcFilterConfig): RcResult {
         ];
   const example = c.examples[c.kind],
     isExample = c.view === 'periodic' && example.input !== 'custom',
+    isUav = isExample && c.kind === 'highpass',
     selectedFrequency = isExample ? example.frequency : c.source.frequency,
     slowTau = Math.max(...h.modes.map((m) => m.tau));
   const toneDefinitions: RcTone[] = isExample
     ? [
         {
           id: 'useful',
-          label: 'Useful signal',
+          label: isUav ? 'Motor vibration' : 'Useful signal',
           role: 'useful',
           frequency: example.frequency,
           amplitude: example.amplitude,
+          phase: isUav ? UAV_PHASES[0] : 0,
+          ...(isUav ? { marker: 'V' } : {}),
         },
         ...(example.input === 'interference' && example.strength > 0
           ? EXAMPLE_DEFAULTS[c.kind].interference.map((tone, i) => ({
@@ -368,6 +386,8 @@ export function simulate(config: RcFilterConfig): RcResult {
               role: 'interference' as const,
               frequency: example.interferenceFrequencies[i],
               amplitude: (tone.amplitude * example.strength) / 100,
+              phase: isUav ? UAV_PHASES[i + 1] : 0,
+              ...(isUav ? { marker: `M${i + 1}` } : {}),
             }))
           : []),
       ]
@@ -388,8 +408,11 @@ export function simulate(config: RcFilterConfig): RcResult {
             4 / example.frequency,
             ...(example.window === 'overview'
               ? tones
-                  .filter((tone) => tone.role === 'interference')
-                  .map((tone) => 1 / tone.frequency)
+                  .filter(
+                    (tone) =>
+                      tone.role === 'interference' && tone.amplitude > 0,
+                  )
+                  .map((tone) => (isUav ? 2 : 1) / tone.frequency)
               : []),
           )
         : 4 / c.source.frequency;
@@ -413,8 +436,9 @@ export function simulate(config: RcFilterConfig): RcResult {
     selectedFrequency,
     ...tones.map((tone) => tone.frequency),
   ];
-  const lo = Math.log10(Math.min(...cutoffs, ...markedFrequencies) / 100),
-    hi = Math.log10(Math.max(...cutoffs, ...markedFrequencies) * 100);
+  const sweepPadding = isUav ? 10 : 100,
+    lo = Math.log10(Math.min(...cutoffs, ...markedFrequencies) / sweepPadding),
+    hi = Math.log10(Math.max(...cutoffs, ...markedFrequencies) * sweepPadding);
   const frequencies = [
     ...Array.from(
       { length: 241 },
@@ -427,15 +451,23 @@ export function simulate(config: RcFilterConfig): RcResult {
   const samples: RcSample[] = Array.from({ length: intervals + 1 }, (_, i) => {
     const time = (duration * i) / intervals;
     if (isExample) {
-      const desired =
-        example.amplitude * Math.sin(2 * Math.PI * example.frequency * time);
+      const desired = tones
+        .filter((tone) => tone.role === 'useful')
+        .reduce(
+          (sum, tone) =>
+            sum +
+            tone.amplitude *
+              Math.sin(2 * Math.PI * tone.frequency * time + tone.phase),
+          0,
+        );
       return {
         time,
         desired,
         input: tones.reduce(
           (sum, tone) =>
             sum +
-            tone.amplitude * Math.sin(2 * Math.PI * tone.frequency * time),
+            tone.amplitude *
+              Math.sin(2 * Math.PI * tone.frequency * time + tone.phase),
           0,
         ),
         output: tones.reduce(
@@ -444,6 +476,7 @@ export function simulate(config: RcFilterConfig): RcResult {
             tone.outputAmplitude *
               Math.sin(
                 2 * Math.PI * tone.frequency * time +
+                  tone.phase +
                   (tone.response.phase * Math.PI) / 180,
               ),
           0,
@@ -481,10 +514,40 @@ export function simulate(config: RcFilterConfig): RcResult {
     duration,
     requestedDuration,
     isExample,
+    isUav,
     tones,
     windowLimited,
     exampleWindow: isExample ? example.window : null,
   };
+}
+
+/** Add coincident sine components as phasors, so their relative phases matter. */
+export function toneSpectrum(tones: readonly RcToneResult[]) {
+  const bins = new Map<
+    number,
+    { inputRe: number; inputIm: number; outputRe: number; outputIm: number }
+  >();
+  for (const tone of tones) {
+    const bin = bins.get(tone.frequency) ?? {
+      inputRe: 0,
+      inputIm: 0,
+      outputRe: 0,
+      outputIm: 0,
+    };
+    const outputPhase = tone.phase + (tone.response.phase * Math.PI) / 180;
+    bin.inputRe += tone.amplitude * Math.cos(tone.phase);
+    bin.inputIm += tone.amplitude * Math.sin(tone.phase);
+    bin.outputRe += tone.outputAmplitude * Math.cos(outputPhase);
+    bin.outputIm += tone.outputAmplitude * Math.sin(outputPhase);
+    bins.set(tone.frequency, bin);
+  }
+  return [...bins]
+    .map(([frequency, bin]) => ({
+      frequency,
+      input: Math.hypot(bin.inputRe, bin.inputIm),
+      output: Math.hypot(bin.outputRe, bin.outputIm),
+    }))
+    .sort((a, b) => a.frequency - b.frequency);
 }
 
 export function engineering(value: number, unit: string) {

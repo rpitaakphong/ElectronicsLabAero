@@ -104,7 +104,13 @@ fs.mkdirSync(output, { recursive: true });
     );
     const blank = await save();
     assert.equal(blank.lab, 'rc-filter');
-    assert.equal(blank.version, 1);
+    assert.equal(blank.version, 2);
+    assert.deepEqual(blank.state.rcInput, {
+      mode: 'generator',
+      enabled: true,
+      noiseEnabled: true,
+      noiseStrength: 100,
+    });
     assert.equal(blank.state.generator.output, false);
     assert.equal(blank.state.generator.frequency, 1000);
     await frame().locator('#schematicSelect').selectOption('bandpass');
@@ -160,6 +166,14 @@ fs.mkdirSync(output, { recursive: true });
     await page.reload();
     await ready();
     assert.equal(await frame().locator('#componentList option').count(), 1);
+    await frame().locator('#recallLabBtn').click();
+    assert.deepEqual(await save(), snapshot);
+    await page.evaluate(() => {
+      const legacy = JSON.parse(localStorage.getItem('rc-filter-v1-lab'));
+      legacy.version = 1;
+      delete legacy.state.rcInput;
+      localStorage.setItem('rc-filter-v1-lab', JSON.stringify(legacy));
+    });
     await frame().locator('#recallLabBtn').click();
     assert.deepEqual(await save(), snapshot);
     assert.deepEqual(
@@ -281,7 +295,7 @@ fs.mkdirSync(output, { recursive: true });
     await ready();
     assert.deepEqual(errors, []);
     console.log(
-      'PASS: RC learning, three wired responses, disconnected readings, history, locking, Save/Recall validation and isolation, navigation preservation, four viewport widths, routes, and offline download',
+      'PASS: RC learning, three wired responses, disconnected readings, history, locking, version-2 Save/Recall and version-1 migration, storage isolation, navigation preservation, four viewport widths, routes, and offline download',
     );
   } finally {
     await browser.close();

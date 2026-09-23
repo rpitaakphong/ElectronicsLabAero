@@ -15,6 +15,7 @@ const near = (a: number, b: number, tol = 1e-9) =>
 test('RC cutoff and phase agree with independent first-order equations', () => {
   const c = defaults();
   for (const kind of ['lowpass', 'highpass'] as const) {
+    Object.assign(c.circuits[kind], { r1: 10000, c1: 10e-9 });
     const h = transfer(kind, c.circuits[kind]),
       p = response(h, 1 / (2 * Math.PI * 10000 * 10e-9));
     near(p.gain, Math.SQRT1_2);

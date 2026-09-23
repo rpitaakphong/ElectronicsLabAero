@@ -4,6 +4,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const origin = process.env.APP_URL || 'http://127.0.0.1:3000';
 const output = path.resolve('output/playwright/rc-signals');
+// Panel captures should show the plot without sticky navigation covering its top.
+const screenshotStyle =
+  '.site-header, .skip-link { visibility: hidden !important; }';
 fs.mkdirSync(output, { recursive: true });
 (async () => {
   const browser = await chromium.launch();
@@ -25,8 +28,23 @@ fs.mkdirSync(output, { recursive: true });
     };
     const rows = () =>
       page
-        .getByRole('table', { name: 'Signal components' })
+        .getByRole('table', {
+          name: /^(Signal components|UAV vibration and movement components)$/,
+        })
         .locator('tbody tr');
+    const uavTable = () =>
+      page.getByRole('table', {
+        name: 'UAV vibration and movement components',
+        exact: true,
+      });
+    const uavRow = (name) =>
+      uavTable()
+        .getByRole('row')
+        .filter({
+          has: page.getByRole('rowheader', { name, exact: true }),
+        });
+    const uavGain = async (name) =>
+      parseFloat(await uavRow(name).locator('td').nth(3).textContent());
     await page.goto(origin + '/rc-filter/learn');
     assert.equal(await field('Useful-signal frequency').inputValue(), '200');
     assert.equal(await rows().count(), 2);
@@ -67,11 +85,76 @@ fs.mkdirSync(output, { recursive: true });
         .isChecked(),
     );
     await page.getByRole('radio', { name: /High-pass/ }).click();
-    assert.equal(await field('Useful-signal frequency').inputValue(), '5000');
+    assert.equal(await field('Useful-signal frequency').inputValue(), '200');
+    assert.equal(await field('Useful-signal amplitude').inputValue(), '1');
+    assert.equal(await field('Resistance R1').inputValue(), '33');
+    assert.equal(await field('Capacitance C1').inputValue(), '100');
+    assert.equal(await rows().count(), 3);
+    assert.deepEqual(
+      await uavTable().getByRole('rowheader').allTextContents(),
+      ['Motor vibration', 'Aircraft movement', 'Additional movement'],
+    );
+    assert.equal(
+      await uavTable().getByRole('columnheader', { name: /Phase/ }).count(),
+      1,
+    );
+    // Default high-pass meets all three component-specific task targets.
+    assert.ok((await uavGain('Motor vibration')) > 20 * Math.log10(0.95));
+    assert.ok((await uavGain('Aircraft movement')) < 20 * Math.log10(0.05));
+    assert.ok((await uavGain('Additional movement')) < 20 * Math.log10(0.15));
+    await edit('Useful-signal amplitude', 2);
+    await edit('Aircraft movement strength', 150);
+    await choose('Input signal', 'Clean motor vibration');
+    assert.equal(await rows().count(), 1);
+    assert.match(
+      await page.locator('.rc-time-panel').textContent(),
+      /Measured vibration \(clean\)/,
+    );
+    await choose('Input signal', 'Vibration + aircraft movement');
+    assert.equal(await rows().count(), 3);
+    assert.equal(await field('Useful-signal amplitude').inputValue(), '2');
+    await edit('Useful-signal amplitude', 1);
+    await edit('Aircraft movement strength', 0);
+    assert.equal(await rows().count(), 1);
+    assert.match(
+      await page.locator('.rc-time-panel').textContent(),
+      /Aircraft movement is off/,
+    );
+    await edit('Aircraft movement strength', 100);
+    const vibrationDefault = await uavGain('Motor vibration');
+    await edit('Resistance R1', 3.3);
+    assert.ok((await uavGain('Motor vibration')) < vibrationDefault - 5);
+    await edit('Resistance R1', 33);
+    await page.getByText('Advanced signal settings', { exact: true }).click();
+    const originalMovement = await field(
+      'Aircraft movement frequency',
+    ).inputValue();
+    await edit('Aircraft movement frequency', 200);
+    assert.equal(
+      await uavGain('Aircraft movement'),
+      await uavGain('Motor vibration'),
+    );
+    assert.equal(
+      await uavRow('Aircraft movement').locator('td').nth(4).textContent(),
+      await uavRow('Motor vibration').locator('td').nth(4).textContent(),
+    );
+    await edit('Aircraft movement frequency', originalMovement);
+    await page.getByText('Advanced signal settings', { exact: true }).click();
+    await choose('Waveform window', 'Signal detail');
+    assert.match(
+      await page.locator('.rc-time-panel .rc-caption').textContent(),
+      /four periods/,
+    );
+    await page
+      .locator('.rc-time-panel')
+      .screenshot({
+        path: path.join(output, 'uav-detail.png'),
+        style: screenshotStyle,
+      });
     await choose('Waveform window', 'Long overview');
     assert.match(
       await page.locator('.rc-time-panel .rc-caption').textContent(),
-      /Long overview/,
+      /two periods/,
     );
     await page.getByRole('radio', { name: /Low-pass/ }).click();
     assert.equal(await field('Useful-signal frequency').inputValue(), '300');
@@ -109,7 +192,7 @@ fs.mkdirSync(output, { recursive: true });
       await page.setViewportSize({ width, height: 1100 });
       for (const [name, frequency, count] of [
         ['Low-pass', '200', 2],
-        ['High-pass', '5000', 2],
+        ['High-pass', '200', 3],
         ['Band-pass', '500', 3],
       ]) {
         await page.getByRole('radio', { name: new RegExp(name) }).click();
@@ -139,14 +222,31 @@ fs.mkdirSync(output, { recursive: true });
         );
         await page.locator('.rc-time-panel').screenshot({
           path: path.join(output, `comparison-${width}-${name}.png`),
+          style: screenshotStyle,
         });
+        if (name === 'High-pass') {
+          await page.locator('.rc-frequency').screenshot({
+            path: path.join(output, `uav-frequency-${width}.png`),
+            style: screenshotStyle,
+          });
+          assert.match(
+            await page.locator('.rc-time-panel').textContent(),
+            /V peak/,
+          );
+          assert.match(
+            await page.locator('.rc-frequency').textContent(),
+            /Useful frequency/,
+          );
+        }
         if (name === 'Band-pass') {
-          await page
-            .locator('.rc-frequency')
-            .screenshot({ path: path.join(output, `frequency-${width}.png`) });
-          await page
-            .locator('.rc-controls')
-            .screenshot({ path: path.join(output, `controls-${width}.png`) });
+          await page.locator('.rc-frequency').screenshot({
+            path: path.join(output, `frequency-${width}.png`),
+            style: screenshotStyle,
+          });
+          await page.locator('.rc-controls').screenshot({
+            path: path.join(output, `controls-${width}.png`),
+            style: screenshotStyle,
+          });
         }
       }
       if (width === 390) {
@@ -192,7 +292,7 @@ fs.mkdirSync(output, { recursive: true });
     assert.equal(await field('Interference strength').inputValue(), '100');
     assert.deepEqual(errors, []);
     console.log(
-      'PASS: RC interference examples, per-category and shared custom state, controls, reference traces and tone tables, bounded windows, keyboard/navigation, reset/reload, and all four viewport widths',
+      'PASS: RC interference and UAV examples, movement suppression and vibration retention, overlapping frequencies, per-category and shared custom state, controls, reference traces and tone tables, bounded windows, keyboard/navigation, reset/reload, and all four viewport widths',
     );
   } finally {
     await browser.close();

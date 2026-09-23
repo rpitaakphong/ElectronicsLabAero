@@ -34,7 +34,9 @@ yarn-error.log*
 .vercel
 *.tsbuildinfo
 /dist/
+/output/
 /outputs/
+/tmp/
 /work/
 
 # Packaged from the maintained simulator source by predev/prebuild

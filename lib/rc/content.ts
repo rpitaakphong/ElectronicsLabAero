@@ -34,12 +34,12 @@ export const INFO: Record<
   highpass: {
     name: 'High-pass filter',
     example: {
-      title: 'Remove sensor drift',
+      title: 'Monitor UAV motor vibration',
       objective:
-        'A useful vibration signal sits on a slowly drifting baseline. Remove the drift while preserving the faster vibration.',
+        'Extract motor vibration from a conditioned accelerometer output so an engineer can monitor its amplitude without slow aircraft movement dominating the measurement.',
       experiments: [
-        'Choose Long overview to reveal the moving baseline. Compare the measured input with the filtered output.',
-        'Reduce R or C to raise the cutoff. First reject the drift, then observe how a cutoff that is too high weakens the useful vibration.',
+        'Choose Long overview to reveal aircraft movement, then Signal detail to inspect the motor vibration. Compare the measured input with the filtered output.',
+        'Reduce R or C to raise the cutoff. First reduce slow movement, then observe how a cutoff that is too high weakens useful motor vibration.',
         'Choose Custom waveform and add a DC offset, or open Step response. What does the high-pass filter retain after a steady input settles?',
       ],
     },

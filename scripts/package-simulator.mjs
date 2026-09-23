@@ -34,6 +34,7 @@ const packages = [
       'transient-engine.js',
       'sfg1013.js',
       'routing.js',
+      'rc-signals.js',
       'rc-engine.js',
       'rc.js',
       'app.js',

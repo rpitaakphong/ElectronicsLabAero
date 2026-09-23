@@ -88,6 +88,7 @@
 }
 .rc-tone-table-container {
   padding: 0 20px 18px;
+  overflow-x: auto;
 }
 .rc-tone-table {
   width: 100%;
@@ -186,4 +187,12 @@
   .rc-response-subheading {
     padding-inline: 12px;
   }
+}
+
+.rc-uav-tone-table {
+  min-width: 420px;
+}
+.rc-tone-table-container:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
 }

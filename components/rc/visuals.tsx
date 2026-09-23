@@ -1,5 +1,5 @@
 import type { RcFilterConfig, RcResult } from '@/lib/rc/simulator';
-import { engineering as eng } from '@/lib/rc/simulator';
+import { engineering as eng, toneSpectrum } from '@/lib/rc/simulator';
 import { useWidth } from '@/components/lab/schematic';
 import { INFO } from '@/lib/rc/content';
 export function RcSchematic({ config }: { config: RcFilterConfig }) {
@@ -146,7 +146,12 @@ function Plot({
     }
     let row = 0;
     while (
-      annotations.some((a) => a.row === row && Math.abs(a.x - position) < 65)
+      annotations.some(
+        (a) =>
+          a.row === row &&
+          Math.abs(a.x - position) <
+            16 + (a.text.length + marker.annotation!.length) * 3.5,
+      )
     )
       row++;
     annotations.push({ x: position, text: marker.annotation!, row });
@@ -241,7 +246,7 @@ function Plot({
                     />
                   )}
                   <title>
-                    {seriesLabels[i]} · {eng(p.x, 'Hz')}: {eng(p.y, 'V peak')}
+                    {seriesLabels[i]} · {eng(p.x, 'Hz')}: {eng(p.y, yUnit)}
                   </title>
                 </g>
               ))}
@@ -252,12 +257,14 @@ function Plot({
   );
 }
 export function RcFrequencyPlots({ result }: { result: RcResult }) {
+  const voltageScale = 1;
+  const voltageUnit = 'V peak';
   const toneMarkers: Marker[] = result.tones.map((tone, index) => ({
     x: tone.frequency,
     label: tone.label,
     selected: tone.role === 'useful',
     role: tone.role,
-    annotation: tone.role === 'useful' ? 'U' : `I${index}`,
+    annotation: tone.marker ?? (tone.role === 'useful' ? 'U' : `I${index}`),
   }));
   const markers: Marker[] = [
     ...result.cutoffs.map((x) => ({ x, label: 'Half-power frequency' })),
@@ -271,23 +278,7 @@ export function RcFrequencyPlots({ result }: { result: RcResult }) {
           },
         ]),
   ];
-  const spectralComponents = new Map<
-    number,
-    { frequency: number; input: number; output: number }
-  >();
-  for (const tone of result.tones) {
-    const entry = spectralComponents.get(tone.frequency) ?? {
-      frequency: tone.frequency,
-      input: 0,
-      output: 0,
-    };
-    entry.input += tone.amplitude;
-    entry.output += tone.outputAmplitude;
-    spectralComponents.set(tone.frequency, entry);
-  }
-  const spectrum = [...spectralComponents.values()].sort(
-    (a, b) => a.frequency - b.frequency,
-  );
+  const spectrum = toneSpectrum(result.tones);
   const min = result.sweep[0].frequency,
     max = result.sweep.at(-1)!.frequency;
   return (
@@ -319,17 +310,23 @@ export function RcFrequencyPlots({ result }: { result: RcResult }) {
           >
             <li>
               <span className="rc-line-key signal-input" />
-              Input signal
+              {result.isUav ? 'Vibration + movement input' : 'Input signal'}
             </li>
             <li>
               <span className="rc-line-key signal-output" />
-              Filtered output
+              {result.isUav ? 'Filtered vibration' : 'Filtered output'}
             </li>
           </ul>
           <Plot
             points={[
-              spectrum.map((p) => ({ x: p.frequency, y: p.input })),
-              spectrum.map((p) => ({ x: p.frequency, y: p.output })),
+              spectrum.map((p) => ({
+                x: p.frequency,
+                y: p.input * voltageScale,
+              })),
+              spectrum.map((p) => ({
+                x: p.frequency,
+                y: p.output * voltageScale,
+              })),
             ]}
             traceClasses={['signal-input', 'signal-output']}
             seriesLabels={['Input amplitude', 'Output amplitude']}
@@ -340,12 +337,14 @@ export function RcFrequencyPlots({ result }: { result: RcResult }) {
             yMax={
               Math.max(
                 0.1,
-                ...spectrum.map((p) => Math.max(p.input, p.output)),
+                ...spectrum.map(
+                  (p) => Math.max(p.input, p.output) * voltageScale,
+                ),
               ) * 1.15
             }
             logX
             xUnit="Hz"
-            yUnit="V peak"
+            yUnit={voltageUnit}
             label="Input and output signal amplitudes versus logarithmic frequency"
             markers={toneMarkers}
           />
@@ -353,7 +352,7 @@ export function RcFrequencyPlots({ result }: { result: RcResult }) {
             Each peak shows a frequency in the signal. Teal circles mark input
             amplitude; amber diamonds mark output amplitude. Compare their
             heights to see what the filter removes. Coincident tones are
-            combined.
+            combined using their amplitudes and phases.
           </p>
         </div>
       )}
@@ -416,9 +415,11 @@ export function RcFrequencyPlots({ result }: { result: RcResult }) {
         {result.isExample ? 'Useful frequency' : 'At'}{' '}
         {eng(result.selected.frequency, 'Hz')}: {result.selected.db.toFixed(2)}{' '}
         dB · {result.selected.phase.toFixed(1)}°.{' '}
-        {result.isExample
-          ? 'U: useful signal. I: interference.'
-          : 'Teal: selected frequency.'}{' '}
+        {result.isUav
+          ? 'V: motor vibration. M1, M2: aircraft movement.'
+          : result.isExample
+            ? 'U: useful signal. I: interference.'
+            : 'Teal: selected frequency.'}{' '}
         Gray dashed: −3 dB relative to passband or peak. The input reference is
         0 dB and 0°; the output curves show the filter’s gain and phase, rather
         than signal amplitudes.
@@ -434,10 +435,36 @@ export function RcTimePlot({
   step: boolean;
 }) {
   const example = result.isExample && !step;
+  const uav = result.isUav && !step;
+  const hasMovement = result.tones.some((tone) => tone.role === 'interference');
+  const voltageScale = 1;
+  const labels = uav
+    ? {
+        desired: 'Clean motor vibration',
+        input: hasMovement
+          ? 'Vibration + aircraft movement'
+          : 'Measured vibration (clean)',
+        output: 'Filtered vibration',
+      }
+    : {
+        desired: 'Desired signal',
+        input: 'Measured input',
+        output: 'Filtered output',
+      };
   const [min, max] = result.samples.reduce(
     ([min, max], p) => [
-      Math.min(min, p.input, p.output, p.desired ?? 0),
-      Math.max(max, p.input, p.output, p.desired ?? 0),
+      Math.min(
+        min,
+        p.input * voltageScale,
+        p.output * voltageScale,
+        (p.desired ?? 0) * voltageScale,
+      ),
+      Math.max(
+        max,
+        p.input * voltageScale,
+        p.output * voltageScale,
+        (p.desired ?? 0) * voltageScale,
+      ),
     ],
     [0, 0],
   );
@@ -463,24 +490,30 @@ export function RcTimePlot({
         <ul className="rc-signal-legend" aria-label="Waveform traces">
           <li>
             <span className="rc-line-key signal-desired" />
-            Desired signal
+            {labels.desired}
           </li>
           <li>
             <span className="rc-line-key signal-input" />
-            Measured input
+            {labels.input}
           </li>
           <li>
             <span className="rc-line-key signal-output" />
-            Filtered output
+            {labels.output}
           </li>
         </ul>
       )}
       <Plot
         points={series.map((key) =>
-          result.samples.map((p) => ({ x: p.time, y: p[key] ?? 0 })),
+          result.samples.map((p) => ({
+            x: p.time,
+            y: (p[key] ?? 0) * voltageScale,
+          })),
         )}
         traceClasses={
           example ? ['signal-desired', 'signal-input', 'signal-output'] : []
+        }
+        seriesLabels={
+          example ? series.map((key) => labels[key]) : ['Input', 'Output']
         }
         xMin={0}
         xMax={result.duration}
@@ -491,9 +524,11 @@ export function RcTimePlot({
         label={
           step
             ? 'RC response to a positive voltage step'
-            : example
-              ? 'Desired signal, measured input, and actual filtered output on common time and voltage axes'
-              : 'Four periods of input and steady-state output'
+            : uav
+              ? `Clean motor vibration, ${labels.input.toLowerCase()}, and filtered vibration on common time and voltage axes`
+              : example
+                ? 'Desired signal, measured input, and actual filtered output on common time and voltage axes'
+                : 'Four periods of input and steady-state output'
         }
       />
       {result.windowLimited && (
@@ -508,14 +543,25 @@ export function RcTimePlot({
       <p className="rc-caption">
         {step
           ? 'Initially uncharged capacitors. Eight times the slowest circuit time constant.'
-          : example
-            ? `${result.exampleWindow === 'overview' ? 'Long overview includes at least one cycle of the slowest active interference tone, when the sampling budget allows.' : 'Signal detail requests four periods of the useful signal.'} The output retains its actual attenuation and phase shift; the desired signal is a reference, not a corrected output.`
-            : 'Periodic steady state over four cycles. Frequency plots describe sine-wave gain and phase, even when the input waveform is square or triangle.'}
+          : uav
+            ? `${!hasMovement ? 'Aircraft movement is off. The measured input matches the clean motor vibration reference over four useful periods.' : result.exampleWindow === 'overview' ? 'Long overview shows two periods of the slowest active movement component, when the sampling budget allows.' : 'Signal detail shows four periods of the useful motor vibration.'} This synthetic signal represents a conditioned accelerometer output. The filtered vibration retains its actual attenuation and phase shift.`
+            : example
+              ? `${result.exampleWindow === 'overview' ? 'Long overview includes at least one cycle of the slowest active interference tone, when the sampling budget allows.' : 'Signal detail requests four periods of the useful signal.'} The output retains its actual attenuation and phase shift; the desired signal is a reference, not a corrected output.`
+              : 'Periodic steady state over four cycles. Frequency plots describe sine-wave gain and phase, even when the input waveform is square or triangle.'}
       </p>
       {example && (
-        <div className="rc-tone-table-container">
-          <table className="rc-tone-table">
-            <caption>Signal components</caption>
+        <div
+          className="rc-tone-table-container"
+          role={uav ? 'region' : undefined}
+          aria-label={uav ? 'UAV component measurements' : undefined}
+          tabIndex={uav ? 0 : undefined}
+        >
+          <table className={`rc-tone-table${uav ? ' rc-uav-tone-table' : ''}`}>
+            <caption>
+              {uav
+                ? 'UAV vibration and movement components'
+                : 'Signal components'}
+            </caption>
             <thead>
               <tr>
                 <th scope="col">Tone</th>
@@ -535,6 +581,13 @@ export function RcTimePlot({
                   <br />
                   <span>dB</span>
                 </th>
+                {uav && (
+                  <th scope="col">
+                    Phase
+                    <br />
+                    <span>°</span>
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -542,16 +595,24 @@ export function RcTimePlot({
                 <tr key={tone.id}>
                   <th scope="row">{tone.label}</th>
                   <td>{eng(tone.frequency, 'Hz')}</td>
-                  <td>{Number(tone.amplitude.toPrecision(4))}</td>
-                  <td>{Number(tone.outputAmplitude.toPrecision(4))}</td>
+                  <td>
+                    {Number((tone.amplitude * voltageScale).toPrecision(4))}
+                  </td>
+                  <td>
+                    {Number(
+                      (tone.outputAmplitude * voltageScale).toPrecision(4),
+                    )}
+                  </td>
                   <td>{tone.response.db.toFixed(2)}</td>
+                  {uav && <td>{tone.response.phase.toFixed(1)}</td>}
                 </tr>
               ))}
             </tbody>
           </table>
           <p className="rc-tone-note">
-            Theoretical gain applies to each sine wave separately. A mixed
-            signal does not have one Vpp gain.
+            {uav
+              ? 'Gain and phase apply to each vibration or movement component separately. Phase is output relative to input. CH2 Vpp / CH1 Vpp represents filter gain only for a single sine wave.'
+              : 'Theoretical gain applies to each sine wave separately. A mixed signal does not have one Vpp gain.'}
           </p>
         </div>
       )}

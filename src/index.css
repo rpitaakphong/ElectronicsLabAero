@@ -2101,3 +2101,11 @@ html {
 .rc-advanced-signal > div { display:grid; gap:18px; padding-top:18px; }
 .rc-advanced-signal p { font-size:12px; line-height:1.6; color:var(--muted-foreground); margin:0; }
 .rc-advanced-signal summary:focus-visible { outline:2px solid var(--primary); outline-offset:4px; }
+
+.rc-eeg-bands { list-style:none; display:flex; flex-wrap:wrap; gap:10px; padding:0; margin:18px 0; }
+.rc-eeg-bands li { display:flex; gap:12px; align-items:center; padding:10px 14px; border:1px solid var(--border); border-radius:6px; font-size:13px; }
+.rc-eeg-bands span { color:var(--primary); }
+.rc-eeg-controls { display:grid; gap:18px; min-width:0; }
+.rc-eeg-controls h3 { font-size:14px; margin:0; }
+.rc-eeg-tradeoff { border-left:2px solid #f6b657; padding-left:14px; }
+.rc-signal-objective a { text-decoration:underline; text-underline-offset:3px; }

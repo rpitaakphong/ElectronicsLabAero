@@ -26,7 +26,7 @@
         </div>
         <div class="preset-controls"><div class="preset-row">
           <label>Preset
-            <select id="presetSelect"><option value="blank">Blank board</option><option value="lowpass" disabled>Low-pass filter</option><option value="highpass" disabled>High-pass filter</option><option value="bandpass" disabled>Band-pass filter</option></select>
+            <select id="presetSelect"><option value="blank">Blank board</option><option value="lowpass" disabled>Low-pass filter</option><option value="highpass" disabled>High-pass filter</option><option value="bandpass" disabled>Band-pass filter</option><option value="uav-highpass" disabled>UAV vibration high-pass</option></select>
           </label>
           <button id="loadPresetBtn">Load</button>
         </div>
@@ -83,8 +83,25 @@
 
 
 
-          <div class="control-group">
-            <h3>Generator quick setup</h3><p class="small">These shortcuts adjust the signal directly. Use the SFG-1013 panel below for instrument practice.</p>
+          <div class="control-group rc-input-source">
+            <h3>Input signal</h3>
+            <label for="rcInputSignal">Source</label>
+            <select id="rcInputSignal" aria-describedby="rcSignalGuide">
+              <option value="generator">Function generator</option>
+              <option value="uav">UAV vibration + aircraft movement</option>
+              <option value="sensor">Sensor + high-frequency noise</option>
+            </select>
+            <p id="rcSignalGuide" class="rc-signal-guide">Connect the source through MAIN and GEN return. Changing the source keeps your circuit, function-generator settings, and oscilloscope settings.</p>
+            <div id="rcSyntheticControls" class="rc-synthetic-controls" hidden>
+              <label class="switch-row"><input id="rcSignalEnabled" type="checkbox" checked> Synthetic output</label>
+              <label class="switch-row"><input id="rcNoiseEnabled" type="checkbox" checked> Noise on/off</label>
+              <label for="rcNoiseStrength">Noise strength</label>
+              <div class="field-with-unit"><input id="rcNoiseStrength" type="number" min="0" max="200" step="10" value="100" aria-describedby="rcNoiseStrengthHelp"><span>%</span></div>
+              <p id="rcNoiseStrengthHelp" class="small">100% is the example noise level; 0% gives the clean signal.</p>
+              <p class="small">Repeatable synthetic teaching signals. UAV voltages represent a conditioned accelerometer output. Aircraft movement is unwanted for this motor-vibration monitoring task.</p>
+            </div>
+            <div id="rcGeneratorControls" class="rc-generator-controls">
+            <h4>Generator quick setup</h4><p class="small">These shortcuts adjust the signal directly. Use the SFG-1013 panel below for instrument practice.</p>
             <label>Waveform
               <select id="waveformSelect">
                 <option value="sine">Sine</option>
@@ -101,6 +118,7 @@
             <label>DC offset (open circuit)
               <div class="field-with-unit"><input id="offsetInput" type="number" step="0.1" value="0" /><span>V</span></div>
             </label>
+            </div>
           </div>
 
         </aside>
@@ -109,6 +127,7 @@
 
     <section class="workspace-card generator-section">
       <div class="section-title-row"><div><h2>2. GW Instek SFG-1013 function generator</h2><p>Use the instrument keys and knobs to set the signal, then connect MAIN or TTL to the breadboard.</p></div><a href="https://www.gwinstek.com/en-global/download/downloadFile/5814" target="_blank" rel="noopener">Manufacturer manual</a></div>
+      <p id="rcSourceNotice" class="rc-source-notice" role="status" hidden>A synthetic source is active through MAIN. Function-generator settings are retained. Switch back to Function generator to use its waveform controls.</p>
       <div id="sfgPanel" class="sfg-chassis" tabindex="0" aria-label="GW Instek SFG-1013 front panel">
         <div class="sfg-display"><div class="sfg-indicators"><span data-sfg-wave="sine">∿ SINE</span><span data-sfg-wave="square">⊓ SQUARE</span><span data-sfg-wave="triangle">△ TRIANGLE</span><span id="sfgTtlLed">TTL</span><span id="sfgAttLed">−40dB</span></div><div class="sfg-number-line"><output id="sfgDigits" aria-label="SFG displayed value"></output><span id="sfgUnit"></span></div><div id="sfgStep"></div></div>
         <div class="sfg-keypad"><div class="sfg-key-cell"><span class="sfg-secondary">TTL</span><button data-sfg-key="WAVE" class="" aria-label="SFG WAVE">WAVE</button></div><div class="sfg-key-cell"><span class="sfg-secondary">&nbsp;</span><button data-sfg-key="1" class="" aria-label="SFG 1">1</button></div><div class="sfg-key-cell"><span class="sfg-secondary">&nbsp;</span><button data-sfg-key="2" class="" aria-label="SFG 2">2</button></div><div class="sfg-key-cell"><span class="sfg-secondary">−40dB</span><button data-sfg-key="3" class="" aria-label="SFG 3">3</button></div><div class="sfg-key-cell"><span class="sfg-secondary">◀</span><button data-sfg-key="4" class="" aria-label="SFG 4">4</button></div><div class="sfg-key-cell"><span class="sfg-secondary">▶</span><button data-sfg-key="5" class="" aria-label="SFG 5">5</button></div><div class="sfg-key-cell"><span class="sfg-secondary">&nbsp;</span><button data-sfg-key="SHIFT" class="sfg-blue-key" aria-label="SFG SHIFT">SHIFT</button></div><div class="sfg-key-cell"><span class="sfg-secondary">V / F</span><button data-sfg-key="." class="" aria-label="SFG .">•</button></div><div class="sfg-key-cell"><span class="sfg-secondary">&nbsp;</span><button data-sfg-key="6" class="" aria-label="SFG 6">6</button></div><div class="sfg-key-cell"><span class="sfg-secondary">&nbsp;</span><button data-sfg-key="7" class="" aria-label="SFG 7">7</button></div><div class="sfg-key-cell"><span class="sfg-secondary">MHz</span><button data-sfg-key="8" class="" aria-label="SFG 8">8</button></div><div class="sfg-key-cell"><span class="sfg-secondary">kHz</span><button data-sfg-key="9" class="" aria-label="SFG 9">9</button></div><div class="sfg-key-cell"><span class="sfg-secondary">Hz</span><button data-sfg-key="0" class="" aria-label="SFG 0">0</button></div><div class="sfg-key-cell"><span class="sfg-secondary">&nbsp;</span><button data-sfg-key="OUTPUT" class="" aria-label="SFG OUTPUT">OUTPUT<br>ON</button></div><div class="sfg-led-labels"><span id="sfgShiftLed">● SHIFT</span><span id="sfgOutputLed">● OUTPUT</span></div></div>
@@ -292,7 +311,7 @@
           <label>Y1 (V)<input id="cursorY1" type="number" step="0.1"></label><label>Y2 (V)<input id="cursorY2" type="number" step="0.1"></label>
           <output id="cursorReadout"></output>
         </div>
-        <p class="small">Virtual leads are 1X; the channel Probe setting changes indicated voltage. Averaging combines successive simulated acquisitions; identical noise-free signals remain identical. The time-domain solver uses a limited sample record; the displayed sample rate is the simulated rate. Advanced hardware-only functions are marked unavailable.</p>
+        <p class="small">Virtual leads are 1X; the channel Probe setting changes indicated voltage. Averaging combines successive simulated acquisitions. Synthetic examples repeat the same noise realization, so repeated acquisitions do not average that noise away. AC coupling only subtracts the record mean in this trainer; use DC coupling when comparing slow movement drift. The time-domain solver uses a limited sample record; the displayed sample rate is the simulated rate. Advanced hardware-only functions are marked unavailable.</p>
       </div>
 
       <div class="scope-readout-bar">
@@ -306,12 +325,13 @@
       <h2>4. Instructor / student notes</h2>
       <div class="learning-grid">
         <div>
-          <h3>Build and measure</h3><p>Connect MAIN and GEN return. Put CH1 at the filter input and CH2 at its output, with all ground clips on the return. Change generator frequency manually. Gain = CH2 Vpp / CH1 Vpp. For output phase relative to input, select Phase with Source 1 = CH2 and Source 2 = CH1; a lag is negative. The 50 Ω generator amplitude convention differs from an ideal voltage source: measure Vin with CH1.</p>
+          <h3>Build and measure</h3><p>Connect MAIN and GEN return. Put CH1 at the filter input and CH2 at its output, with all ground clips on the return. For a single sine wave, change generator frequency manually and calculate gain = CH2 Vpp / CH1 Vpp. For output phase relative to input, select Phase with Source 1 = CH2 and Source 2 = CH1; a lag is negative. A mixed signal does not have one frequency gain or phase: its Vpp ratio describes the whole waveform, not each component. The 50 Ω generator amplitude convention differs from an ideal voltage source: measure Vin with CH1.</p>
+          <h3>Filter a synthetic signal</h3><p>The Source selector is available without unlocking presets. Build a high-pass circuit to preserve 200 Hz UAV motor vibration while reducing slow aircraft movement at 2 and 5 Hz, or a low-pass circuit to reduce fast interference in the sensor example. The UAV task is to preserve at least 95% of the vibration, reduce 2 Hz movement below 5%, and reduce 5 Hz movement below 15%. A 33 kΩ resistor and 100 nF capacitor give a cutoff near 48.2 Hz. Increasing cutoff rejects more movement but eventually weakens useful vibration.</p><p>Source selection keeps your circuit and scope settings. Press Autoset after loading the UAV vibration high-pass preset, or set DC coupling and both channels to 0.5 V/div manually. Use 100 ms/div to reveal aircraft movement, then 2 ms/div to inspect motor vibration. Autoset also works with the sensor example and recalled Legacy EEG signals.</p>
           <ul>
             <li>Breadboard connectivity and user-created jumper wiring.</li>
             <li>Ideal resistors and capacitors wired to independent, initially unpowered breadboard rails. MAIN includes the generator’s 50 Ω source resistance.</li>
             <li>Two oscilloscope probes referenced to common instrument ground. CH1 and CH2 share the same instrument ground in the real scope, so mismatched grounds are flagged.</li>
-            <li>Periodic steady-state RC behavior with timestep convergence checks. A circuit that exceeds the numerical budget reports an unavailable calculation instead of a guessed trace.</li>
+            <li>RC response to the generator waveform or a repeatable synthetic signal mixture. A circuit that exceeds the numerical budget reports an unavailable calculation instead of a guessed trace.</li>
             <li>Oscilloscope vertical/horizontal scale, coupling, position, trigger source/slope/level/mode, sample/average/peak acquire modes, channel-colored cursors, automatic measurements with gating and statistics, arithmetic math, run/stop, single, autoset, save/recall, and help.</li>
           </ul>
         </div>
@@ -333,6 +353,7 @@
   <script src="transient-engine.js"></script>
   <script src="sfg1013.js"></script>
   <script src="routing.js"></script>
+  <script src="rc-signals.js"></script>
   <script src="rc-engine.js"></script>
   <script src="rc.js"></script>
 <script src="app.js"></script>

@@ -434,6 +434,21 @@ html[data-lab="voltage-divider"] .dc-meter-panel .eyebrow { font-size:10px; lett
 
 .rc-reference text { stroke:none; fill:currentColor; font-size:15px; }
 
+/* Synthetic RC sources share the student controls without changing instruments. */
+html[data-lab="rc-filter"] .rc-input-source { min-width:0; }
+.rc-input-source select, .rc-input-source input { min-width:0; max-width:100%; }
+.rc-signal-guide { margin:10px 0 14px; color:var(--muted); font-size:.8rem; line-height:1.6; }
+.rc-generator-controls { border-top:1px solid #34444e; margin-top:14px; padding-top:14px; }
+.rc-generator-controls h4 { margin:0 0 8px; font-size:.85rem; }
+.rc-synthetic-controls { border-top:1px solid #34444e; margin-top:14px; padding-top:6px; }
+.rc-synthetic-controls[hidden], .rc-source-notice[hidden] { display:none; }
+.rc-synthetic-controls label.switch-row { display:flex; align-items:center; gap:8px; }
+.rc-synthetic-controls .switch-row input { width:auto; margin:0; flex:none; }
+.rc-synthetic-controls .small { line-height:1.6; }
+.rc-source-notice { padding:12px 16px; margin:0 0 16px; border:1px solid #37666a; border-radius:8px; background:#142d32; color:#bce6df; font-size:.83rem; line-height:1.6; }
+html[data-lab="rc-filter"] .rc-generator-controls :disabled { opacity:.5; cursor:default; }
+html[data-lab="rc-filter"] .sfg-dial[aria-disabled="true"] { opacity:.4; cursor:default; }
+
 /* Keep the scope connector strip inside tablet-width workbenches. */
 @media (min-width:761px) and (max-width:1000px) {
   .scope-bottom-strip { grid-template-columns:repeat(4,minmax(0,1fr)); }

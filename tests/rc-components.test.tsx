@@ -105,7 +105,7 @@ test('custom source remains shared while category selections and step settings r
   edit('Input amplitude', 2);
   edit('Input offset', 1);
   await user.click(screen.getByRole('radio', { name: /High-pass/ }));
-  assert.equal(field('Useful-signal frequency').value, '5000');
+  assert.equal(field('Useful-signal frequency').value, '200');
   await choose(user, 'Input signal', 'Custom waveform');
   assert.equal(field('Input frequency').value, '2000');
   assert.match(
@@ -193,4 +193,89 @@ test('frequency comparison combines coincident tones and preserves valid zero-si
       name: 'Input reference and output gain in decibels versus logarithmic frequency',
     }),
   );
+});
+
+test('UAV example retains useful vibration and movement settings without changing the circuit', async () => {
+  const user = userEvent.setup();
+  open();
+  await user.click(screen.getByRole('radio', { name: /High-pass/ }));
+  assert.equal(field('Resistance R1').value, '33');
+  assert.equal(field('Capacitance C1').value, '100');
+  assert.ok(
+    screen.getByRole('heading', { name: 'Monitor UAV motor vibration' }),
+  );
+  assert.equal(field('Useful-signal frequency').value, '200');
+  assert.equal(field('Useful-signal amplitude').value, '1');
+  const table = () =>
+    screen.getByRole('table', {
+      name: 'UAV vibration and movement components',
+    });
+  assert.equal(table().querySelectorAll('tbody tr').length, 3);
+  assert.ok(screen.getByRole('columnheader', { name: /Phase/ }));
+  edit('Useful-signal amplitude', 2);
+  edit('Useful-signal frequency', 350);
+  edit('Aircraft movement strength', 150);
+  await user.click(screen.getByText('Advanced signal settings'));
+  edit('Aircraft movement frequency', 3);
+  await choose(user, 'Input signal', 'Clean motor vibration');
+  assert.match(
+    screen.getByRole('list', { name: 'Waveform traces' }).textContent ?? '',
+    /Measured vibration \(clean\)/,
+  );
+  assert.ok(screen.getByText(/Aircraft movement is off/));
+  assert.equal(table().querySelectorAll('tbody tr').length, 1);
+  assert.equal(field('Useful-signal amplitude').value, '2');
+  assert.equal(field('Useful-signal frequency').value, '350');
+  assert.equal(field('Resistance R1').value, '33');
+  await choose(user, 'Input signal', 'Vibration + aircraft movement');
+  assert.match(
+    screen.getByRole('list', { name: 'Waveform traces' }).textContent ?? '',
+    /Vibration \+ aircraft movement/,
+  );
+  edit('Aircraft movement strength', 0);
+  assert.ok(screen.getByText(/Aircraft movement is off/));
+  edit('Aircraft movement strength', 150);
+  await user.click(screen.getByText('Advanced signal settings'));
+  assert.equal(field('Aircraft movement frequency').value, '3');
+  edit('Useful-signal amplitude', 6);
+  assert.ok(screen.getByRole('alert'));
+  fireEvent.blur(field('Useful-signal amplitude'));
+  assert.equal(field('Useful-signal amplitude').value, '2');
+  edit('Aircraft movement frequency', 0);
+  assert.ok(screen.getByRole('alert'));
+  fireEvent.blur(field('Aircraft movement frequency'));
+  assert.equal(field('Aircraft movement frequency').value, '3');
+  edit('Aircraft movement frequency', 350);
+  assert.equal(screen.queryByRole('alert'), null);
+  await user.click(screen.getByRole('radio', { name: /Low-pass/ }));
+  await user.click(screen.getByRole('radio', { name: /High-pass/ }));
+  assert.equal(field('Useful-signal amplitude').value, '2');
+  await user.click(screen.getByRole('button', { name: 'Reset lab' }));
+  await user.click(screen.getByRole('radio', { name: /High-pass/ }));
+  assert.equal(field('Useful-signal frequency').value, '200');
+  assert.equal(field('Useful-signal amplitude').value, '1');
+  assert.equal(field('Aircraft movement strength').value, '100');
+});
+
+test('UAV spectrum displays phase-aware combined amplitudes in volts', async () => {
+  const { defaults, simulate, toneSpectrum } =
+    await import('../lib/rc/simulator');
+  const { RcFrequencyPlots } = await import('../components/rc/visuals');
+  const config = defaults();
+  config.kind = 'highpass';
+  config.examples.highpass.interferenceFrequencies = [200, 200];
+  const result = simulate(config),
+    bin = toneSpectrum(result.tones)[0];
+  render(<RcFrequencyPlots result={result} />);
+  const spectrum = screen.getByRole('img', {
+    name: 'Input and output signal amplitudes versus logarithmic frequency',
+  });
+  assert.equal(spectrum.querySelectorAll('circle').length, 1);
+  assert.match(
+    spectrum.textContent!,
+    new RegExp(
+      `Input amplitude · 200 Hz: ${Number(bin.input.toPrecision(4))} V peak`,
+    ),
+  );
+  assert.doesNotMatch(spectrum.textContent!, /EEG|µV|Alpha/);
 });

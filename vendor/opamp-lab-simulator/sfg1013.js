@@ -26,6 +26,7 @@
   function announce(text){document.getElementById('sfgHint').textContent=text;}
   function changed(text){if(text)announce(text);bridge.onChange();render();}
   function limitFrequency(value){
+    if(bridge?.isLocked?.())return null;
     const state=g(),max=state.ttl?3e6:state.waveform==='triangle'?1e6:3e6;
     let error=value<.1?'Err-4':value>max?(max===1e6?'Err-2':'Err-1'):null;
     state.frequency=Math.round(clamp(value,.1,max)*10)/10;
@@ -33,6 +34,7 @@
     return error;
   }
   function press(key){
+    if(bridge?.isLocked?.())return;
     const state=g();
     if(key==='POWER'){
       state.powered=!state.powered;ui.entry='';ui.shift=false;ui.error=null;
@@ -68,6 +70,7 @@
     }
   }
   function adjust(name,direction){
+    if(bridge?.isLocked?.())return;
     const state=g();if(!state.powered)return;
     if(name==='frequency'){ui.entry='';state.voltageDisplay=false;limitFrequency(state.frequency+direction*ui.step);changed();}
     if(name==='amplitude'){state.amplitude=clamp(Math.round((state.amplitude+direction*.1)*1000)/1000,.2,10);changed('AMPL changes MAIN only. Use SHIFT → decimal to view amplitude.');}
@@ -81,10 +84,14 @@
       state.duty=clamp(state.duty+direction,25,75);changed();
     }
   }
-  function togglePull(name){const state=g();if(!state.powered)return;state[name+'Enabled']=!state[name+'Enabled'];if(name==='duty'&&!state.dutyEnabled)state.duty=50;changed(`${name.toUpperCase()} ${state[name+'Enabled']?'pulled to ADJ':'pushed to DEFAULT'}.`);}
+  function togglePull(name){if(bridge?.isLocked?.())return;const state=g();if(!state.powered)return;state[name+'Enabled']=!state[name+'Enabled'];if(name==='duty'&&!state.dutyEnabled)state.duty=50;changed(`${name.toUpperCase()} ${state[name+'Enabled']?'pulled to ADJ':'pushed to DEFAULT'}.`);}
   function formatDisplay(value){if(value===0)return '0.0000';return value.toFixed(Math.max(0,Math.min(4,5-Math.floor(Math.log10(Math.abs(value))))));}
   function render(){
     if(!bridge)return;const state=g(),display=document.getElementById('sfgDigits');
+    const locked=!!bridge.isLocked?.();
+    document.querySelectorAll('[data-sfg-key],[data-sfg-pull]').forEach(button=>button.disabled=locked);
+    document.querySelectorAll('[data-sfg-knob]').forEach(knob=>{knob.setAttribute('aria-disabled',String(locked));knob.tabIndex=locked?-1:0;});
+    document.getElementById('sfgTtlConnector').disabled=locked;
     document.getElementById('sfgPanel').classList.toggle('sfg-off',!state.powered);
     const nominal=state.amplitude*(state.attenuated?.01:1),unit=state.voltageDisplay?(nominal<1?'mVpp':'Vpp'):ui.unit;
     const number=state.voltageDisplay?(nominal<1?nominal*1000:nominal):state.frequency/{MHz:1e6,kHz:1e3,Hz:1}[ui.unit];
@@ -102,6 +109,7 @@
     const offset=state.offsetEnabled?state.offset*(state.attenuated?.01:1):0;
     document.getElementById('sfgOutputReadout').textContent=`MAIN: ${active(state)?'enabled':'off'} · ${nominal.toPrecision(4)} Vpp nominal into 50 Ω; ${(nominal*2).toPrecision(4)} Vpp open circuit · offset ${offset.toFixed(3)} V open circuit. TTL: ${active(state,'ttl')?'enabled, ideal 0–5 V':'off'}.`;
     document.getElementById('sfgClipReadout').textContent=Math.abs(state.offsetEnabled?state.offset:0)+state.amplitude>10?'MAIN clips at its ±10 V open-circuit output limit before attenuation.':'';
+    if(locked){document.getElementById('sfgOutputReadout').textContent='SFG-1013 disconnected while the synthetic source uses MAIN. Front-panel settings are retained; the MAIN and common-return connectors remain available.';document.getElementById('sfgClipReadout').textContent='';for(const id of ['sfgTtlLed','sfgOutputLed'])document.getElementById(id).classList.remove('lit');}
     document.getElementById('sfgTermination').checked=state.termination;
     document.querySelectorAll('[data-sfg-knob]').forEach(knob=>{const name=knob.dataset.sfgKnob,value=name==='frequency'?state.frequency:name==='duty'?state.duty:name==='offset'?state.offset:state.amplitude;knob.setAttribute('aria-valuenow',value);knob.setAttribute('aria-valuetext',`${value}${name==='frequency'?' Hz':name==='duty'?' percent':' volts'}`);const angle=name==='amplitude'?-135+(state.amplitude-.2)/9.8*270:name==='offset'?state.offset*13.5:name==='duty'?(state.duty-50)*5.4:Math.log10(Math.max(.1,state.frequency))*40;knob.style.setProperty('--sfg-angle',angle+'deg');});
   }

@@ -65,6 +65,7 @@
     },
     supply: profile.instruments.includes('supply') ? { plus: 12, minus: -12 } : undefined,
     generator: { waveform: 'sine', frequency: 1000, amplitude: 1, offset: 0 },
+    ...(isRc ? {rcInput: RcSignals.defaults()} : {}),
     challenge: { enabled: false, actions: 0, autosetUsed: false, startTime: Date.now() },
     sim: { last: null, warnings: [], error: null },
     ...(isDivider?{leads:{},meter:{mode:'voltage'},supply:{voltage:5,enabled:false}}:{}),
@@ -453,7 +454,7 @@
     return {board:result,relocated};
   }
   function leadAt(p) { return leadKeys.slice().reverse().find(key=>{const h=getLead(key)&&leadPoint(key);return h&&Math.hypot(h.x-p.x,h.y-p.y)<13;}); }
-  function boardSnapshot() { if(isDivider)return JSON.stringify({components:state.components,leads:state.leads,leadHoles:state.leadHoles,supply:state.supply,meter:state.meter});return JSON.stringify({components:state.components,generatorNode:state.generatorNode,probes:state.probes,leadHoles:state.leadHoles,supply:state.supply,generator:state.generator}); }
+  function boardSnapshot() { if(isDivider)return JSON.stringify({components:state.components,leads:state.leads,leadHoles:state.leadHoles,supply:state.supply,meter:state.meter});return JSON.stringify({components:state.components,generatorNode:state.generatorNode,probes:state.probes,leadHoles:state.leadHoles,supply:state.supply,generator:state.generator,...(isRc?{rcInput:state.rcInput}:{})}); }
   const history={past:[],future:[],current:null};
   function recordBoard() { const next=boardSnapshot();if(history.current!==next){if(history.current)history.past.push(history.current);if(history.past.length>100)history.past.shift();history.current=next;history.future=[];}updateHistoryButtons(); }
   function updateHistoryButtons() { document.getElementById('undoBtn').disabled=!history.past.length;document.getElementById('redoBtn').disabled=!history.future.length; }
@@ -655,7 +656,7 @@
   function isConnected(uf,a,b){return uf.find(a)===uf.find(b);}
 
   function validateCircuit() {
-    if(isRc){try{return RcEngine.prepare(state);}catch(error){return {warnings:[error.message],uf:new UnionFind()};}}
+    if(isRc){try{return RcEngine.prepare(state,RcSignals.describe(state.rcInput));}catch(error){return {warnings:[error.message],uf:new UnionFind()};}}
     const warnings=[]; const uf=buildConnectivity();
     const ops=state.components.filter(c=>c.type==='opamp');
     if(!state.generatorNode&&!state.generator.ttlNode)warnings.push('Function generator lead is not connected.');
@@ -693,7 +694,7 @@
   }
 
   function solveCircuitWaveforms() {
-    if(isRc)return RcEngine.solve(state,{window:Math.max(horizontalDiv()*10,1e-7),sourceAt:(t,port)=>SFG1013.voltage(state.generator,t,port)});
+    if(isRc)return RcEngine.solve(state,{window:Math.max(horizontalDiv()*10,1e-7),sourceAt:(t,port)=>SFG1013.voltage(state.generator,t,port),signal:RcSignals.describe(state.rcInput)});
     const {warnings,uf}=validateCircuit(); state.sim.warnings=warnings;
     const net=buildNetlist(uf), ground=net.ground;
     const window=Math.max(horizontalDiv()*10, 1e-7);
@@ -848,7 +849,7 @@
     const middle=Math.floor(arr.length/2),halfWindow=horizontalDiv()*5;
     const candidates=[];for(let i=1;i<arr.length;i++){
       const rise=arr[i-1]<level&&arr[i]>=level,fall=arr[i-1]>level&&arr[i]<=level;
-      if((slope==='Rising'?rise:slope==='Falling'?fall:rise||fall)&&(!t||t[i]>=halfWindow+scope.trigger.holdoff&&t[i]<=t.at(-1)-halfWindow))candidates.push(i);
+      if((slope==='Rising'?rise:slope==='Falling'?fall:rise||fall)&&(!t||t[i]>=t[0]+halfWindow+scope.trigger.holdoff&&t[i]<=t.at(-1)-halfWindow))candidates.push(i);
     }
     return candidates.length?candidates.reduce((a,b)=>Math.abs(a-middle)<Math.abs(b-middle)?a:b):-1;
   }
@@ -867,16 +868,18 @@
   }
   function normalizeMeasurements(){scope.measure={...defaultScope().measure,...scope.measure};scope.measure.items=scope.measure.items.slice(0,8).map(item=>typeof item==='string'?{name:item==='Vpp'?'Pk-Pk':item,source:scope.measure.source}:item);}
   function measurementResult(item,frame) {
-    const missing=source=>(scope.running&&currentRecord()?.channelStatus?.[source.toLowerCase()])|| (source==='Math'?(!scope.math.enabled?'Math is off':(scope.running&&(currentRecord()?.channelStatus?.ch1||currentRecord()?.channelStatus?.ch2))||null):!scope[source.toLowerCase()]?.enabled?`${source} is off`:!state.probes[source.toLowerCase()]?.tip&&scope.running?'Probe tip disconnected':!state.probes[source.toLowerCase()]?.gnd&&scope.running?'Probe ground disconnected':null);
+    const useChannelStatus=scope.running||isRc;
+    const missing=source=>(useChannelStatus&&currentRecord()?.channelStatus?.[source.toLowerCase()])|| (source==='Math'?(!scope.math.enabled?'Math is off':(useChannelStatus&&(currentRecord()?.channelStatus?.ch1||currentRecord()?.channelStatus?.ch2))||null):!scope[source.toLowerCase()]?.enabled?`${source} is off`:!state.probes[source.toLowerCase()]?.tip&&scope.running?'Probe tip disconnected':!state.probes[source.toLowerCase()]?.gnd&&scope.running?'Probe ground disconnected':null);
     let reason=missing(item.source);if(measureGroups.Delay.includes(item.name))reason ||=missing(item.source2||'CH2');
     if(!frame?.visible)return {value:NaN,reason:scope.singleArmed?'Waiting for single trigger':'Waiting for trigger or acquisition'};
     if(reason)return {value:NaN,reason};
+    if(currentRecord()?.mixed&&(item.name.startsWith('Cycle ')||measureGroups.Time.includes(item.name)||measureGroups.Delay.includes(item.name)))return {value:NaN,reason:'Mixed signal: no single cycle, frequency, timing, or phase. Use voltage, RMS, mean, or area measurements.'};
     const record=scope.measure.gate==='Screen'?frame:frame.record;
     const indexes=record.t.map((v,i)=>scope.measure.gate!=='Between Cursors'||v>=Math.min(scope.cursor.x1,scope.cursor.x2)&&v<=Math.max(scope.cursor.x1,scope.cursor.x2)?i:-1).filter(i=>i>=0);
     const values=source=>indexes.map(i=>source==='CH2'?record.c2[i]:source==='Math'?mathValue(record.c1[i],record.c2[i]):record.c1[i]);
     const t=indexes.map(i=>record.t[i]);
     if(t.length<3)return {value:NaN,reason:'Not enough samples in selected gate'};
-    if((currentRecord()?.frequency||0)*frame.dt>.2)return {value:NaN,reason:'Undersampled: use a faster time/div'};
+    if((currentRecord()?.maxFrequency??currentRecord()?.frequency??0)*frame.dt>.2)return {value:NaN,reason:'Undersampled: use a faster time/div'};
     const value=measurement(values(item.source),t,item.name,values(item.source2||'CH2'));
     return {value,reason:Number.isFinite(value)?'':'No complete transition / cycle, or a flat signal'};
   }
@@ -897,7 +900,7 @@
     normalizeMeasurements();
     const sim=currentRecord();
     let frame=makeDisplayFrame(sim);
-    if(scope.running&&frame?.visible){scope.frozenFrame=frame;scope.frozenRecord={channelStatus:sim.channelStatus,traces:sim.traces,dt:sim.dt,window:sim.window,frequency:sim.frequency,triggerTime:frame.triggerTime,triggered:frame.triggered};if(scope.singleArmed&&frame.triggered){scope.running=false;scope.singleArmed=false;}}
+    if(scope.running&&frame?.visible){scope.frozenFrame=frame;scope.frozenRecord={channelStatus:sim.channelStatus,traces:sim.traces,dt:sim.dt,window:sim.window,frequency:sim.frequency,...(isRc?{maxFrequency:sim.maxFrequency??sim.frequency,mixed:!!sim.mixed,signalMode:sim.signalMode??'generator'}:{}),triggerTime:frame.triggerTime,triggered:frame.triggered};if(scope.singleArmed&&frame.triggered){scope.running=false;scope.singleArmed=false;}}
     syncScopeControls();
     if(frame){
       if(frame.visible){if(scope.acquire.xy){if(!sim.channelStatus?.ch1&&!sim.channelStatus?.ch2)drawXY(frame);}else{if(scope.ch1.enabled&&!sim.channelStatus?.ch1)drawTrace(frame.t,frame.c1,scope.ch1,'#f1d63a');if(scope.ch2.enabled&&!sim.channelStatus?.ch2)drawTrace(frame.t,frame.c2,scope.ch2,'#63b9ff');}if(scope.math.enabled&&!sim.channelStatus?.ch1&&!sim.channelStatus?.ch2)drawMath(frame);if(scope.ref.enabled&&scope.ref.data)drawRef();}
@@ -1050,7 +1053,7 @@
       menuItem('Deskew\nUnavailable',()=>toast('Deskew is represented, but probe propagation delay is not modeled in this build.'))
     ];
     if(menu==='ch1'||menu==='ch2')return commonChannel;
-    if(menu==='autoset')return [menuItem('Undo\nAutoset',()=>{if(beforeAutoset){scope=beforeAutoset;beforeAutoset=null;scopeAction(true);}}),...Array(6).fill(0).map(()=>menuItem('—',()=>{}))];
+    if(menu==='autoset')return [menuItem('Undo\nAutoset',()=>{if(beforeAutoset){scope=beforeAutoset;beforeAutoset=null;if(beforeAutosetSimulation){state.sim=beforeAutosetSimulation;beforeAutosetSimulation=null;clearTimeout(updateTimer);averageCapture.signature=null;averageCapture.records=[];}scopeAction(true);updateStatus();}}),...Array(6).fill(0).map(()=>menuItem('—',()=>{}))];
     if(menu==='acquire')return [
       menuItem(()=>`Mode\n${scope.acquire.mode}`,()=>openSideMenu('Acquire mode',['Sample','Peak Detect','Average'],v=>{scope.acquire.mode=v;scopeAction();})),
       menuItem(()=>`Average\n${scope.acquire.average}`,()=>openSideMenu('Average',[2,4,8,16,32,64,128,256],v=>{scope.acquire.average=Number(v);scopeAction();})),
@@ -1123,7 +1126,7 @@
     ];
     if(menu==='app')return [menuItem('Go/NoGo\nApp',()=>toast('Go/NoGo menu is represented, but the physical rear-panel output is not emulated.')),menuItem('Options\nNone',()=>{}),...Array(5).fill(0).map(()=>menuItem('—',()=>{}))];
     if(menu==='bus')return [menuItem('Bus\nOff',()=>toast('Serial-bus decode is outside this analog op-amp lab build.')),menuItem('UART',()=>toast('UI scaffold only.')),menuItem('I²C',()=>toast('UI scaffold only.')),menuItem('SPI',()=>toast('UI scaffold only.')),menuItem('CAN',()=>toast('UI scaffold only.')),menuItem('LIN',()=>toast('UI scaffold only.')),menuItem('Help',()=>toast('GDS-1000B supports serial bus decode; this lab does not synthesize digital buses.'))];
-    if(menu==='help')return [menuItem('Controls',()=>toast('Swipe knobs vertically. Use the soft keys aligned with the menu labels on screen.')),menuItem('Breadboard',()=>toast('Each A–E column is connected internally; each F–J column is connected internally. Power rails run horizontally.')),menuItem('Trigger',()=>toast('A stable trace needs a valid source, level, slope, and time scale.')),menuItem('Probes',()=>toast('Probe tip measures relative to its ground clip. Bench-scope grounds are common.')),menuItem(isRc?'RC Filters':'Op-Amp',()=>toast(isRc?'Measure gain = CH2 Vpp / CH1 Vpp. Set phase Source 1 to CH2 and Source 2 to CH1 for output relative to input.':'UA741 pins: 2 −IN, 3 +IN, 4 V−, 6 OUT, 7 V+. Pins 1, 5, 8 are unused in this model.')),menuItem('Limits',()=>toast('Not SPICE. Intended for first-pass teaching and scope-operation practice.')),menuItem('Close',()=>{scope.currentMenu=null;scope.sideMenu=null;drawScope();})];
+    if(menu==='help')return [menuItem('Controls',()=>toast('Swipe knobs vertically. Use the soft keys aligned with the menu labels on screen.')),menuItem('Breadboard',()=>toast('Each A–E column is connected internally; each F–J column is connected internally. Power rails run horizontally.')),menuItem('Trigger',()=>toast('A stable trace needs a valid source, level, slope, and time scale.')),menuItem('Probes',()=>toast('Probe tip measures relative to its ground clip. Bench-scope grounds are common.')),menuItem(isRc?'RC Filters':'Op-Amp',()=>toast(isRc?'For a single sine wave, gain = CH2 Vpp / CH1 Vpp. Set phase Source 1 to CH2 and Source 2 to CH1 for output relative to input. Mixed signals have no single gain from Vpp or single phase; compare voltage and RMS instead.':'UA741 pins: 2 −IN, 3 +IN, 4 V−, 6 OUT, 7 V+. Pins 1, 5, 8 are unused in this model.')),menuItem('Limits',()=>toast('Not SPICE. Intended for first-pass teaching and scope-operation practice.')),menuItem('Close',()=>{scope.currentMenu=null;scope.sideMenu=null;drawScope();})];
     return Array(7).fill(0).map(()=>menuItem('—',()=>{}));
   }
 
@@ -1184,17 +1187,55 @@
   document.getElementById('hardcopyBtn').addEventListener('click',saveHardcopy);
   document.getElementById('scopePowerBtn').addEventListener('click',()=>{scope.powered=!scope.powered;document.getElementById('scopePowerBtn').classList.toggle('on',scope.powered);drawScope();});
 
-  let beforeAutoset=null;
+  let beforeAutoset=null,beforeAutosetSimulation=null;
   function autoTrigger50(){
     const sim=currentRecord();if(!sim)return;const channel=scope.trigger.source==='CH2'?'ch2':'ch1';const arr=channelProcessed(sim.traces[channel],scope[channel],sim.dt);if(arr.length)scope.trigger.level=(Math.min(...arr)+Math.max(...arr))/2;scopeAction(false);
   }
+  function autosetRcSignal(){
+    if(!scope.powered)return toast('Turn on the oscilloscope before Autoset.');
+    let sim,candidate,reference;
+    try{
+      const signal=RcSignals.describe(state.rcInput);
+      if(!signal.enabled)throw new Error('Turn on the synthetic output before Autoset.');
+      if(!TIME_DIVS.includes(signal.autosetTimeDiv))throw new Error('This input has no supported Autoset time base.');
+      // A fresh, bounded acquisition works even when the old record is too short,
+      // unsupported, or frozen from a different source. Do not mutate scope yet.
+      sim=RcEngine.solve(state,{window:signal.autosetTimeDiv*10,signal});
+      const readings=['ch1','ch2'].filter(name=>scope[name].enabled&&scope[name].coupling!=='GND'&&!sim.channelStatus[name]).map(name=>{
+        const values=channelProcessed(sim.traces[name],scope[name],sim.dt);
+        if(!values.length||!values.every(Number.isFinite))throw new Error('The connected signal could not be acquired.');
+        const min=Math.min(...values),max=Math.max(...values);
+        return {name,min,max,span:max-min};
+      });
+      reference=readings.find(reading=>reading.span>=.01);
+      if(!reference)throw new Error('Autoset needs a connected, enabled channel with at least 10 mV of signal. Check probe grounds, coupling, and circuit values.');
+      candidate=clone({...scope,sideMenu:null});
+      for(const {name,min,max,span} of readings){
+        const ch=candidate[name],target=Math.max(span/6,.001);
+        ch.voltsDiv=(VOLT_DIVS.find(value=>value*ch.probe>=target)||VOLT_DIVS.at(-1))*ch.probe;
+        ch.position=(min+max)/2/ch.voltsDiv;
+      }
+      Object.assign(candidate.horizontal,{timeDiv:signal.autosetTimeDiv,position:0,zoom:false});
+      Object.assign(candidate.trigger,{type:'Edge',source:reference.name.toUpperCase(),slope:'Rising',mode:'Auto',coupling:'DC',level:(reference.min+reference.max)/2,holdoff:0});
+      Object.assign(candidate,{running:true,singleArmed:false,forcedTrigger:false,currentMenu:'autoset',sideMenu:null,menuHidden:false});
+    }catch(error){return toast(error.message,4000);}
+    // Commit only after acquisition and fitting have succeeded. Keep the prior
+    // simulation too, so Undo can restore a stopped or unavailable acquisition.
+    beforeAutoset=clone({...scope,sideMenu:null});beforeAutosetSimulation={...state.sim};
+    scope=candidate;scope.actionCount++;state.challenge.actions++;state.challenge.autosetUsed=true;
+    clearTimeout(updateTimer);averageCapture.signature=null;averageCapture.records=[];
+    state.sim.error=null;state.sim.last=averageAcquisition(sim);acquisitionVersion++;
+    drawScope();updateReadouts();updateStatus();
+    toast(`Autoset acquired the selected input and adjusted enabled channels to ${fmt(scope.horizontal.timeDiv,'s')}/div.`,3500);
+  }
   function autoset(){
+    if(isRc&&state.rcInput.mode!=='generator')return autosetRcSignal();
     const sim=currentRecord();if(!sim)return toast('Connect a signal first.');
     const channels=['ch1','ch2'].filter(ch=>scope[ch].enabled&&state.probes[ch].tip);
     if(!channels.length)return toast('Enable a connected channel before Autoset.');
     const reference=channels.find(ch=>{const arr=channelProcessed(sim.traces[ch],scope[ch],sim.dt);return Math.max(...arr)-Math.min(...arr)>=.01&&measurement(arr,sim.traces.t,'Frequency')>=20;});
     if(!reference)return toast('Autoset needs a periodic signal of at least 20 Hz and 10 mV.');
-    beforeAutoset=clone({...scope,sideMenu:null});state.challenge.autosetUsed=true;
+    beforeAutoset=clone({...scope,sideMenu:null});beforeAutosetSimulation=null;state.challenge.autosetUsed=true;
     for(const name of channels){const ch=scope[name],arr=channelProcessed(sim.traces[name],ch,sim.dt),min=Math.min(...arr),max=Math.max(...arr),target=Math.max((max-min)/6,.001);ch.voltsDiv=(VOLT_DIVS.find(v=>v*ch.probe>=target)||VOLT_DIVS.at(-1))*ch.probe;ch.position=(min+max)/2/ch.voltsDiv;}
     const arr=channelProcessed(sim.traces[reference],scope[reference],sim.dt),f=measurement(arr,sim.traces.t,'Frequency');scope.horizontal.timeDiv=nearestFrom(TIME_DIVS,(1/f)/2.5);scope.horizontal.position=0;scope.horizontal.zoom=false;
     scope.trigger.source=reference.toUpperCase();scope.trigger.slope='Rising';scope.trigger.mode='Auto';scope.trigger.level=(Math.min(...arr)+Math.max(...arr))/2;scope.running=true;scope.singleArmed=false;scope.currentMenu='autoset';scope.sideMenu=null;scope.menuHidden=false;scopeAction(true);toast('Autoset adjusted enabled channels, time base and trigger.');
@@ -1228,7 +1269,7 @@
     if(data.cursor?.source!=null&&!['CH1','CH2'].includes(data.cursor.source))throw new Error('Invalid saved cursor source.');
     const array=v=>Array.isArray(v)&&v.every(Number.isFinite);
     if(data.ref?.data!=null){const r=data.ref.data;if(!object(r)||!array(r.t)||!array(r.y)||r.t.length!==r.y.length)throw new Error('Invalid saved reference waveform.');}
-    if(data.frozenRecord!=null){const r=data.frozenRecord;if(!object(r)||!object(r.traces)||!['t','ch1','ch2'].every(key=>array(r.traces[key]))||r.traces.t.length!==r.traces.ch1.length||r.traces.t.length!==r.traces.ch2.length||!Number.isFinite(r.dt)||r.dt<=0)throw new Error('Invalid saved acquisition.');}
+    if(data.frozenRecord!=null){const r=data.frozenRecord;if(!object(r)||!object(r.traces)||!['t','ch1','ch2'].every(key=>array(r.traces[key]))||r.traces.t.length!==r.traces.ch1.length||r.traces.t.length!==r.traces.ch2.length||!Number.isFinite(r.dt)||r.dt<=0)throw new Error('Invalid saved acquisition.');if(r.mixed!=null&&typeof r.mixed!=='boolean'||r.maxFrequency!=null&&(!Number.isFinite(r.maxFrequency)||r.maxFrequency<0)||r.signalMode!=null&&!['generator','uav','eeg','sensor'].includes(r.signalMode))throw new Error('Invalid saved signal metadata.');}
   }
   function normalizeSavedLab(d){
     if(profile.validation==='rc')return RcProfile.validate(d,prepareLayout,validateSavedScope);
@@ -1251,7 +1292,7 @@
     try{result=normalizeSavedLab(d);}catch(error){toast(`Cannot load lab: ${error.message} Current circuit is unchanged.`,4500);return false;}
     const {state:data}=result.envelope;
     if(result.relocated)message+=` Moved ${result.relocated} overlapping terminals to free holes on the same electrical strips.`;
-    cancelGesture();Object.assign(state,{components:data.components,generatorNode:data.generatorNode,probes:data.probes,supply:data.supply,generator:data.generator,leadHoles:data.leadHoles||{}});state.selectedId=null;scope=savedScope(result.envelope.scope);syncInputs();updateAll();
+    cancelGesture();Object.assign(state,{components:data.components,generatorNode:data.generatorNode,probes:data.probes,supply:data.supply,generator:data.generator,leadHoles:data.leadHoles||{},...(isRc?{rcInput:data.rcInput}:{})});state.selectedId=null;scope=savedScope(result.envelope.scope);syncInputs();updateAll();
     document.getElementById('pinoutNotice').hidden=!result.converted;
     toast(message);return true;
   }
@@ -1275,7 +1316,7 @@
   let customPresets=[];
   try{const data=JSON.parse(localStorage.getItem(customPresetIndexKey)||'[]');if(Array.isArray(data))customPresets=data.filter(p=>p&&typeof p.id==='string'&&/^custom-[a-z0-9-]+$/.test(p.id)&&typeof p.name==='string'&&p.name.trim().length>0&&p.name.length<=60);}catch{toast('Custom preset names could not be read from browser storage.');}
   for(const preset of customPresets){presetNames.set(preset.id,preset.name);presetSelect.add(new Option(preset.name,preset.id));}
-  function presetSnapshot(){return {...(isRc?{lab:profile.id,version:1}:{pinoutVersion:UA741.pinoutVersion}),state:JSON.parse(boardSnapshot()),scope:{...scope,sideMenu:null,currentMenu:null,frozenFrame:null,frozenRecord:null,forcedTrigger:false,singleArmed:false,running:true}};}
+  function presetSnapshot(){return {...(isRc?{lab:profile.id,version:profile.persistence.version}:{pinoutVersion:UA741.pinoutVersion}),state:JSON.parse(boardSnapshot()),scope:{...scope,sideMenu:null,currentMenu:null,frozenFrame:null,frozenRecord:null,forcedTrigger:false,singleArmed:false,running:true}};}
   function createPreset(){
     if(!requirePresetAccess())return;
     if(drag||state.pendingHole||moveRequest)return toast('Finish or cancel the current placement before saving a preset.');
@@ -1377,6 +1418,7 @@
     document.getElementById('pinoutNotice').hidden=true;
     cancelGesture();state.leadHoles={};state.components=[];state.selectedId=null;state.pendingNode=null;state.generatorNode=null;state.probes={ch1:{tip:null,gnd:null},ch2:{tip:null,gnd:null}};
     state.supply=profile.instruments.includes('supply')?{plus:12,minus:-12}:undefined;state.generator={waveform:'sine',frequency:1000,amplitude:1,offset:0};
+    if(isRc)state.rcInput=RcSignals.defaults();
     scope=defaultScope();
     if(name==='blank'){state.generator.groundNode=null;state.generator.output=false;syncInputs();updateAll();return;}
     const placement=isRc?RcProfile.layout(name):PresetLayouts.layout(name);
@@ -1389,6 +1431,12 @@
       state.components.push(comp);
     }
     for(const [key,address] of Object.entries(placement.leads))setLead(key,hole(address));
+    if(isRc&&name==='uav-highpass'){
+      state.rcInput={...RcSignals.defaults(),mode:'uav'};
+      document.getElementById('schematicSelect').value=name;
+      document.getElementById('schematicSelect').dispatchEvent(new Event('change'));
+      toast('UAV high-pass circuit loaded. Press Autoset on the oscilloscope to see the vibration and aircraft movement.',5000);
+    }
     if(name==='inverting'||name==='noninverting')scope.ch2.voltsDiv=1;
     if(!isRc&&name==='lowpass')state.generator.frequency=500;
     if(name==='integrator'){Object.assign(state.generator,{waveform:'square',frequency:200,amplitude:.5});scope.horizontal.timeDiv=.001;scope.ch2.voltsDiv=.5;}
@@ -1410,7 +1458,7 @@
     if(isDivider)return dividerRuntime.render();
     if(!scope.powered){drawScope();return;}
     try{state.sim.error=null;state.sim.last=averageAcquisition(solveCircuitWaveforms());if(scope.running)acquisitionVersion++;}
-    catch(err){state.sim.error=err.message;state.sim.last=null;}
+    catch(err){state.sim.error=err.message;state.sim.last=null;if(isRc&&scope.running){scope.frozenRecord=null;scope.frozenFrame=null;averageCapture.signature=null;averageCapture.records=[];}}
     drawScope();updateReadouts();updateStatus();
   }
   let updateTimer=null;
@@ -1441,6 +1489,41 @@
     if(profile.instruments.includes('supply')){document.getElementById('vplusInput').value=state.supply.plus;document.getElementById('vminusInput').value=state.supply.minus;}
     document.getElementById('waveformSelect').value=state.generator.waveform;document.getElementById('frequencyInput').value=state.generator.frequency;
     document.getElementById('amplitudeInput').value=state.generator.amplitude;document.getElementById('offsetInput').value=state.generator.offset;
+    if(isRc)syncRcInput();
+  }
+  function syncRcInput(){
+    const input=state.rcInput,synthetic=input.mode!=='generator',noise=input.noiseEnabled&&input.noiseStrength>0;
+    const selector=document.getElementById('rcInputSignal'),legacy=selector.querySelector('option[value="eeg"]');
+    if(input.mode==='eeg'&&!legacy)selector.add(new Option('Legacy EEG — amplified ×1000','eeg'));
+    else if(input.mode!=='eeg')legacy?.remove();
+    selector.value=input.mode;
+    document.getElementById('rcSyntheticControls').hidden=!synthetic;
+    document.querySelectorAll('#rcGeneratorControls input,#rcGeneratorControls select').forEach(el=>el.disabled=synthetic);
+    document.getElementById('rcSignalEnabled').checked=input.enabled;
+    document.getElementById('rcNoiseEnabled').checked=input.noiseEnabled;
+    document.getElementById('rcNoiseStrength').value=input.noiseStrength;
+    const guide=document.getElementById('rcSignalGuide');
+    guide.textContent=input.mode==='uav'
+      ? 'Press Autoset to see this input. Synthetic conditioned accelerometer output: motor vibration at 200 Hz, 1 V peak, plus aircraft movement at 2 Hz, 0.6 V peak, and 5 Hz, 0.3 V peak. Build a high-pass filter with a 100 nF series capacitor and 33 kΩ resistor from output to return. Aim to retain at least 95% of motor vibration while leaving below 5% of the 2 Hz motion and below 15% of the 5 Hz motion. Slow motion is unwanted for this vibration-monitoring task; raising cutoff too far also weakens useful vibration. Start with DC coupling and 0.5 V/div; use 100 ms/div for movement or 2 ms/div for vibration detail.'
+      : input.mode==='eeg'
+      ? 'Legacy synthetic EEG amplified ×1000, preserved from your saved experiment: delta 2 Hz, theta 6 Hz, alpha 10 Hz, and beta 20 Hz, with slow movement drift at 0.12 and 0.28 Hz. Raising the high-pass cutoff too far also weakens useful delta activity. Press Autoset, or set DC coupling and 100 mV/div, with 1 s/div for an overview or 0.2 s/div for detail. Scope readings are the amplified voltages.'
+      : input.mode==='sensor'
+        ? 'Press Autoset to see this input. Synthetic sensor signal: 200 Hz at 1 V peak, plus repeatable high-frequency noise from 5–20 kHz (0.25 V RMS at 100% strength). Build a low-pass filter to reduce the fast ripple while preserving the useful signal. For manual setup, use DC coupling and 0.5 V/div, with 2 ms/div. Selecting an input preserves your circuit and scope settings.'
+        : 'Use the function generator for sine, square, or triangle signals. The realistic input choices are separate synthetic teaching sources; selecting one preserves your wiring and scope settings.';
+    if(synthetic)guide.textContent+=noise?` Noise is on at ${input.noiseStrength}%.`:' Noise is off; the source contains only the useful signal.';
+    if(synthetic&&!input.enabled)guide.textContent+=' Synthetic output is off.';
+    const notice=document.getElementById('rcSourceNotice');notice.hidden=!synthetic;
+    if(synthetic)notice.textContent=`${input.mode==='uav'?'UAV vibration':input.mode==='eeg'?'Legacy EEG':'Sensor signal'} source ${input.enabled?'on':'off'} · MAIN has a 50 Ω output buffer and uses GEN return. The SFG-1013 is disconnected and its settings are retained. TTL is inactive. Press the scope’s Autoset button after connecting your circuit, or adjust its scales manually.`;
+  }
+  function changeRcInput(patch){
+    try{state.rcInput=RcSignals.validate({...state.rcInput,...patch});syncInputs();state.challenge.actions++;updateAll();}
+    catch(error){toast(error.message);syncInputs();}
+  }
+  if(isRc){
+    document.getElementById('rcInputSignal').addEventListener('change',e=>changeRcInput({mode:e.target.value}));
+    document.getElementById('rcSignalEnabled').addEventListener('change',e=>changeRcInput({enabled:e.target.checked}));
+    document.getElementById('rcNoiseEnabled').addEventListener('change',e=>changeRcInput({noiseEnabled:e.target.checked}));
+    document.getElementById('rcNoiseStrength').addEventListener('change',e=>changeRcInput({noiseStrength:e.target.value.trim()?Number(e.target.value):NaN}));
   }
   function bindNumber(id,fn){document.getElementById(id)?.addEventListener('change',e=>{if(!e.target.value.trim()||!Number.isFinite(Number(e.target.value))){toast('Enter a finite number.');syncInputs();return;}fn(Number(e.target.value));syncInputs();state.challenge.actions++;updateAll();});}
   bindNumber('vplusInput',v=>state.supply.plus=v);bindNumber('vminusInput',v=>state.supply.minus=v);bindNumber('frequencyInput',v=>SFG1013.setFrequency(v));bindNumber('amplitudeInput',v=>state.generator.amplitude=clamp(v,.2,10));bindNumber('offsetInput',v=>{state.generator.offset=clamp(v,-10,10);state.generator.offsetEnabled=v!==0;});
@@ -1448,7 +1531,7 @@
   document.getElementById('challengeMode')?.addEventListener('change',e=>{state.challenge={enabled:e.target.checked,actions:0,autosetUsed:false,startTime:Date.now()};if(e.target.checked){scope.ch1.voltsDiv=5;scope.ch2.voltsDiv=5;scope.horizontal.timeDiv=1e-5;scope.trigger.level=4;scope.trigger.mode='Normal';toast('Challenge mode scrambled the scope. Adjust scale and trigger settings to recover the waveform.');simulateAndRender();}updateReadouts();});
   document.getElementById('resetAllBtn').addEventListener('click',()=>{if(!confirm('Reset the entire lab?'))return;loadPreset('blank',true);});
 
-  SFG1013.mount({getGenerator:()=>state.generator,onChange:()=>{syncInputs();state.challenge.actions++;updateAll();},setTool});
+  SFG1013.mount({getGenerator:()=>state.generator,isLocked:()=>isRc&&state.rcInput.mode!=='generator',onChange:()=>{syncInputs();state.challenge.actions++;updateAll();},setTool});
 
   if(profile.references==='rc')RcProfile.references();
   // Initial state
