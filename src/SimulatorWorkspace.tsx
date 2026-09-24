@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
-import { getTopic, getTool, type TopicId } from '@/lib/catalog';
+import { EXAM_PAGE, getTopic, getTool, type TopicId } from '@/lib/catalog';
 import { TopicBreadcrumbs } from './TopicBreadcrumbs';
 import { Button } from '@/components/ui/button';
 import { RotateCcw } from 'lucide-react';
 
-export function SimulatorWorkspace({ lab }: { lab: TopicId }) {
+export function SimulatorWorkspace({
+  lab,
+  variant = 'standard',
+}: {
+  lab: TopicId;
+  variant?: 'standard' | 'exam';
+}) {
+  const exam = variant === 'exam';
   const topic = getTopic(lab);
-  const title = getTool(lab, 'simulator').title;
+  const title = exam ? EXAM_PAGE.title : getTool(lab, 'simulator').title;
   const simulatorUrl = topic.simulator.url;
   const frame = useRef<HTMLIFrameElement>(null);
   const detach = useRef<() => void>(() => {});
@@ -67,13 +74,21 @@ export function SimulatorWorkspace({ lab }: { lab: TopicId }) {
   }
 
   return (
-    <main id="main-content" tabIndex={-1} className="simulator-page">
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className={`simulator-page${exam ? ' exam-page' : ''}`}
+    >
       <div className="lab-shell simulator-heading">
         <TopicBreadcrumbs />
         <div className="intro simulator-intro">
           <div>
             <h1>{title}</h1>
-            <p>{topic.simulator.description}</p>
+            <p>
+              {exam
+                ? 'Build the circuit shown on your exam paper, verify it with the instruments, then take a screenshot of your completed work and email it to your instructor.'
+                : topic.simulator.description}
+            </p>
           </div>
           <div className="simulator-actions">
             <Button
@@ -88,9 +103,15 @@ export function SimulatorWorkspace({ lab }: { lab: TopicId }) {
               <RotateCcw size={15} aria-hidden="true" />
               Reset lab
             </Button>
-            <a className="topic-link" href={topic.simulator.download} download>
-              Download offline simulator ↓
-            </a>
+            {!exam && (
+              <a
+                className="topic-link"
+                href={topic.simulator.download}
+                download
+              >
+                Download offline simulator ↓
+              </a>
+            )}
           </div>
         </div>
         {status === 'loading' && <p role="status">Loading simulator…</p>}
@@ -107,7 +128,7 @@ export function SimulatorWorkspace({ lab }: { lab: TopicId }) {
         ref={frame}
         className="simulator-frame"
         title={`${title} workspace`}
-        src={`${simulatorUrl}?embed=1`}
+        src={`${simulatorUrl}?embed=1${exam ? '&exam=1' : ''}`}
         onLoad={connectFrame}
         onError={() => setStatus('error')}
         hidden={status === 'error'}

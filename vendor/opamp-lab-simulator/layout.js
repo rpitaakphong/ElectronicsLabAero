@@ -1,7 +1,17 @@
 /* Progressive layout behavior; no circuit or instrument state changes. */
 (() => {
   const guide=document.getElementById('pinGuide');
-  if(matchMedia('(max-width:760px)').matches)guide.open=false;
+  const examMode=document.documentElement.classList.contains('exam-mode');
+  if(examMode){
+    const summary=guide.querySelector(':scope > summary');
+    guide.open=true;
+    summary.tabIndex=-1;
+    summary.setAttribute('aria-disabled','true');
+    summary.querySelector('.guide-action')?.remove();
+    summary.addEventListener('click',event=>event.preventDefault());
+    summary.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '||event.key==='Spacebar')event.preventDefault();});
+    guide.addEventListener('toggle',()=>{if(!guide.open)guide.open=true;});
+  }else if(matchMedia('(max-width:760px)').matches)guide.open=false;
   const editor=document.getElementById('selectedComponentEditor');
   let selection='',expanded={};
   function groupSettings() {
