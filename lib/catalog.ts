@@ -114,6 +114,11 @@ export const SITE_PAGES = {
   resources: { path: '/resources', label: 'Resources', title: 'Resources' },
 } as const;
 
+export const EXAM_PAGE = {
+  path: '/exam/op-amp',
+  title: 'Op-Amp Construction Exam',
+} as const;
+
 export interface Breadcrumb {
   label: string;
   path?: string;
@@ -136,6 +141,19 @@ export const PAGE_METADATA: readonly PageMetadata[] = [
     section: section as keyof typeof SITE_PAGES,
     breadcrumbs: section === 'home' ? [] : [homeCrumb, { label: page.label }],
   })),
+  {
+    path: EXAM_PAGE.path,
+    title: EXAM_PAGE.title,
+    section: 'topics',
+    breadcrumbs: [
+      homeCrumb,
+      {
+        label: getTopic('opamp').title,
+        path: getTopic('opamp').path,
+      },
+      { label: EXAM_PAGE.title },
+    ],
+  },
   ...TOPICS.flatMap((topic) => [
     {
       path: topic.path,

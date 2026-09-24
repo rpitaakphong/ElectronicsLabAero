@@ -24,6 +24,11 @@ body { min-height: 100vh; }
 .embedded .breadboard-wrap { max-height: calc(var(--host-viewport-height, 800px) * .75); }
 .embedded .toast { top: calc(var(--host-visible-bottom, 800px) - 24px); bottom: auto; transform: translate(-50%, -100%); max-width: calc(100% - 32px); }
 .embedded .toast.show { transform: translate(-50%, -100%); }
+.exam-mode .app-header, .exam-mode .preset-controls, .exam-mode #saveLabBtn, .exam-mode #recallLabBtn, .exam-mode [data-action='saveRecall'], .exam-mode .challenge-score, .exam-mode .learning-section { display:none; }
+.exam-mode .pin-guide > summary { pointer-events:none; cursor:default; }
+.exam-mode .pin-guide .guide-action { display:none; }
+.exam-mode .pin-guide-content { width:100%; zoom:.8; }
+@media(min-width:900px) and (max-width:1100px) { .exam-mode .pin-guide-content { zoom:.71; } }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 .app-header { display: flex; justify-content: space-between; align-items: center; gap: 20px; padding: 18px 24px; border-bottom: 1px solid #2c333b; background: #15191e; position: relative; z-index: 20; }

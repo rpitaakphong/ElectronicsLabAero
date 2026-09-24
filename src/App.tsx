@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
-import { TOPICS, SITE_PAGES, type TopicId } from '@/lib/catalog';
+import { EXAM_PAGE, TOPICS, SITE_PAGES, type TopicId } from '@/lib/catalog';
 import OpAmpLab from './OpAmpLab';
 import DividerLab from './DividerLab';
 import RcLab from './RcLab';
@@ -30,6 +30,12 @@ export function AppRoutes() {
         <Route path={SITE_PAGES.home.path} element={<Welcome />} />
         <Route path={SITE_PAGES.topics.path} element={<TopicCatalog />} />
         <Route path={SITE_PAGES.resources.path} element={<Resources />} />
+        <Route
+          path={EXAM_PAGE.path}
+          element={
+            <SimulatorWorkspace key="opamp-exam" lab="opamp" variant="exam" />
+          }
+        />
         {TOPICS.map((topic) => {
           const Overview = topicViews[topic.id].overview,
             Learning = topicViews[topic.id].learn;
