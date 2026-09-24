@@ -24,7 +24,7 @@ body { min-height: 100vh; }
 .embedded .breadboard-wrap { max-height: calc(var(--host-viewport-height, 800px) * .75); }
 .embedded .toast { top: calc(var(--host-visible-bottom, 800px) - 24px); bottom: auto; transform: translate(-50%, -100%); max-width: calc(100% - 32px); }
 .embedded .toast.show { transform: translate(-50%, -100%); }
-.exam-mode .app-header, .exam-mode .preset-controls, .exam-mode #saveLabBtn, .exam-mode #recallLabBtn, .exam-mode [data-action='saveRecall'], .exam-mode .challenge-score, .exam-mode .learning-section { display:none; }
+.exam-mode .app-header, .exam-mode #saveLabBtn, .exam-mode #recallLabBtn, .exam-mode [data-action='saveRecall'], .exam-mode .challenge-score, .exam-mode .learning-section { display:none; }
 .exam-mode .pin-guide > summary { pointer-events:none; cursor:default; }
 .exam-mode .pin-guide .guide-action { display:none; }
 .exam-mode .pin-guide-content { width:100%; zoom:.8; }

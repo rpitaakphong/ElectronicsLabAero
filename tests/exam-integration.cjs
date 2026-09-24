@@ -66,7 +66,6 @@ fs.mkdirSync(output, { recursive: true });
     );
     for (const selector of [
       '.app-header',
-      '.preset-controls',
       '#saveLabBtn',
       '#recallLabBtn',
       '[data-action="saveRecall"]',
@@ -79,6 +78,55 @@ fs.mkdirSync(output, { recursive: true });
         `${selector} must be hidden in exam mode`,
       );
     }
+
+    assert(await frame.locator('.preset-controls').isVisible());
+    assert(await frame.locator('#presetAccess').isVisible());
+    assert.equal(await frame.locator('#presetSelect').inputValue(), 'blank');
+    assert.equal(await frame.locator('#presetSelect').isDisabled(), false);
+    assert.equal(
+      await frame
+        .locator('#presetSelect option[value="inverting"]')
+        .evaluate((option) => option.disabled),
+      true,
+    );
+    assert.equal(await frame.locator('.preset-manager').isVisible(), false);
+    await frame.locator('#presetAccess summary').click();
+    await frame.locator('#presetPassword').fill('incorrect');
+    await frame.locator('#presetUnlockForm button').click();
+    assert(await frame.locator('#presetUnlockError').isVisible());
+    assert.equal(
+      await frame
+        .locator('#presetSelect option[value="inverting"]')
+        .evaluate((option) => option.disabled),
+      true,
+    );
+    await frame.locator('#presetPassword').fill('aero1234');
+    await frame.locator('#presetUnlockForm button').click();
+    assert.equal(await frame.locator('#presetAccess').isVisible(), false);
+    assert.equal(
+      await frame
+        .locator('#presetSelect option[value="inverting"]')
+        .evaluate((option) => option.disabled),
+      false,
+    );
+    assert(await frame.locator('.preset-manager').isVisible());
+    await frame.locator('#presetSelect').selectOption('inverting');
+    await frame.locator('#loadPresetBtn').click();
+    assert(
+      (await frame.locator('#componentList option').count()) > 1,
+      'an unlocked preset should load into the exam breadboard',
+    );
+    await page.reload();
+    await ready();
+    assert.equal(await frame.locator('#presetSelect').inputValue(), 'blank');
+    assert.equal(await frame.locator('#componentList option').count(), 1);
+    assert.equal(
+      await frame
+        .locator('#presetSelect option[value="inverting"]')
+        .evaluate((option) => option.disabled),
+      true,
+    );
+    assert(await frame.locator('#presetAccess').isVisible());
 
     assert(await frame.locator('#pinGuide').isVisible());
     assert.equal(
@@ -239,7 +287,7 @@ fs.mkdirSync(output, { recursive: true });
 
     assert.deepEqual(errors, []);
     console.log(
-      'PASS: direct exam route, blank construction, references, instruments, restricted controls, reset, responsive layouts, reload, and standard simulator regression',
+      'PASS: direct exam route, password-locked presets, blank construction, references, instruments, restricted controls, reset, responsive layouts, reload, and standard simulator regression',
     );
   } finally {
     await browser.close();
