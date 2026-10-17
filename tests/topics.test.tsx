@@ -235,10 +235,10 @@ test('catalog searches names and descriptions, clears, and explains empty result
   assert.equal(screen.getByRole('status').textContent, '0 topics found');
   await user.click(screen.getByRole('button', { name: 'Show all topics' }));
   assert.equal((search as HTMLInputElement).value, '');
-  assert.equal(screen.getByRole('status').textContent, '3 topics to explore');
+  assert.equal(screen.getByRole('status').textContent, '4 topics to explore');
 });
 
-test('resources offer all four sections and all three self-contained downloads', () => {
+test('resources offer all four sections and all four self-contained downloads', () => {
   open('/resources');
   for (const name of [
     'Getting started',
@@ -252,6 +252,7 @@ test('resources offer all four sections and all three self-contained downloads',
     'Voltage Divider Lab Simulator',
     'RC Filter Lab Simulator',
     'Op-Amp Lab Simulator',
+    '555 Timer Lab Simulator',
   ]) {
     const link = screen.getByRole('link', { name: `Download ${name}` });
     assert.ok(link.hasAttribute('download'));

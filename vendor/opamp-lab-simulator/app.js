@@ -1,10 +1,12 @@
 (() => {
   'use strict';
   const profile=LabProfiles[document.documentElement.dataset.lab || 'opamp'];
-  const isDivider=profile.solver==='dc', isRc=profile.solver==='rc-periodic', independentRails=profile.connectivity==='independent';
+  const isDivider=profile.solver==='dc', isRc=profile.solver==='rc-periodic', isTimer=profile.solver==='timer555-transient', independentRails=profile.connectivity==='independent';
+  const isIC=c=>c.type==='opamp'||c.type==='timer555';
+  const icModel=c=>c.type==='timer555'?Timer555Engine:UA741;
   const storagePrefix=profile.storage;
   const {UnionFind,gaussianSolve}=CircuitEngine;
-  let dividerRuntime=null;
+  let dividerRuntime=null,timerRuntime=null;
   const terminalKeys=c=>c.type==='potentiometer'?['a','b','w']:['a','b'];
 
   // -----------------------------
@@ -63,7 +65,7 @@
       ch1: { tip: null, gnd: null },
       ch2: { tip: null, gnd: null }
     },
-    supply: profile.instruments.includes('supply') ? { plus: 12, minus: -12 } : undefined,
+    supply: profile.instruments.includes('supply') ? { plus: isTimer?5:12, minus: isTimer?0:-12 } : undefined,
     generator: { waveform: 'sine', frequency: 1000, amplitude: 1, offset: 0 },
     ...(isRc ? {rcInput: RcSignals.defaults()} : {}),
     challenge: { enabled: false, actions: 0, autosetUsed: false, startTime: Date.now() },
@@ -171,7 +173,7 @@
     return bd <= 18*18 ? best : null;
   }
 
-  function opampPins(op) { return UA741.nodes(op); }
+  function opampPins(op) { return icModel(op).nodes(op); }
 
   // -----------------------------
   // Breadboard drawing
@@ -195,11 +197,11 @@
     return docks;
   }
   function routeGeometry() {
-    const geometry=state.components.map(comp=>comp.type==='opamp'?{id:comp.id,type:comp.type,startCol:comp.startCol}:{id:comp.id,type:comp.type,value:comp.value,a:representativePoint(comp.a,comp,'a'),b:representativePoint(comp.b,comp,'b'),w:comp.type==='potentiometer'?representativePoint(comp.w,comp,'w'):null});
+    const geometry=state.components.map(comp=>isIC(comp)?{id:comp.id,type:comp.type,startCol:comp.startCol}:{id:comp.id,type:comp.type,value:comp.value,a:representativePoint(comp.a,comp,'a'),b:representativePoint(comp.b,comp,'b'),w:comp.type==='potentiometer'?representativePoint(comp.w,comp,'w'):null});
     const leads=Object.keys(leadStyle).filter(key=>getLead(key)).map(key=>({id:key,a:leadPoint(key)}));
     const docks=instrumentDocks(leads),obstacles=[],connections=[];
     for(const comp of geometry) {
-      if(comp.type==='opamp') {
+      if(isIC(comp)) {
         obstacles.push({left:colX(comp.startCol)-20,right:colX(comp.startCol+3)+20,top:bb.rows.E,bottom:bb.rows.F+8,owner:comp.id,kind:'body'});
         for(let col=comp.startCol;col<=comp.startCol+3;col++)for(const row of ['E','F']){const p={x:colX(col),y:bb.rows[row]};obstacles.push({left:p.x-14,right:p.x+14,top:p.y-14,bottom:p.y+14,terminal:true,owner:comp.id});}
       } else if(comp.a&&comp.b) {
@@ -310,11 +312,11 @@
     for(const comp of state.components)if(comp.type==='wire')drawRoute(c,comp.id,comp.color||'#47a86e',4);
     for(const key of Object.keys(leadStyle))if(getLead(key))drawLead(c,key);
     // Components
-    for (const comp of state.components.filter(c=>c.id!==state.selectedId&&c.type!=='wire').sort((a,b)=>(a.type==='opamp')-(b.type==='opamp'))) drawComponent(c, comp, false);
+    for (const comp of state.components.filter(c=>c.id!==state.selectedId&&c.type!=='wire').sort((a,b)=>isIC(a)-isIC(b))) drawComponent(c, comp, false);
     const selectedPart=state.components.find(c=>c.id===state.selectedId);if(selectedPart&&selectedPart.type!=='wire')drawComponent(c,selectedPart,true);
 
     const selected=state.components.find(c=>c.id===state.selectedId);
-    if(selected && selected.type!=='opamp') for(const end of terminalKeys(selected)) { const p=representativePoint(selected[end],selected,end); c.fillStyle='#fff'; c.strokeStyle='#0874cb'; c.lineWidth=3; c.beginPath(); c.arc(p.x,p.y,8,0,Math.PI*2); c.fill(); c.stroke(); c.fillStyle='#164978'; c.font='bold 13px system-ui'; c.fillText(`${end.toUpperCase()} · ${holeName(physicalHole(selected,end))}`,p.x,p.y-14); }
+    if(selected && !isIC(selected)) for(const end of terminalKeys(selected)) { const p=representativePoint(selected[end],selected,end); c.fillStyle='#fff'; c.strokeStyle='#0874cb'; c.lineWidth=3; c.beginPath(); c.arc(p.x,p.y,8,0,Math.PI*2); c.fill(); c.stroke(); c.fillStyle='#164978'; c.font='bold 13px system-ui'; c.fillText(`${end.toUpperCase()} · ${holeName(physicalHole(selected,end))}`,p.x,p.y-14); }
     if (state.pendingNode) {
       const p=state.pendingHole ? holePoint(state.pendingHole) : nodePosition(state.pendingNode);
       if (p) { c.strokeStyle='#ffffff'; c.lineWidth=2; c.beginPath(); c.arc(p.x,p.y,10,0,Math.PI*2); c.stroke(); }
@@ -341,7 +343,7 @@
   function drawComponent(c, comp, selected) {
     c.save();
     if (selected) { c.shadowColor='#70b6ff'; c.shadowBlur=10; }
-    if (comp.type === 'wire' || comp.type === 'resistor' || comp.type === 'capacitor' || comp.type === 'potentiometer') {
+    if (comp.type === 'wire' || comp.type === 'resistor' || comp.type === 'capacitor' || comp.type === 'potentiometer' || comp.type === 'pushbutton') {
       const a=representativePoint(comp.a,comp,'a'), b=representativePoint(comp.b,comp,'b');
       if (!a||!b) return c.restore();
       if (comp.type === 'wire') {
@@ -355,6 +357,9 @@
         c.fillStyle=comp.variant==='sensor'?'#a4d9c5':comp.type==='potentiometer'?'#a4cad9':'#d8c7a0'; c.strokeStyle='#78684e'; c.lineWidth=2; c.fillRect(-32,-10,64,20); c.strokeRect(-32,-10,64,20);
         c.fillStyle='#3b3328'; c.font='13px system-ui'; c.textAlign='center'; c.textBaseline='middle'; c.fillText(fmt(comp.value,'Ω'),0,0);
         if(comp.type==='potentiometer'||comp.variant==='sensor'){c.font='bold 12px system-ui';c.fillText(comp.variant==='sensor'?'SENSOR':`W ${Math.round(comp.position*100)}%`,0,-21);}
+      } else if(comp.type==='pushbutton') {
+        const mx=(a.x+b.x)/2,my=(a.y+b.y)/2,pressed=timerRuntime?.heldId===comp.id;
+        c.strokeStyle='#474038';c.lineWidth=3;c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);c.stroke();c.fillStyle='#27313b';c.fillRect(mx-20,my-17,40,34);c.fillStyle=pressed?'#70d6ad':'#b1bec8';c.beginPath();c.arc(mx,my,12,0,Math.PI*2);c.fill();c.fillStyle='#3b3328';c.font='13px system-ui';c.textAlign='center';c.fillText('N.O. button',mx,my-24);
       } else {
         c.strokeStyle='#474038'; c.lineWidth=3;
         const mx=(a.x+b.x)/2, my=(a.y+b.y)/2, ang=Math.atan2(b.y-a.y,b.x-a.x);
@@ -365,11 +370,11 @@
         c.beginPath(); c.moveTo(mx+ux*5+px*13,my+uy*5+py*13); c.lineTo(mx+ux*5-px*13,my+uy*5-py*13); c.stroke();
         c.fillStyle='#3b3328'; c.font='13px system-ui'; c.textAlign='center'; c.fillText(fmt(comp.value,'F'),mx,my-18);
       }
-    } else if (comp.type === 'opamp') {
+    } else if (isIC(comp)) {
       const x1=colX(comp.startCol)-12, x2=colX(comp.startCol+3)+12;
       const y1=bb.rows.E+8, y2=bb.rows.F-8;
       c.fillStyle='#22272b'; c.strokeStyle= selected ? '#70b6ff' : '#0e1113'; c.lineWidth=3; c.fillRect(x1,y1,x2-x1,y2-y1); c.strokeRect(x1,y1,x2-x1,y2-y1);
-      c.fillStyle='#ddd'; c.font='bold 13px system-ui'; c.textAlign='center'; c.fillText('UA741', (x1+x2)/2, (y1+y2)/2+4);
+      c.fillStyle='#ddd'; c.font='bold 13px system-ui'; c.textAlign='center'; c.fillText(comp.type==='timer555'?'NE555':'UA741', (x1+x2)/2, (y1+y2)/2+4);
       c.beginPath(); c.strokeStyle='#aeb4b8'; c.arc(x1+7,(y1+y2)/2,7,-Math.PI/2,Math.PI/2); c.stroke();
       c.fillStyle='#e4edf3';c.beginPath();c.arc(x1+12,y2-6,2.5,0,Math.PI*2);c.fill();
       const pins=opampPins(comp);
@@ -413,7 +418,7 @@
   const componentOwner=c=>'component:'+c.id;
   const leadOwner=key=>'lead:'+key;
   function componentHoles(comp){
-    if(comp.type==='opamp')return UA741.holes(comp).map(item=>({hole:item.hole,label:`${comp.id} pin ${item.pin} (${item.function})`}));
+    if(isIC(comp))return icModel(comp).holes(comp).map(item=>({hole:item.hole,label:`${comp.id} pin ${item.pin} (${item.function})`}));
     return terminalKeys(comp).map(end=>({hole:physicalHole(comp,end),label:`${comp.id} terminal ${end.toUpperCase()}`}));
   }
   function holeOccupants(){
@@ -440,9 +445,9 @@
     const result=clone(board),used=new Set(),pending=[];let relocated=0;
     if(!isDivider)SFG1013.normalize(result.generator);result.leadHoles ||= {};
     const reserve=(hole,label)=>{const id=holeId(hole);if(used.has(id))throw new Error(`${holeName(hole)} is occupied (${label}).`);used.add(id);};
-    for(const comp of result.components)if(comp.type==='opamp')for(const item of componentHoles(comp))reserve(item.hole,item.label);
+    for(const comp of result.components)if(isIC(comp))for(const item of componentHoles(comp))reserve(item.hole,item.label);
     const terminals=[];
-    for(const comp of result.components)if(comp.type!=='opamp')for(const end of terminalKeys(comp))terminals.push({node:comp[end],preferred:physicalHole(comp,end),explicit:!!comp[end+'Hole'],label:`${comp.id} ${end.toUpperCase()}`,set:hole=>putEnd(comp,end,hole)});
+    for(const comp of result.components)if(!isIC(comp))for(const end of terminalKeys(comp))terminals.push({node:comp[end],preferred:physicalHole(comp,end),explicit:!!comp[end+'Hole'],label:`${comp.id} ${end.toUpperCase()}`,set:hole=>putEnd(comp,end,hole)});
     for(const key of leadKeys){const node=isDivider?result.leads[key]:key==='generator'?result.generatorNode:key==='genttl'?result.generator.ttlNode:key==='gengnd'?result.generator.groundNode:result.probes[key.slice(0,3)][key.slice(3)];if(node)terminals.push({node,preferred:result.leadHoles[key]||holeRef(nearestHole(...Object.values(nodePosition(node,key.startsWith('ch2')?'bottom':null)))),explicit:!!result.leadHoles[key],label:key,set:hole=>result.leadHoles[key]=holeRef(hole)});}
     // Preserve existing unique holes before assigning generated positions.
     for(const item of terminals){if(item.explicit&&nodeFor(item.preferred.row,item.preferred.col)!==item.node)throw new Error(`Hole and electrical net disagree for ${item.label}.`);if(item.explicit&&!used.has(holeId(item.preferred))){reserve(item.preferred,item.label);item.set(item.preferred);}else{if(item.explicit&&!repairExisting)throw new Error(`${holeName(item.preferred)} is occupied (${item.label}).`);pending.push(item);}}
@@ -467,12 +472,13 @@
     const hints={pan:'Drag to pan the zoomed board. Use Select to move components.',select:'Drag a part to move it. Select a part, then drag its terminal handles to reconnect a terminal. Arrow keys nudge; Esc cancels.',wire:'Click two holes for a wire. Esc cancels the first hole.',resistor:'Click two holes for a resistor. Esc cancels the first hole.',capacitor:'Click two holes for a capacitor. Esc cancels the first hole.',opamp:'Click the main board to place an UA741 across the center gap.',generator:'Click a hole for the SFG MAIN output.',genttl:'Click a hole for the SFG TTL output.',gengnd:'Click a hole for the common grounded generator return.',ch1tip:'Click a hole for CH1 tip.',ch1gnd:'Click a hole for CH1 ground.',ch2tip:'Click a hole for CH2 tip.',ch2gnd:'Click a hole for CH2 ground.',erase:'Click a part or a lead endpoint to remove it. Undo restores it.'};
     document.querySelectorAll('#toolBar [data-tool]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tool===tool)));
     Object.assign(hints,{potentiometer:'Choose terminal A, terminal B, then wiper W. Escape cancels the whole part.',sensor:'Choose two holes for an adjustable resistance sensor.',supplyPositive:'Connect the DC positive lead to a free hole.',supplyNegative:'Connect the DC negative lead to a free hole.',meterRed:'Connect the red meter probe to a free hole.',meterBlack:'Connect the black meter probe to a free hole.'});
+    Object.assign(hints,{timer555:'Click the main board to place an NE555 across the center gap. One timer per circuit.',pushbutton:'Choose two holes for a normally open pushbutton. Select it, then use Pulse or Hold in Timing and pushbuttons.'});
     hint(hints[tool]);bb.canvas.style.cursor=['select','pan'].includes(tool)?'grab':'crosshair';drawBreadboard();
   }
   function opFits(comp,col) { return col>=1&&col<=27&&!componentConflict({...comp,startCol:col}); }
   function translated(comp,dc,dr) {
     const next=clone(comp);
-    if(comp.type==='opamp'){if(dr||!opFits(comp,comp.startCol+dc))return null;next.startCol+=dc;return next;}
+    if(isIC(comp)){if(dr||!opFits(comp,comp.startCol+dc))return null;next.startCol+=dc;return next;}
     const rows=Object.keys(bb.rows).sort((a,b)=>bb.rows[a]-bb.rows[b]);
     for(const end of terminalKeys(comp)){const h=physicalHole(comp,end),row=rows[rows.indexOf(h.row)+dr],col=h.col+dc;if(!row||col<1||col>30)return null;putEnd(next,end,{row,col});}
     return componentConflict(next)?null:next;
@@ -486,7 +492,7 @@
     if(moveRequest){if(hole){const {comp,end}=moveRequest;const other=physicalHole(comp,end==='a'?'b':'a');if(other.row===hole.row&&other.col===hole.col)return toast('Terminals need distinct physical holes.');if(!reconnectEnd(comp,end,hole))return;moveRequest=null;updateAll();hint('Terminal moved. Drag a part or select another terminal.');}return;}
     if(tool==='select'||tool==='erase'){
       const selected=state.components.find(c=>c.id===state.selectedId);
-      const end=selected&&selected.type!=='opamp'&&terminalKeys(selected).find(k=>{const h=representativePoint(selected[k],selected,k);return Math.hypot(h.x-p.x,h.y-p.y)<13;});
+      const end=selected&&!isIC(selected)&&terminalKeys(selected).find(k=>{const h=representativePoint(selected[k],selected,k);return Math.hypot(h.x-p.x,h.y-p.y)<13;});
       let key=!end&&leadAt(p),hit=end?selected:(!key&&findComponentAt(p.x,p.y));
       if(!end&&!key&&!hit)key=leadKeys.slice().reverse().find(k=>getLead(k)&&WireRouting.hit(ensureRoutes().get(k).points,p,8));
       if(tool==='erase'){if(key){setLead(key,null);updateAll();}else if(hit)removeComponent(hit.id);return;}
@@ -495,9 +501,10 @@
       return;
     }
     if(!hole){toast('Choose a breadboard hole.');return;}
-    if(tool==='opamp'&&profile.tools.includes('opamp')){
+    if((tool==='opamp'||tool==='timer555')&&profile.tools.includes(tool)){
       if(!/^[TB]:/.test(hole.node))return toast('Place the IC on the main board.');
-      const comp={id:uid('U'),type:'opamp',model:'UA741',startCol:clamp(hole.col-1,1,27),openLoopGain:200000,gainBandwidth:1e6,outputHeadroom:2,slewRate:0.5e6};
+      if(isTimer&&state.components.some(c=>c.type==='timer555'))return toast('Use one NE555 per circuit.');
+      const comp={id:uid('U'),type:tool,model:isTimer?'NE555':'UA741',startCol:clamp(hole.col-1,1,27),...(!isTimer?{openLoopGain:200000,gainBandwidth:1e6,outputHeadroom:2,slewRate:0.5e6}:{})};
       if(!opFits(comp,comp.startCol))return toast(componentConflict(comp)||'The IC does not fit here.');
       state.components.push(comp);state.selectedId=comp.id;updateAll();return;
     }
@@ -520,7 +527,7 @@
       if(!drag.moved&&Math.hypot(p.x-drag.origin.x,p.y-drag.origin.y)<5)return;drag.moved=true;
       if(drag.key||drag.end){drag.valid=!!hoverHole;drag.error=null;if(hoverHole){if(drag.key){drag.error=leadConflict(drag.key,hoverHole);if(!drag.error)setLead(drag.key,hoverHole);}else{const next=clone(drag.original);putEnd(next,drag.end,hoverHole);drag.error=componentConflict(next);if(!drag.error)Object.assign(drag.comp,next);}drag.valid=!drag.error;}}
       else { const dc=Math.round((p.x-drag.origin.x)/bb.dx),rows=Object.keys(bb.rows).sort((a,b)=>bb.rows[a]-bb.rows[b]);
-        const anchor=drag.comp.type==='opamp'?null:physicalHole(drag.original,'a');
+        const anchor=isIC(drag.comp)?null:physicalHole(drag.original,'a');
         const targetY=anchor?bb.rows[anchor.row]+p.y-drag.origin.y:0;
         const row=anchor?rows.reduce((a,b)=>Math.abs(bb.rows[a]-targetY)<Math.abs(bb.rows[b]-targetY)?a:b):null;
         const dr=anchor?rows.indexOf(row)-rows.indexOf(anchor.row):0;
@@ -529,7 +536,7 @@
       bb.canvas.style.cursor=drag.valid?'grabbing':'not-allowed';
     }drawBreadboard();
   });
-  bb.canvas.addEventListener('pointerup',e=>{if(pan){pan=null;if(bb.canvas.hasPointerCapture(e.pointerId))bb.canvas.releasePointerCapture(e.pointerId);return;}if(!drag)return;const d=drag;if(d.comp&&d.comp.type!=='opamp'&&d.comp.aHole.row===d.comp.bHole.row&&d.comp.aHole.col===d.comp.bHole.col)d.valid=false;if(!d.valid){cancelGesture();toast(d.error||'Move cancelled: choose unoccupied holes within the board.');}else{drag=null;if(d.moved){state.challenge.actions++;updateAll();}}if(bb.canvas.hasPointerCapture(e.pointerId))bb.canvas.releasePointerCapture(e.pointerId);bb.canvas.style.cursor='grab';});
+  bb.canvas.addEventListener('pointerup',e=>{if(pan){pan=null;if(bb.canvas.hasPointerCapture(e.pointerId))bb.canvas.releasePointerCapture(e.pointerId);return;}if(!drag)return;const d=drag;if(d.comp&&!isIC(d.comp)&&d.comp.aHole.row===d.comp.bHole.row&&d.comp.aHole.col===d.comp.bHole.col)d.valid=false;if(!d.valid){cancelGesture();toast(d.error||'Move cancelled: choose unoccupied holes within the board.');}else{drag=null;if(d.moved){state.challenge.actions++;updateAll();}}if(bb.canvas.hasPointerCapture(e.pointerId))bb.canvas.releasePointerCapture(e.pointerId);bb.canvas.style.cursor='grab';});
   bb.canvas.addEventListener('pointercancel',()=>{cancelGesture();updateEditor();});
   bb.canvas.addEventListener('lostpointercapture',()=>{pan=null;if(drag){cancelGesture();updateEditor();}});
   bb.canvas.addEventListener('pointerleave',()=>{if(!drag){hoverHole=null;drawBreadboard();}});
@@ -550,10 +557,10 @@
   document.getElementById('zoomInBtn').onclick=()=>setZoom(zoom+.25);document.getElementById('zoomOutBtn').onclick=()=>setZoom(zoom-.25);document.getElementById('fitBoardBtn').onclick=()=>setZoom(1);
 
   function findComponentAt(x,y) {
-    const ordered=[...state.components].sort((a,b)=>((a.type==='opamp'?4:a.type==='wire'?0:2)+(a.id===state.selectedId?1:0))-((b.type==='opamp'?4:b.type==='wire'?0:2)+(b.id===state.selectedId?1:0)));
+    const ordered=[...state.components].sort((a,b)=>((isIC(a)?4:a.type==='wire'?0:2)+(a.id===state.selectedId?1:0))-((isIC(b)?4:b.type==='wire'?0:2)+(b.id===state.selectedId?1:0)));
     for (let i=ordered.length-1;i>=0;i--) {
       const comp=ordered[i];
-      if (comp.type==='opamp') {
+      if (isIC(comp)) {
         const x1=colX(comp.startCol)-16,x2=colX(comp.startCol+3)+16,y1=bb.rows.E,y2=bb.rows.F;
         if (x>=x1&&x<=x2&&y>=y1&&y<=y2) return comp;
       } else if(comp.type==='wire') {
@@ -599,11 +606,13 @@
       el.querySelector('#applyPosition').onclick=()=>{const h=readPosition('lead');if(h){const error=leadConflict(key,h);if(error)return toast(error);setLead(key,h);updateAll();}};
       el.querySelector('#deleteSelected').onclick=()=>{setLead(key,null);state.selectedId=null;updateAll();};return;
     }
-    el.innerHTML=`<strong>${comp.id} · ${comp.type==='opamp'?'UA741 DIP-8':comp.type}</strong>`;
+    el.innerHTML=`<strong>${comp.id} · ${comp.type==='opamp'?'UA741 DIP-8':comp.type==='timer555'?'NE555 DIP-8':comp.type}</strong>`;
     if(comp.type==='resistor'||comp.type==='capacitor'||comp.type==='potentiometer')el.innerHTML+=`<label>${comp.type==='potentiometer'?'Total track resistance (Ω)':comp.type==='resistor'?'Resistance (Ω)':'Capacitance (F)'}<input id="editValue" type="text" value="${comp.value}" spellcheck="false"></label><span class="small">Accepts values such as 10k, 1M, 100n or 0.000001.</span>`;
     if(comp.type==='wire')el.innerHTML+=`<label>Wire color<input id="editColor" type="color" value="${comp.color||'#48a26a'}"></label>`;
     if(comp.type==='opamp'){
       el.innerHTML+=`<label>Start column (pins 1 / 8)<input id="editColumn" type="number" min="1" max="27" step="1" value="${comp.startCol}"></label><label>Open-loop gain<input id="editGain" type="number" min="1" value="${comp.openLoopGain}"></label><label>Slew rate (V/µs)<input id="editSlew" type="number" min="0.01" step="0.1" value="${comp.slewRate/1e6}"></label><p class="small">UA741 behavioral model: 1 MHz gain-bandwidth, 2 V output headroom approximation. Slides along the center gap. Existing wires stay in their holes; reconnect them after moving the IC.</p>`;
+    }else if(comp.type==='timer555'){
+      el.innerHTML+=`<label>Start column (pins 1 / 8)<input id="editColumn" type="number" min="1" max="27" step="1" value="${comp.startCol}"></label><p class="small">NE555 DIP-8. Notch left, pin 1 below the gap. Moving the IC leaves wires in their holes; reconnect them as needed.</p>`;
     }else{
       el.innerHTML+=positionFields(physicalHole(comp,'a'),'a','Terminal A')+positionFields(physicalHole(comp,'b'),'b','Terminal B')+'<button id="applyPosition">Apply positions</button><div class="edit-actions"><button id="moveA">Reconnect A…</button><button id="moveB">Reconnect B…</button></div>';
       if(comp.type==='potentiometer')el.innerHTML+=positionFields(physicalHole(comp,'w'),'w','Wiper W')+'<button id="moveW">Reconnect W…</button><label>Wiper position (%)<input id="editWiper" type="range" min="0" max="100" step="1" value="'+comp.position*100+'"></label><output id="wiperReadout">'+comp.position*100+'%</output>';
@@ -656,6 +665,7 @@
   function isConnected(uf,a,b){return uf.find(a)===uf.find(b);}
 
   function validateCircuit() {
+    if(isTimer){try{return Timer555Engine.prepare(state);}catch(error){return {warnings:[error.message],uf:new UnionFind()};}}
     if(isRc){try{return RcEngine.prepare(state,RcSignals.describe(state.rcInput));}catch(error){return {warnings:[error.message],uf:new UnionFind()};}}
     const warnings=[]; const uf=buildConnectivity();
     const ops=state.components.filter(c=>c.type==='opamp');
@@ -694,6 +704,7 @@
   }
 
   function solveCircuitWaveforms() {
+    if(isTimer)return timerRuntime.acquire();
     if(isRc)return RcEngine.solve(state,{window:Math.max(horizontalDiv()*10,1e-7),sourceAt:(t,port)=>SFG1013.voltage(state.generator,t,port),signal:RcSignals.describe(state.rcInput)});
     const {warnings,uf}=validateCircuit(); state.sim.warnings=warnings;
     const net=buildNetlist(uf), ground=net.ground;
@@ -797,12 +808,21 @@
   // -----------------------------
   // Scope measurement + display helpers
   // -----------------------------
-  function channelProcessed(raw, chState, dt=state.sim.last?.dt||1e-6) {
+  function channelProcessed(raw, chState, dt=state.sim.last?.dt||1e-6, times=null) {
     if(!raw.length)return [];
     let arr=raw.slice();
     if(chState.coupling==='GND')arr=arr.map(()=>0);
-    else if(chState.coupling==='AC'){const mean=arr.reduce((a,b)=>a+b,0)/arr.length;arr=arr.map(v=>v-mean);}
-    if(chState.bwLimit==='20MHz' && arr.length>5){const out=[];let y=arr[0];const alpha=1-Math.exp(-2*Math.PI*20e6*dt);for(const x of arr){y+=alpha*(x-y);out.push(y);}arr=out;}
+    else if(chState.coupling==='AC'){const mean=timeAverage(arr,times);arr=arr.map(v=>v-mean);}
+    if(chState.bwLimit==='20MHz' && arr.length>5){
+      const out=[],tau=1/(2*Math.PI*20e6);let y=arr[0];
+      for(let i=0;i<arr.length;i++){
+        const step=times&&i?times[i]-times[i-1]:dt,alpha=-Math.expm1(-step/tau);
+        if(times&&i)y+=(arr[i-1]-y)*alpha+(arr[i]-arr[i-1])*(1-tau/step*alpha);
+        else y+=alpha*(arr[i]-y);
+        out.push(y);
+      }
+      arr=out;
+    }
     // Virtual leads deliver 1X input voltage; panel attenuation changes indicated voltage.
     arr=arr.map(v=>v*chState.probe);
     if(chState.invert)arr=arr.map(v=>-v);
@@ -818,10 +838,15 @@
   function measureUnit(name) { return name==='Frequency'?'Hz':name==='Phase'?'°':name==='Duty Cycle'?'%':name.includes('Area')?'V·s':/Edges|Pulses/.test(name)?'':measureGroups.Time.includes(name)||measureGroups.Delay.includes(name)?'s':'V'; }
   function crossings(arr,t,level,rising=true) {const out=[];for(let i=1;i<arr.length;i++)if(rising?arr[i-1]<level&&arr[i]>=level:arr[i-1]>level&&arr[i]<=level)out.push(lerp(t[i-1],t[i],(level-arr[i-1])/(arr[i]-arr[i-1])));return out;}
   function highLow(arr,mode='Auto') {const min=Math.min(...arr),max=Math.max(...arr);if(mode==='Min-Max'||max===min)return {low:min,high:max};const bins=Array(100).fill(0);arr.forEach(v=>bins[Math.min(99,Math.floor((v-min)/(max-min)*100))]++);const peak=(a,b)=>{let index=a;for(let i=a+1;i<b;i++)if(bins[i]>bins[index])index=i;return index;};const li=peak(0,50),hi=peak(50,100);if(mode==='Auto'&&(bins[li]+bins[hi])/arr.length<.25)return {low:min,high:max};const avgBin=i=>{const vals=arr.filter(v=>Math.min(99,Math.floor((v-min)/(max-min)*100))===i);return vals.reduce((a,b)=>a+b,0)/vals.length;};return {low:avgBin(li),high:avgBin(hi)};}
-  function measurement(arr,t,name,other=null,settings=scope.measure) {
+  function timeAverage(arr,t=null,squared=false) {
+    if(!t||t.length!==arr.length||t.at(-1)<=t[0])return arr.reduce((sum,v)=>sum+(squared?v*v:v),0)/arr.length;
+    let area=0;for(let i=1;i<arr.length;i++)area+=((squared?arr[i-1]**2:arr[i-1])+(squared?arr[i]**2:arr[i]))*.5*(t[i]-t[i-1]);
+    return area/(t.at(-1)-t[0]);
+  }
+  function measurement(arr,t,name,other=null,settings=scope.measure,timeWeighted=false) {
     if(!arr||arr.length<3||!arr.every(Number.isFinite))return NaN;
-    const min=Math.min(...arr),max=Math.max(...arr),mean=arr.reduce((a,b)=>a+b,0)/arr.length;
-    const rms=Math.sqrt(arr.reduce((a,b)=>a+b*b,0)/arr.length),levels=highLow(arr,settings.highLow),span=levels.high-levels.low;
+    const min=Math.min(...arr),max=Math.max(...arr),mean=timeAverage(arr,timeWeighted?t:null);
+    const rms=Math.sqrt(timeAverage(arr,timeWeighted?t:null,true)),levels=highLow(arr,settings.highLow),span=levels.high-levels.low;
     if(name==='Vpp'||name==='Pk-Pk')return max-min;if(name==='Max')return max;if(name==='Min')return min;if(name==='Mean')return mean;if(name==='RMS')return rms;
     if(name==='High')return levels.high;if(name==='Low')return levels.low;if(name==='Amplitude')return span;
     const area=(a,tt)=>a.slice(1).reduce((v,x,i)=>v+(x+a[i])*.5*(tt[i+1]-tt[i]),0);
@@ -832,13 +857,13 @@
     const cycle=rising.length>=2?rising:falling.length>=2?falling:[];
     const period=cycle.length>=2?(cycle.at(-1)-cycle[0])/(cycle.length-1):NaN;
     if(name==='Frequency')return 1/period;if(name==='Period')return period;
-    if(name.startsWith('Cycle ')){if(cycle.length<2)return NaN;const indices=t.map((v,i)=>v>=cycle[0]&&v<cycle[1]?i:-1).filter(i=>i>=0),a=indices.map(i=>arr[i]),tt=indices.map(i=>t[i]);return name==='Cycle Area'?area(a,tt):measurement(a,tt,name.slice(6),null,settings);}
+    if(name.startsWith('Cycle ')){if(cycle.length<2)return NaN;const indices=t.map((v,i)=>v>=cycle[0]&&v<cycle[1]?i:-1).filter(i=>i>=0),a=indices.map(i=>arr[i]),tt=indices.map(i=>t[i]);return name==='Cycle Area'?area(a,tt):measurement(a,tt,name.slice(6),null,settings,timeWeighted);}
     if(name==='+Edges')return rising.length;if(name==='-Edges')return falling.length;
     const widths=(start,end)=>start.map(v=>{const next=end.find(e=>e>v);return next==null?NaN:next-v;}).filter(Number.isFinite);
     const positive=widths(rising,falling),negative=widths(falling,rising);
     if(name==='+Pulses')return positive.length;if(name==='-Pulses')return negative.length;
     if(name==='+Width')return positive[0]??NaN;if(name==='-Width')return negative[0]??NaN;
-    if(name==='Duty Cycle')return 100*(positive[0]??NaN)/period;
+    if(name==='Duty Cycle'){for(let i=0;i<rising.length-1;i++){const fall=falling.find(v=>v>rising[i]&&v<=rising[i+1]);if(fall!=null)return 100*(fall-rising[i])/(rising[i+1]-rising[i]);}return NaN;}
     if(name==='RiseTime'||name==='FallTime'){const up=name==='RiseTime',start=crossings(arr,t,level(up?settings.lowRef:settings.highRef),up),end=crossings(arr,t,level(up?settings.highRef:settings.lowRef),up);return widths(start,end)[0]??NaN;}
     if(measureGroups.Delay.includes(name)&&other?.length===arr.length){const lev=highLow(other,settings.highLow),mid=lev.low+(lev.high-lev.low)*(settings.midRef??50)/100;const first=name==='Phase'||name[1]==='R'?rising:falling,second=crossings(other,t,mid,name==='Phase'||name[2]==='R');if(!first.length||!second.length||lev.high-lev.low<1e-9)return NaN;let delay=(name.startsWith('L')?second.at(-1)-first.at(-1):second[0]-first[0]);if(name==='Phase'){if(!Number.isFinite(period))return NaN;return ((delay/period*360+180)%360+360)%360-180;}return delay;}
     return NaN;
@@ -849,15 +874,33 @@
     const middle=Math.floor(arr.length/2),halfWindow=horizontalDiv()*5;
     const candidates=[];for(let i=1;i<arr.length;i++){
       const rise=arr[i-1]<level&&arr[i]>=level,fall=arr[i-1]>level&&arr[i]<=level;
-      if((slope==='Rising'?rise:slope==='Falling'?fall:rise||fall)&&(!t||t[i]>=t[0]+halfWindow+scope.trigger.holdoff&&t[i]<=t.at(-1)-halfWindow))candidates.push(i);
+      if((slope==='Rising'?rise:slope==='Falling'?fall:rise||fall)&&(!isTimer||!scope.singleArmed||!t||t[i]>timerRuntime.armedAt)&&(!t||t[i]>=t[0]+(isTimer?0:halfWindow)+scope.trigger.holdoff&&t[i]<=t.at(-1)-halfWindow))candidates.push(i);
     }
     return candidates.length?candidates.reduce((a,b)=>Math.abs(a-middle)<Math.abs(b-middle)?a:b):-1;
   }
+  function bandwidthTraces(sim){
+    const raw=sim.traces,times=new Set(raw.t),tau=1/(2*Math.PI*20e6);
+    // Resolve the filter's settling after ideal netlist jumps. Without these
+    // points, drawing between distant samples would invent a slow ramp.
+    for(let i=1;i<raw.t.length;i++)if(raw.t[i]-raw.t[i-1]<sim.dt*1e-4&&['ch1','ch2'].some(ch=>Math.abs(raw[ch][i]-raw[ch][i-1])>1e-5)){
+      for(const scale of [.25,.5,1,2,3,5,10]){
+        const t=raw.t[i]+tau*scale;if(t<raw.t.at(-1))times.add(t);
+      }
+    }
+    const t=[...times].sort((a,b)=>a-b),traces={t,ch1:[],ch2:[],gen:[]};let cursor=1;
+    for(const value of t){
+      while(cursor<raw.t.length-1&&raw.t[cursor]<value)cursor++;
+      const fraction=(value-raw.t[cursor-1])/(raw.t[cursor]-raw.t[cursor-1]);
+      for(const ch of ['ch1','ch2','gen'])traces[ch].push(lerp(raw[ch][cursor-1],raw[ch][cursor],fraction));
+    }
+    return traces;
+  }
   function makeDisplayFrame(sim) {
     if(!sim?.traces)return null;
-    const t=sim.traces.t,c1=channelProcessed(sim.traces.ch1,scope.ch1,sim.dt),c2=channelProcessed(sim.traces.ch2,scope.ch2,sim.dt);
+    const traces=sim.edgeAware&&[scope.ch1,scope.ch2].some(ch=>ch.bwLimit==='20MHz')?bandwidthTraces(sim):sim.traces;
+    const t=traces.t,c1=channelProcessed(traces.ch1,scope.ch1,sim.dt,sim.edgeAware?t:null),c2=channelProcessed(traces.ch2,scope.ch2,sim.dt,sim.edgeAware?t:null);
     let trigArr=scope.trigger.source==='CH2'?c2:c1;
-    if(scope.trigger.coupling==='AC'){const mean=trigArr.reduce((a,b)=>a+b,0)/trigArr.length;trigArr=trigArr.map(v=>v-mean);}
+    if(scope.trigger.coupling==='AC'){const mean=timeAverage(trigArr,sim.edgeAware?t:null);trigArr=trigArr.map(v=>v-mean);}
     let trig=scope.trigger.source==='EXT'||!scope[scope.trigger.source.toLowerCase()]?.enabled?-1:findTriggerIndex(trigArr,scope.trigger.level,scope.trigger.slope,t,sim.dt);
     if(scope.forcedTrigger){trig=Math.floor(t.length/2);scope.forcedTrigger=false;}
     const held=!scope.running&&sim===scope.frozenRecord;
@@ -868,7 +911,7 @@
   }
   function normalizeMeasurements(){scope.measure={...defaultScope().measure,...scope.measure};scope.measure.items=scope.measure.items.slice(0,8).map(item=>typeof item==='string'?{name:item==='Vpp'?'Pk-Pk':item,source:scope.measure.source}:item);}
   function measurementResult(item,frame) {
-    const useChannelStatus=scope.running||isRc;
+    const useChannelStatus=scope.running||isRc||isTimer;
     const missing=source=>(useChannelStatus&&currentRecord()?.channelStatus?.[source.toLowerCase()])|| (source==='Math'?(!scope.math.enabled?'Math is off':(useChannelStatus&&(currentRecord()?.channelStatus?.ch1||currentRecord()?.channelStatus?.ch2))||null):!scope[source.toLowerCase()]?.enabled?`${source} is off`:!state.probes[source.toLowerCase()]?.tip&&scope.running?'Probe tip disconnected':!state.probes[source.toLowerCase()]?.gnd&&scope.running?'Probe ground disconnected':null);
     let reason=missing(item.source);if(measureGroups.Delay.includes(item.name))reason ||=missing(item.source2||'CH2');
     if(!frame?.visible)return {value:NaN,reason:scope.singleArmed?'Waiting for single trigger':'Waiting for trigger or acquisition'};
@@ -880,8 +923,8 @@
     const t=indexes.map(i=>record.t[i]);
     if(t.length<3)return {value:NaN,reason:'Not enough samples in selected gate'};
     if((currentRecord()?.maxFrequency??currentRecord()?.frequency??0)*frame.dt>.2)return {value:NaN,reason:'Undersampled: use a faster time/div'};
-    const value=measurement(values(item.source),t,item.name,values(item.source2||'CH2'));
-    return {value,reason:Number.isFinite(value)?'':'No complete transition / cycle, or a flat signal'};
+    const value=measurement(values(item.source),t,item.name,values(item.source2||'CH2'),scope.measure,!!currentRecord()?.edgeAware);
+    return {value,reason:Number.isFinite(value)?'':isTimer&&['Frequency','Period','Duty Cycle'].includes(item.name)?'Insufficient cycles; a single pulse has a width but no repeating frequency':'No complete transition / cycle, or a flat signal'};
   }
   function mathValue(a,b){return scope.math.op==='CH1+CH2'?a+b:scope.math.op==='CH1×CH2'?a*b:a-b;}
   const measurementStats=new Map();let acquisitionVersion=0;
@@ -900,7 +943,7 @@
     normalizeMeasurements();
     const sim=currentRecord();
     let frame=makeDisplayFrame(sim);
-    if(scope.running&&frame?.visible){scope.frozenFrame=frame;scope.frozenRecord={channelStatus:sim.channelStatus,traces:sim.traces,dt:sim.dt,window:sim.window,frequency:sim.frequency,...(isRc?{maxFrequency:sim.maxFrequency??sim.frequency,mixed:!!sim.mixed,signalMode:sim.signalMode??'generator'}:{}),triggerTime:frame.triggerTime,triggered:frame.triggered};if(scope.singleArmed&&frame.triggered){scope.running=false;scope.singleArmed=false;}}
+    if(scope.running&&frame?.visible){scope.frozenFrame=frame;scope.frozenRecord={channelStatus:sim.channelStatus,traces:sim.traces,dt:sim.dt,window:sim.window,frequency:sim.frequency,...(isTimer?{edgeAware:sim.edgeAware}:{}),...(isRc?{maxFrequency:sim.maxFrequency??sim.frequency,mixed:!!sim.mixed,signalMode:sim.signalMode??'generator'}:{}),triggerTime:frame.triggerTime,triggered:frame.triggered};if(scope.singleArmed&&frame.triggered){scope.running=false;scope.singleArmed=false;}}
     syncScopeControls();
     if(frame){
       if(frame.visible){if(scope.acquire.xy){if(!sim.channelStatus?.ch1&&!sim.channelStatus?.ch2)drawXY(frame);}else{if(scope.ch1.enabled&&!sim.channelStatus?.ch1)drawTrace(frame.t,frame.c1,scope.ch1,'#f1d63a');if(scope.ch2.enabled&&!sim.channelStatus?.ch2)drawTrace(frame.t,frame.c2,scope.ch2,'#63b9ff');}if(scope.math.enabled&&!sim.channelStatus?.ch1&&!sim.channelStatus?.ch2)drawMath(frame);if(scope.ref.enabled&&scope.ref.data)drawRef();}
@@ -953,7 +996,7 @@
     const w=scopeCanvas.width;
     sctx.font='14px monospace';sctx.textBaseline='middle';
     sctx.fillStyle='#dce7eb';sctx.textAlign='left';sctx.fillText('GDS-1202B',12,17);
-    sctx.fillStyle='#dce7eb';sctx.fillText(`${currentRecord()?.traces.t.length||0} sim pts`,200,17);sctx.fillText(`${fmt(1/(currentRecord()?.dt||NaN),'Sa/s')}`,350,17);
+    sctx.fillStyle='#dce7eb';sctx.fillText(`${currentRecord()?.traces.t.length||0} sim pts`,200,17);sctx.fillText(currentRecord()?.edgeAware?'Adaptive + edges':`${fmt(1/(currentRecord()?.dt||NaN),'Sa/s')}`,350,17);
     sctx.textAlign='right';sctx.fillStyle=frame?.triggered?'#75df8b':'#e2c763';sctx.fillText(!scope.running?'Stop':scope.singleArmed?'Armed':frame?.triggered?'Trig’d':scope.trigger.mode==='Normal'?'Wait':'Auto',w-12,17);
     sctx.textAlign='left';sctx.fillStyle='#f1d63a';sctx.fillText(`1 ${fmt(scope.ch1.voltsDiv,'V')}/div ${scope.ch1.coupling}`,10,458);
     sctx.fillStyle='#63b9ff';sctx.fillText(`2 ${fmt(scope.ch2.voltsDiv,'V')}/div ${scope.ch2.coupling}`,240,458);
@@ -1143,7 +1186,7 @@
     if(a==='ch1'||a==='ch2'){if(!scope[a].enabled)scope[a].enabled=true;else if(scope.currentMenu===a&&!scope.menuHidden)scope[a].enabled=false;setMenu(a);return;}
     if(map[a]){setMenu(map[a]);return;}
     if(a==='autoset'){autoset();return;} if(a==='runStop'){scope.running=!scope.running;if(scope.running){scope.singleArmed=false;simulateAndRender();}else{scope.singleArmed=false;drawScope();}return;}
-    if(a==='single'){scope.running=true;scope.singleArmed=true;simulateAndRender();return;}
+    if(a==='single'){if(isTimer){try{timerRuntime.arm();}catch(error){return toast(error.message,3500);}}scope.running=true;scope.singleArmed=true;simulateAndRender();return;}
     if(a==='default'){scope=defaultScope();scopeAction(true);return;} if(a==='trigger50'){autoTrigger50();return;} if(a==='forceTrig'){if(!scope.running)return toast('Press Run or Single before forcing a trigger.');scope.forcedTrigger=true;drawScope();return;}
     if(a==='zoom'){scope.horizontal.zoom=!scope.horizontal.zoom;scopeAction(false);toast(scope.horizontal.zoom?'5× horizontal zoom enabled':'Horizontal zoom disabled');return;}
     if(a==='search'||a==='setClear')toast('Search/Set-Clear keys are present on the panel but are not needed for the analog lab waveform workflow.');
@@ -1229,6 +1272,7 @@
     toast(`Autoset acquired the selected input and adjusted enabled channels to ${fmt(scope.horizontal.timeDiv,'s')}/div.`,3500);
   }
   function autoset(){
+    if(isTimer)return autosetTimer();
     if(isRc&&state.rcInput.mode!=='generator')return autosetRcSignal();
     const sim=currentRecord();if(!sim)return toast('Connect a signal first.');
     const channels=['ch1','ch2'].filter(ch=>scope[ch].enabled&&state.probes[ch].tip);
@@ -1241,6 +1285,23 @@
     scope.trigger.source=reference.toUpperCase();scope.trigger.slope='Rising';scope.trigger.mode='Auto';scope.trigger.level=(Math.min(...arr)+Math.max(...arr))/2;scope.running=true;scope.singleArmed=false;scope.currentMenu='autoset';scope.sideMenu=null;scope.menuHidden=false;scopeAction(true);toast('Autoset adjusted enabled channels, time base and trigger.');
   }
 
+  function autosetTimer(){
+    if(!scope.powered)return toast('Turn on the oscilloscope first.');
+    let sim;try{sim=timerRuntime.autoRecord();}catch(error){return toast(error.message,4000);}
+    const channels=['ch1','ch2'].filter(ch=>scope[ch].enabled&&!sim.channelStatus[ch]);
+    const readings=channels.map(name=>{const arr=channelProcessed(sim.traces[name],scope[name],sim.dt,sim.edgeAware?sim.traces.t:null);return {name,min:Math.min(...arr),max:Math.max(...arr)};});
+    const reference=readings.find(r=>r.max-r.min>=.01);if(!reference)return toast('Connect a probe tip and ground to a changing 555 signal.');
+    beforeAutoset=clone({...scope,sideMenu:null});beforeAutosetSimulation={...state.sim};
+    for(const {name,min,max} of readings){const ch=scope[name];ch.voltsDiv=(VOLT_DIVS.find(v=>v*ch.probe>=Math.max((max-min)/6,.001))||VOLT_DIVS.at(-1))*ch.probe;ch.position=(min+max)/2/ch.voltsDiv;}
+    Object.assign(scope.horizontal,{timeDiv:nearestFrom(TIME_DIVS,sim.timing/2.5),position:0,zoom:false});
+    Object.assign(scope.trigger,{source:reference.name.toUpperCase(),slope:'Rising',mode:'Auto',level:(reference.min+reference.max)/2});
+    Object.assign(scope,{singleArmed:false,currentMenu:'autoset',sideMenu:null,menuHidden:false});
+    // Fit an existing acquisition. In particular, never generate a new one-shot.
+    scope.running=false;scope.frozenRecord={...sim,triggerTime:undefined,triggered:false};state.sim.last=sim;
+    scope.frozenRecord.triggerTime=sim.traces.t[Math.floor(sim.traces.t.length/2)];
+    drawScope();updateReadouts();toast(sim.periodic?'Autoset fitted the acquired 555 oscillator. Press Run/Stop for live acquisition.':'Autoset fitted the captured one-shot without retriggering it. Press Single for the next pulse.',4000);
+  }
+
   function saveReference(ch){
     const frame=makeDisplayFrame(currentRecord());if(!frame)return;scope.ref.data={t:frame.t.slice(),y:(ch==='CH2'?frame.c2:frame.c1).slice(),voltsDiv:scope[ch.toLowerCase()].voltsDiv,position:scope[ch.toLowerCase()].position};scope.ref.enabled=true;scopeAction(false);
   }
@@ -1248,8 +1309,8 @@
   function writeSaved(key,data) { try{localStorage.setItem(key,JSON.stringify(data));return true;}catch{toast('Browser storage is unavailable or full. Your current circuit is still open.',3500);return false;} }
   function readSaved(key) { try{const raw=localStorage.getItem(key);if(!raw){toast('No saved settings found in this browser.');return null;}return JSON.parse(raw);}catch{toast('Saved settings could not be read. Your current circuit is unchanged.',3500);return null;} }
   function savePanel(){if(writeSaved(storagePrefix+'-panel',{...scope,sideMenu:null}))toast('Panel settings saved.');}
-  function recallPanel(){const data=readSaved(storagePrefix+'-panel');if(!data||typeof data!=='object')return;if(isRc){try{validateSavedScope(data);}catch(error){return toast('Cannot recall panel: '+error.message);}}scope=savedScope(data);simulateAndRender();toast('Panel settings recalled.');}
-  function saveLab(){if(isRc){if(drag||state.pendingHole||moveRequest)return toast('Finish or cancel the current edit before saving.');if(writeSaved(storagePrefix+'-lab',presetSnapshot()))toast('RC circuit and instrument settings saved.');return;}if(drag)return toast('Finish moving the part before saving.');if(writeSaved('gds1202b-lab',{pinoutVersion:UA741.pinoutVersion,state:JSON.parse(boardSnapshot()),scope:{...scope,sideMenu:null}}))toast('Lab and exact hole positions saved in this browser.');}
+  function recallPanel(){const data=readSaved(storagePrefix+'-panel');if(!data||typeof data!=='object')return;if(isRc||isTimer){try{validateSavedScope(data);}catch(error){return toast('Cannot recall panel: '+error.message);}}scope=savedScope(data);simulateAndRender();toast('Panel settings recalled.');}
+  function saveLab(){if(isRc||isTimer){if(drag||state.pendingHole||moveRequest)return toast('Finish or cancel the current edit before saving.');if(writeSaved(storagePrefix+'-lab',presetSnapshot()))toast((isTimer?'555':'RC')+' circuit and instrument settings saved.');return;}if(drag)return toast('Finish moving the part before saving.');if(writeSaved('gds1202b-lab',{pinoutVersion:UA741.pinoutVersion,state:JSON.parse(boardSnapshot()),scope:{...scope,sideMenu:null}}))toast('Lab and exact hole positions saved in this browser.');}
   function recallLab(){const d=readSaved(storagePrefix+'-lab');if(d)restoreLab(d);}
   function validateSavedScope(data){
     if(data==null)return;
@@ -1272,6 +1333,7 @@
     if(data.frozenRecord!=null){const r=data.frozenRecord;if(!object(r)||!object(r.traces)||!['t','ch1','ch2'].every(key=>array(r.traces[key]))||r.traces.t.length!==r.traces.ch1.length||r.traces.t.length!==r.traces.ch2.length||!Number.isFinite(r.dt)||r.dt<=0)throw new Error('Invalid saved acquisition.');if(r.mixed!=null&&typeof r.mixed!=='boolean'||r.maxFrequency!=null&&(!Number.isFinite(r.maxFrequency)||r.maxFrequency<0)||r.signalMode!=null&&!['generator','uav','eeg','sensor'].includes(r.signalMode))throw new Error('Invalid saved signal metadata.');}
   }
   function normalizeSavedLab(d){
+    if(isTimer)return Timer555Profile.validate(d,prepareLayout,validateSavedScope);
     if(profile.validation==='rc')return RcProfile.validate(d,prepareLayout,validateSavedScope);
     if(!d||typeof d!=='object'||Array.isArray(d))throw new Error('Saved lab is invalid.');
     if(Object.hasOwn(d,'pinoutVersion')&&d.pinoutVersion!==UA741.pinoutVersion)throw new Error('Unsupported saved pinout version.');
@@ -1291,6 +1353,7 @@
     let result;
     try{result=normalizeSavedLab(d);}catch(error){toast(`Cannot load lab: ${error.message} Current circuit is unchanged.`,4500);return false;}
     const {state:data}=result.envelope;
+    if(isTimer)timerRuntime.restart();
     if(result.relocated)message+=` Moved ${result.relocated} overlapping terminals to free holes on the same electrical strips.`;
     cancelGesture();Object.assign(state,{components:data.components,generatorNode:data.generatorNode,probes:data.probes,supply:data.supply,generator:data.generator,leadHoles:data.leadHoles||{},...(isRc?{rcInput:data.rcInput}:{})});state.selectedId=null;scope=savedScope(result.envelope.scope);syncInputs();updateAll();
     document.getElementById('pinoutNotice').hidden=!result.converted;
@@ -1316,7 +1379,7 @@
   let customPresets=[];
   try{const data=JSON.parse(localStorage.getItem(customPresetIndexKey)||'[]');if(Array.isArray(data))customPresets=data.filter(p=>p&&typeof p.id==='string'&&/^custom-[a-z0-9-]+$/.test(p.id)&&typeof p.name==='string'&&p.name.trim().length>0&&p.name.length<=60);}catch{toast('Custom preset names could not be read from browser storage.');}
   for(const preset of customPresets){presetNames.set(preset.id,preset.name);presetSelect.add(new Option(preset.name,preset.id));}
-  function presetSnapshot(){return {...(isRc?{lab:profile.id,version:profile.persistence.version}:{pinoutVersion:UA741.pinoutVersion}),state:JSON.parse(boardSnapshot()),scope:{...scope,sideMenu:null,currentMenu:null,frozenFrame:null,frozenRecord:null,forcedTrigger:false,singleArmed:false,running:true}};}
+  function presetSnapshot(){return {...(isRc||isTimer?{lab:profile.id,version:profile.persistence.version}:{pinoutVersion:UA741.pinoutVersion}),state:JSON.parse(boardSnapshot()),scope:{...scope,sideMenu:null,currentMenu:null,frozenFrame:null,frozenRecord:null,forcedTrigger:false,singleArmed:false,running:true}};}
   function createPreset(){
     if(!requirePresetAccess())return;
     if(drag||state.pendingHole||moveRequest)return toast('Finish or cancel the current placement before saving a preset.');
@@ -1380,7 +1443,7 @@
     if(customPresets.some(p=>p.id===name)){
       const remaining=customPresets.filter(p=>p.id!==name);if(!writeSaved(customPresetIndexKey,remaining))return;
       try{localStorage.removeItem(presetStorageKey(name));}catch{}
-      const label=presetNames.get(name);customPresets=remaining;presetNames.delete(name);[...presetSelect.options].find(o=>o.value===name)?.remove();presetSelect.value=isRc?'lowpass':'inverting';refreshPresetControls();toast(`Deleted “${label}”. Your current circuit is still open.`);return;
+      const label=presetNames.get(name);customPresets=remaining;presetNames.delete(name);[...presetSelect.options].find(o=>o.value===name)?.remove();presetSelect.value=isTimer?'astable':isRc?'lowpass':'inverting';refreshPresetControls();toast(`Deleted “${label}”. Your current circuit is still open.`);return;
     }
 
     try{localStorage.removeItem(presetStorageKey(name));}catch{return toast('Could not restore this preset because browser storage is unavailable.');}
@@ -1415,22 +1478,25 @@
     if(!originalOnly&&hasPresetOverride(name)){const data=readSaved(presetStorageKey(name));if(data)restoreLab(data,`Loaded saved “${presetNames.get(name)}”.`);return;}
 
     if(customPresets.some(p=>p.id===name))return toast('This saved preset is missing. Your current circuit is unchanged.');
+    if(isTimer)timerRuntime.restart();
     document.getElementById('pinoutNotice').hidden=true;
     cancelGesture();state.leadHoles={};state.components=[];state.selectedId=null;state.pendingNode=null;state.generatorNode=null;state.probes={ch1:{tip:null,gnd:null},ch2:{tip:null,gnd:null}};
-    state.supply=profile.instruments.includes('supply')?{plus:12,minus:-12}:undefined;state.generator={waveform:'sine',frequency:1000,amplitude:1,offset:0};
+    state.supply=profile.instruments.includes('supply')?{plus:isTimer?5:12,minus:isTimer?0:-12}:undefined;state.generator={waveform:'sine',frequency:1000,amplitude:1,offset:0};
     if(isRc)state.rcInput=RcSignals.defaults();
     scope=defaultScope();
     if(name==='blank'){state.generator.groundNode=null;state.generator.output=false;syncInputs();updateAll();return;}
-    const placement=isRc?RcProfile.layout(name):PresetLayouts.layout(name);
-    if(!isRc)addOp(placement.startCol);
+    const placement=isTimer?Timer555Profile.layout(name):isRc?RcProfile.layout(name):PresetLayouts.layout(name);
+    if(isTimer)state.components.push({id:uid('U'),type:'timer555',model:'NE555',startCol:placement.startCol});
+    else if(!isRc)addOp(placement.startCol);
     const hole=address=>{const [row,col]=address.split(':');return {row,col:Number(col)};};
     for(const [type,a,b,value] of placement.parts){
-      const comp={id:uid(type==='wire'?'W':type==='resistor'?'R':'C'),type};
+      const comp={id:uid(type==='wire'?'W':type==='resistor'?'R':type==='pushbutton'?'S':'C'),type};
       putEnd(comp,'a',hole(a));putEnd(comp,'b',hole(b));
       if(type==='wire')comp.color=value||'#48a26a';else comp.value=value;
       state.components.push(comp);
     }
     for(const [key,address] of Object.entries(placement.leads))setLead(key,hole(address));
+    if(isTimer){scope.ch1.voltsDiv=1;scope.ch2.voltsDiv=1;scope.ch1.position=-2;scope.ch2.position=-2;scope.horizontal.timeDiv=name==='astable'?.005:.5;scope.trigger.level=2;scope.measure.items=[{name:'Frequency',source:'CH1'},{name:'Duty Cycle',source:'CH1'},{name:'+Width',source:'CH1'}];state.generator.output=false;document.getElementById('schematicSelect').value=name;document.getElementById('schematicSelect').dispatchEvent(new Event('change'));}
     if(isRc&&name==='uav-highpass'){
       state.rcInput={...RcSignals.defaults(),mode:'uav'};
       document.getElementById('schematicSelect').value=name;
@@ -1448,8 +1514,35 @@
   // Main update cycle and controls
   // -----------------------------
   const averageCapture={signature:null,records:[]};
+  function averageTimerAcquisition(sim){
+    // Live acquisitions have different clock origins. Align unmodified input
+    // records to their trigger before combining them; never average by index.
+    const frame=makeDisplayFrame(sim);
+    if(!frame?.triggered){averageCapture.signature=null;averageCapture.records=[];return sim;}
+    const signature=JSON.stringify([boardSnapshot(),scope.horizontal,scope.trigger,scope.ch1,scope.ch2,scope.acquire.average,scope.singleArmed]);
+    if(signature!==averageCapture.signature){averageCapture.records=[];averageCapture.signature=signature;}
+    const t=sim.traces.t.map(value=>value-frame.triggerTime);
+    averageCapture.records.push({t,ch1:sim.traces.ch1.slice(),ch2:sim.traces.ch2.slice()});
+    if(averageCapture.records.length>scope.acquire.average)averageCapture.records.shift();
+    const records=averageCapture.records;
+    const left=Math.max(...records.map(r=>r.t[0])),right=Math.min(...records.map(r=>r.t.at(-1)));
+    const indexes=t.map((value,i)=>value>=left&&value<=right?i:-1).filter(i=>i>=0);
+    if(indexes.length<3)return sim;
+    const traces={t:indexes.map(i=>sim.traces.t[i]),gen:indexes.map(i=>sim.traces.gen[i]),ch1:Array(indexes.length).fill(0),ch2:Array(indexes.length).fill(0)};
+    for(const record of records){
+      let cursor=1;
+      for(let i=0;i<indexes.length;i++){
+        const target=t[indexes[i]];
+        while(cursor<record.t.length-1&&record.t[cursor]<target)cursor++;
+        const fraction=(target-record.t[cursor-1])/(record.t[cursor]-record.t[cursor-1]);
+        for(const ch of ['ch1','ch2'])traces[ch][i]+=lerp(record[ch][cursor-1],record[ch][cursor],fraction)/records.length;
+      }
+    }
+    return {...sim,traces};
+  }
   function averageAcquisition(sim){
     if(scope.acquire.mode!=='Average'||!scope.running){averageCapture.signature=null;averageCapture.records=[];return sim;}
+    if(isTimer)return averageTimerAcquisition(sim);
     const signature=boardSnapshot()+sim.dt+scope.acquire.average;if(signature!==averageCapture.signature){averageCapture.records=[];averageCapture.signature=signature;}
     averageCapture.records.push({ch1:sim.traces.ch1.slice(),ch2:sim.traces.ch2.slice()});if(averageCapture.records.length>scope.acquire.average)averageCapture.records.shift();
     for(const ch of ['ch1','ch2'])sim.traces[ch]=sim.traces[ch].map((_,i)=>averageCapture.records.reduce((sum,r)=>sum+r[ch][i],0)/averageCapture.records.length);return sim;
@@ -1458,7 +1551,7 @@
     if(isDivider)return dividerRuntime.render();
     if(!scope.powered){drawScope();return;}
     try{state.sim.error=null;state.sim.last=averageAcquisition(solveCircuitWaveforms());if(scope.running)acquisitionVersion++;}
-    catch(err){state.sim.error=err.message;state.sim.last=null;if(isRc&&scope.running){scope.frozenRecord=null;scope.frozenFrame=null;averageCapture.signature=null;averageCapture.records=[];}}
+    catch(err){state.sim.error=err.message;state.sim.last=null;if((isRc||isTimer)&&scope.running){scope.frozenRecord=null;scope.frozenFrame=null;averageCapture.signature=null;averageCapture.records=[];}}
     drawScope();updateReadouts();updateStatus();
   }
   let updateTimer=null;
@@ -1526,7 +1619,7 @@
     document.getElementById('rcNoiseStrength').addEventListener('change',e=>changeRcInput({noiseStrength:e.target.value.trim()?Number(e.target.value):NaN}));
   }
   function bindNumber(id,fn){document.getElementById(id)?.addEventListener('change',e=>{if(!e.target.value.trim()||!Number.isFinite(Number(e.target.value))){toast('Enter a finite number.');syncInputs();return;}fn(Number(e.target.value));syncInputs();state.challenge.actions++;updateAll();});}
-  bindNumber('vplusInput',v=>state.supply.plus=v);bindNumber('vminusInput',v=>state.supply.minus=v);bindNumber('frequencyInput',v=>SFG1013.setFrequency(v));bindNumber('amplitudeInput',v=>state.generator.amplitude=clamp(v,.2,10));bindNumber('offsetInput',v=>{state.generator.offset=clamp(v,-10,10);state.generator.offsetEnabled=v!==0;});
+  bindNumber('vplusInput',v=>{if(isTimer&&(v<5||v>15))return toast('Set the 555 supply between 5 and 15 V.');state.supply.plus=v;});bindNumber('vminusInput',v=>state.supply.minus=v);bindNumber('frequencyInput',v=>SFG1013.setFrequency(v));bindNumber('amplitudeInput',v=>state.generator.amplitude=clamp(v,.2,10));bindNumber('offsetInput',v=>{state.generator.offset=clamp(v,-10,10);state.generator.offsetEnabled=v!==0;});
   document.getElementById('waveformSelect').addEventListener('change',e=>{state.generator.waveform=e.target.value;SFG1013.setFrequency(state.generator.frequency);syncInputs();updateAll();});
   document.getElementById('challengeMode')?.addEventListener('change',e=>{state.challenge={enabled:e.target.checked,actions:0,autosetUsed:false,startTime:Date.now()};if(e.target.checked){scope.ch1.voltsDiv=5;scope.ch2.voltsDiv=5;scope.horizontal.timeDiv=1e-5;scope.trigger.level=4;scope.trigger.mode='Normal';toast('Challenge mode scrambled the scope. Adjust scale and trigger settings to recover the waveform.');simulateAndRender();}updateReadouts();});
   document.getElementById('resetAllBtn').addEventListener('click',()=>{if(!confirm('Reset the entire lab?'))return;loadPreset('blank',true);});
@@ -1534,6 +1627,7 @@
   SFG1013.mount({getGenerator:()=>state.generator,isLocked:()=>isRc&&state.rcInput.mode!=='generator',onChange:()=>{syncInputs();state.challenge.actions++;updateAll();},setTool});
 
   if(profile.references==='rc')RcProfile.references();
+  if(isTimer)timerRuntime=Timer555Runtime.create({state,boardSnapshot,toast,getScope:()=>scope,render:simulateAndRender,drawBoard:drawBreadboard});
   // Initial state
   loadPreset('blank',true);
   setTool('select');

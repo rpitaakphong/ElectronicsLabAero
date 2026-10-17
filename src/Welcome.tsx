@@ -24,7 +24,8 @@ export function Welcome() {
             </Link>
           </div>
           <p className="welcome-note">
-            Explore at your own pace. Learn by experimenting.
+            Explore at your own pace. Learn by experimenting.{' '}
+            <Link to="/555-timer">Explore the 555 Timer →</Link>
           </p>
         </div>
         <div className="welcome-visual" aria-hidden="true">

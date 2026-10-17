@@ -16,6 +16,9 @@ const destinations = [
   ['/operational-amplifier', 'Operational Amplifier'],
   ['/operational-amplifier/learn', 'Op-Amp Interactive Learning'],
   ['/operational-amplifier/simulator', 'Op-Amp Lab Simulator'],
+  ['/555-timer', '555 Timer'],
+  ['/555-timer/learn', '555 Timer Interactive Learning'],
+  ['/555-timer/simulator', '555 Timer Lab Simulator'],
 ];
 (async () => {
   const browser = await chromium.launch();
@@ -130,7 +133,7 @@ const destinations = [
     await page
       .getByRole('button', { name: 'Clear search', exact: true })
       .click();
-    assert.equal(await page.locator('.topic-card').count(), 3);
+    assert.equal(await page.locator('.topic-card').count(), 4);
     assert(await search.evaluate((el) => el === document.activeElement));
     await search.fill('no such circuit');
     assert(
@@ -199,7 +202,11 @@ const destinations = [
                 'Topics',
                 url.includes('voltage-divider')
                   ? 'Voltage Divider'
-                  : url.includes('rc-filter') ? 'RC Filter' : 'Operational Amplifier',
+                  : url.includes('rc-filter')
+                    ? 'RC Filter'
+                    : url.includes('555-timer')
+                      ? '555 Timer'
+                      : 'Operational Amplifier',
                 url.endsWith('/learn') ? 'Interactive Learning' : 'Simulator',
               ]
             : url === '/topics'

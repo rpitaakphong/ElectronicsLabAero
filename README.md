@@ -1,12 +1,12 @@
 # Electronics Learning Lab
 
-A Vite, React, and TypeScript learning app with voltage-divider, RC filter, and operational-amplifier labs. Start at the welcome page, browse the searchable topic catalog, then use interactive lessons and breadboard simulators to connect circuit theory with measurements.
+A Vite, React, and TypeScript learning app with voltage-divider, RC filter, operational-amplifier, and 555 timer labs. Start at the welcome page, browse the searchable topic catalog, then use interactive lessons and breadboard simulators to connect circuit theory with measurements.
 
 ## Learning topics
 
 - `/`: welcome page introducing the lab, with a link to browse topics
 - `/topics`: searchable catalog of available topics
-- `/resources`: getting started, saving work, model limitations, and all three offline downloads
+- `/resources`: getting started, saving work, model limitations, and all four offline downloads
 - `/voltage-divider`: topic page with Interactive Learning and the Voltage Divider Lab Simulator
 - `/voltage-divider/learn`: basic, loaded, potentiometer, and adjustable-resistance sensor dividers, with DC response curves and short experiments
 - `/voltage-divider/simulator`: shared breadboard workbench with a DC supply and V/A/Ω multimeter
@@ -16,6 +16,9 @@ A Vite, React, and TypeScript learning app with voltage-divider, RC filter, and 
 - `/operational-amplifier`: topic landing page with Interactive Learning and the Op-Amp Lab Simulator
 - `/operational-amplifier/learn`: the six existing ideal op-amp simulations
 - `/operational-amplifier/simulator`: UA741 breadboard workspace with a function generator and oscilloscope
+- `/555-timer`: topic overview with Interactive Learning and Simulator
+- `/555-timer/learn`: astable and monostable lessons with live capacitor/output/trigger plots, predictions, measured timing, and guided experiments
+- `/555-timer/simulator`: NE555 breadboard workspace with a single supply, pushbuttons, function generator, and oscilloscope
 
 The divider learning tool uses an ideal 0–24 V DC source and 100 Ω–1 MΩ resistors. Potentiometer position runs from ground (0%) to the supply (100%). Loaded circuits account for the load in parallel with the lower resistor. Sensor resistance is adjusted directly without assuming a specific sensor. Learning settings persist while switching configurations, but leaving a learning tool or refreshing restores defaults. Simulator Save/Recall is explicit and local to the browser.
 
@@ -29,7 +32,7 @@ Menu state lives in the shared header, separately from lesson state and iframe s
 
 Breadcrumbs follow Home → Topics → Topic → Tool. The header height informs scroll offsets and embedded viewport sizing, keeping simulator controls and notifications accessible while scrolling. Standalone and downloaded simulators retain their own headers and Reset controls.
 
-The catalog searches topic names and descriptions without a backend. Resources links to all three self-contained HTML simulators and explains the current model and storage behavior. Local worksheets are outside this release.
+The catalog searches topic names and descriptions without a backend. Resources links to all four self-contained HTML simulators and explains the current model and storage behavior. Local worksheets are outside this release.
 
 To add a topic, register its metadata and available tools in `lib/catalog.ts`, then its overview and learning components in `src/App.tsx`. The catalog, navigation, breadcrumbs, and document titles derive from the registry. Downloads and resource guidance are registered alongside the topics.
 
@@ -91,6 +94,22 @@ The low-pass filter includes the external resistor-capacitor response. Sines are
 This is a teaching model rather than a chip-specific SPICE simulator. It assumes infinite input impedance, zero output impedance, and unlimited amplifier speed. Every output is limited exactly at the selected power-supply rails; real devices often stop short of those rails. It does not simulate noise, input bias current, source loading, common-mode restrictions, output-current limits, bandwidth, slew rate, output headroom, stability, hysteresis, propagation delay, or overload recovery.
 
 ## Project structure
+
+The 555 tools share `vendor/opamp-lab-simulator/timer555-engine.js`, an adaptive RC netlist solver with NE555 comparator/latch state. `lib/timer555/` supplies typed lesson settings and teaching content; `components/timer555/` supplies the charts. Both tools use the same pinout and schematic renderer. The breadboard adds a `timer555` profile to the existing editor and instruments. Packaging derives its entry from the common HTML shell, producing `public/simulators/timer555/index.html` and `timer555_sim_single_file.html` without duplicating the instrument markup.
+
+The 555 model supports one timer, 1 kΩ–1 MΩ resistors, 1 nF–100 µF capacitors, a 5–15 V supply, and normally open two-terminal pushbuttons. It includes control-pin loading, reset priority, held-low triggers, and a discharge switch. Output drive is approximate: 50 Ω with nominal VCC − 1.2 V / 0.1 V levels and 1 Ω discharge resistance. Component tolerances, temperature, bounce, and transistor-level details are excluded. Simulated outputs are not physical evidence.
+
+The simulator clock runs independently of scope acquisition. Run/Stop freezes the display; Single waits for a new transition. Autoset fits an existing slow oscillator or completed one-shot capture and leaves the scope stopped for inspection, without retriggering the circuit. Press Run/Stop to resume live acquisition, or Single to capture the next pulse. Wiring edits, recall, and power cycle restart timing with buttons released; scope controls do not. Presets use the existing classroom password gate; reload locks them and starts blank. 555 saves use the independent `timer555-v1` namespace.
+
+The lesson uses a fixed, manually adjustable time span and an independent absolute playback rate. Changing R or C restarts the circuit but never rescales the plot or normalizes playback, so longer pulses visibly become wider and take longer to animate. The sliders also accept exact numeric values: Time span is in ms and Playback rate is in ms of circuit time per real second. Astable defaults are 50 ms and 10 ms/s; monostable defaults are 5 s and 500 ms/s. Selecting a mode or Reset lab restores its appropriate view defaults; Restart timing preserves the selected scale. Crowded views request a shorter span instead of silently zooming or hiding pulses. Plot axes and measurements always retain simulated SI time.
+
+Both 555 tools retain solved switching edges alongside their ordinary plotting grid, so narrow pulses do not disappear between samples. Scope mean/RMS use time weighting for these nonuniform records. Average mode aligns unmodified captures to the selected trigger before interpolation and averaging; it does not combine unrelated clock phases. The scope labels these records “Adaptive + edges” rather than presenting them as a uniform hardware sampling rate. Lesson updates are interruptible and capped at 30 frames per second so playback does not block navigation.
+
+`tests/timer555-model.test.ts` checks independent timing equations, reset/trigger behavior, circuit equivalence, clock preservation, and faults. `tests/timer555-integration.cjs` checks the learning and construction journeys, slow Autoset, next-pulse Single capture, frozen display, persistence, all four responsive widths, and the network-independent offline edition. Set `APP_URL` and `NODE_PATH` like the existing browser checks. Review artifacts are under `output/playwright/timer555/`.
+
+`tests/timer555-acquisition.test.ts` checks narrow-pulse capture at different phases, short one-shots, bounded duty measurements, and time-weighted voltage statistics. `tests/timer555-accuracy-integration.cjs` tests navigation during playback, trigger-aligned averaging on both channels/slopes, live instrument readings, bandwidth limiting, and narrow-pulse lesson plots. Set `HEADED=1` for its visible browser run.
+
+`tests/timer555-learning.test.tsx` uses a controlled animation clock to verify fixed scales, constant playback rates, doubled visible pulse width when C doubles, view-only edits, reset behavior, and crowded-view recovery. `tests/timer555-display-integration.cjs` repeats the width comparison in a real browser, operates both sliders by pointer/keyboard, and checks all four responsive widths. It also supports `HEADED=1`.
 
 - `lib/opamp/simulator.ts`: typed configuration, validation, ideal circuit equations, filtering, and metrics
 - `lib/opamp/content.ts`: circuit explanations and displayed equations

@@ -4,6 +4,8 @@ import { EXAM_PAGE, TOPICS, SITE_PAGES, type TopicId } from '@/lib/catalog';
 import OpAmpLab from './OpAmpLab';
 import DividerLab from './DividerLab';
 import RcLab from './RcLab';
+import Timer555Lab from './Timer555Lab';
+import { Timer555Topic } from './Timer555Topic';
 import { RcTopic } from './RcTopic';
 import { DividerTopic } from './DividerTopic';
 import { OpAmpTopic } from './OpAmpTopic';
@@ -19,6 +21,7 @@ const topicViews: Record<
   TopicId,
   { overview: ComponentType; learn: ComponentType }
 > = {
+  timer555: { overview: Timer555Topic, learn: Timer555Lab },
   'voltage-divider': { overview: DividerTopic, learn: DividerLab },
   'rc-filter': { overview: RcTopic, learn: RcLab },
   opamp: { overview: OpAmpTopic, learn: OpAmpLab },

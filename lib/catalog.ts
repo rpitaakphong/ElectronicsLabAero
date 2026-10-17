@@ -4,7 +4,7 @@ export interface TopicDefinition {
   title: string;
   description: string;
   path: string;
-  art: 'divider' | 'rc' | 'opamp';
+  art: 'divider' | 'rc' | 'opamp' | 'timer';
   tools: readonly {
     id: ToolKind;
     label: string;
@@ -98,6 +98,34 @@ export const TOPICS = [
       download: '/simulators/opamp/gds1202b_opamp_sim_single_file.html',
       description:
         'Build your circuit. Connect the instruments. Explore the signal.',
+    },
+  },
+  {
+    id: 'timer555',
+    title: '555 Timer',
+    path: '/555-timer',
+    art: 'timer',
+    description:
+      'Create a repeating oscillator or a triggered one-shot. Explore capacitor charging, then build and measure an NE555 circuit.',
+    tools: [
+      {
+        id: 'learn',
+        label: 'Interactive Learning',
+        title: '555 Timer Interactive Learning',
+        path: '/555-timer/learn',
+      },
+      {
+        id: 'simulator',
+        label: 'Simulator',
+        title: '555 Timer Lab Simulator',
+        path: '/555-timer/simulator',
+      },
+    ],
+    simulator: {
+      url: '/simulators/timer555/index.html',
+      download: '/simulators/timer555/timer555_sim_single_file.html',
+      description:
+        'Build an oscillator or a one-shot. Connect power, trigger a pulse, and measure the timing.',
     },
   },
 ] as const satisfies readonly TopicDefinition[];
@@ -199,7 +227,7 @@ export const RESOURCES: readonly ResourceDefinition[] = [
     paragraphs: [
       'Choose a topic and open Interactive Learning. Change one parameter at a time, predict the result, and compare the equations and measurements.',
       'Open the Simulator to build the circuit on a breadboard. Connect the supply and instruments, then measure what happens. Each simulator includes reference diagrams and connection guidance.',
-      'Start with Voltage Divider if you are new to circuits. Continue with RC Filter to explore frequency and time response, then Operational Amplifier for gain and active circuits.',
+      'Start with Voltage Divider if you are new to circuits. Continue with RC Filter for frequency and time response, Operational Amplifier for gain and active circuits, and 555 Timer for oscillators and triggered pulses.',
     ],
   },
   {
@@ -225,6 +253,7 @@ export const RESOURCES: readonly ResourceDefinition[] = [
       'The voltage-divider tools use ideal DC supplies and resistive components. In its simulator, voltage mode has infinite input resistance and current mode has zero resistance. Resistance mode requires the supply output to be off. Sensor resistance is adjusted directly.',
       'RC Filter Interactive Learning uses an ideal source and ideal passive components, including interstage and optional output loading. Its simulator uses the bench generator’s 50 Ω source resistance and common instrument grounds. Compare output with the measured filter input.',
       'Op-amp Interactive Learning uses ideal equations with supply-rail limits. The breadboard simulator uses a simplified UA741 model that includes bandwidth, slew rate, and output headroom. The two tools can therefore give different results.',
+      'The 555 Timer tools share a nominal comparator, latch, discharge, and RC network model. Predictions use standard timing equations. Output drive is approximate; switch bounce, component tolerance, and temperature are not modeled. All recorded results in these tools are simulated.',
       'Read each tool’s model notes when interpreting a measurement. Real components and instruments have additional limitations and tolerances; these educational models do not replace measurements on your physical circuit.',
     ],
   },

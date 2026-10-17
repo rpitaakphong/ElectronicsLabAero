@@ -2,6 +2,11 @@
 (function (root) {
   'use strict';
   root.LabProfiles = {
+    timer555: {
+      id:'timer555',validation:'timer555',references:'timer555',persistence:{lab:'timer555',version:1},solver:'timer555-transient',connectivity:'powered-rails',instruments:['generator','scope','supply'],defaults:{capacitor:1e-6},
+      tools:['wire','resistor','capacitor','timer555','pushbutton'],storage:'timer555-v1',ranges:{resistor:[1000,1e6],capacitor:[1e-9,100e-6]},
+      leads:{generator:['#d99a38','MAIN',176],genttl:['#dc8be0','TTL',224],gengnd:['#4c6058','GEN GND',128],ch1tip:['#f1d63a','CH1 tip',272],ch1gnd:['#5e5e5e','CH1 GND',80],ch2tip:['#63b9ff','CH2 tip',464],ch2gnd:['#333333','CH2 GND',544]},
+    },
     opamp: {
       id: 'opamp', validation:'opamp', references:'opamp', persistence:{lab:'opamp',legacy:true}, solver:'opamp-transient', connectivity:'powered-rails', instruments:['generator','scope','supply'], defaults:{capacitor:100e-9},
       tools: ['wire', 'resistor', 'capacitor', 'opamp'],

@@ -60,7 +60,11 @@ export function TopicCatalog() {
             <article className="panel topic-card" key={topic.id}>
               <div className="topic-art">
                 <span className="eyebrow">LEARN, BUILD &amp; MEASURE</span>
-                <TopicArt divider={topic.art === 'divider'} rc={topic.art === 'rc'} />
+                <TopicArt
+                  divider={topic.art === 'divider'}
+                  rc={topic.art === 'rc'}
+                  timer={topic.art === 'timer'}
+                />
               </div>
               <div className="topic-card-body">
                 <span className="small-muted">

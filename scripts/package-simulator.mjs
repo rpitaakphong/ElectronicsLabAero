@@ -6,6 +6,24 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const source = path.join(root, 'vendor/opamp-lab-simulator');
 const packages = [
   {
+    id: 'timer555',
+    entry: 'index.html',
+    offline: 'timer555_sim_single_file.html',
+    scripts: [
+      'embed.js',
+      'profiles.js',
+      'engine.js',
+      'transient-engine.js',
+      'sfg1013.js',
+      'routing.js',
+      'timer555-engine.js',
+      'timer555-visuals.js',
+      'timer555.js',
+      'app.js',
+      'layout.js',
+    ],
+  },
+  {
     id: 'opamp',
     entry: 'index.html',
     offline: 'gds1202b_opamp_sim_single_file.html',
@@ -69,13 +87,25 @@ for (const { id, entry, offline, scripts } of packages) {
   await cp(path.join(source, 'assets'), path.join(destination, 'assets'), {
     recursive: true,
   });
-  await cp(path.join(source, entry), path.join(destination, 'index.html'));
+  let entryHtml = await read(entry);
+  if (id === 'timer555') {
+    entryHtml = entryHtml
+      .replace('<html lang="en">', '<html lang="en" data-lab="timer555">')
+      .replaceAll('Op-Amp Lab Simulator', '555 Timer Lab Simulator')
+      .replace(
+        '<script src="ua741.js"></script>',
+        '<script src="timer555-engine.js"></script>\n  <script src="timer555-visuals.js"></script>\n  <script src="timer555.js"></script>',
+      )
+      .replace('<script src="presets.js"></script>', '')
+      .replace('<script src="schematics.js"></script>', '');
+  }
+  await writeFile(path.join(destination, 'index.html'), entryHtml);
   for (const name of ['styles.css', ...scripts]) {
     await cp(path.join(source, name), path.join(destination, name));
   }
 
   // Build the downloadable standalone from the same inputs, with no Python build dependency.
-  let html = await read(entry);
+  let html = entryHtml;
   let css = await read('styles.css');
   for (const name of ['inter-400.woff2', 'inter-600.woff2']) {
     css = css.replaceAll(`assets/${name}`, await dataUrl(name, 'font/woff2'));
