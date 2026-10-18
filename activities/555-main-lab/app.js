@@ -19,7 +19,7 @@ import {
   designForEntry,
   REQUIRED_CAPTURES,
 } from './model.js';
-import { esc, screen, report, schematic, pinGuide, designFeedback } from './views.js';
+import { esc, screen, report, schematic, pinGuide, designFeedback, pushbuttonImage } from './views.js';
 import { timingEquations } from './scientific.js';
 import { conversionSchematic, monostableWaveforms } from './diagrams.js';
 import { imageStore, validateImage, createBackup, parseMainFile, createLabZip } from './attachments.js';
@@ -555,6 +555,7 @@ document.addEventListener('click', (event) => {
       'monostable-waveforms': ['Example oscilloscope signals', monostableWaveforms],
       'conversion-astable': ['Before conversion · Astable timing connections', () => conversionSchematic('astable')],
       'conversion-monostable': ['After conversion · Monostable timing connections', () => conversionSchematic('monostable')],
+      pushbutton: ['Four-terminal pushbutton', pushbuttonImage],
     };
     const entry = diagrams[kind];
     if (entry) {

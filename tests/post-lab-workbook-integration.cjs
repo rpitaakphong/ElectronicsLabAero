@@ -98,6 +98,18 @@ async function print(page, images, native = false) {
     M0: { r1a: '33', r1b: '33', capacitor: '10' },
   })) {
     Object.assign(main.configs[id].design, design);
+    Object.assign(
+      main.configs[id].prediction,
+      id === 'M0'
+        ? { pulse: '.726' }
+        : {
+            high: '.55',
+            low: '.3',
+            period: '.85',
+            frequency: '1.176',
+            duty: '64.7',
+          },
+    );
     main.configs[id].prediction.reason = 'Synthetic QA prediction';
     preservePrediction(main, id);
     Object.assign(main.configs[id].measurement, {
@@ -105,6 +117,7 @@ async function print(page, images, native = false) {
       high: '.6',
       low: '.3',
       period: '.9',
+      duty: '66.7',
       pulse: '.73',
       supply: '5',
       outHigh: '3.8',
@@ -252,7 +265,45 @@ async function print(page, images, native = false) {
       );
       assert.equal(await page.locator('#main textarea').count(), 0);
       await go(page, 3);
-      assert.equal(await page.locator('[data-field^="analysis."]').count(), 10);
+      assert.equal(await page.locator('[data-field^="analysis."]').count(), 8);
+      assert.equal(await page.locator('[data-calculation-answer]').count(), 13);
+      assert.equal(await page.locator('[data-field^="optional."]').count(), 0);
+      assert.equal(
+        await page.locator('[id^="field-analysis-"][id$="-hint"]').count(),
+        0,
+      );
+      assert.doesNotMatch(
+        await page.locator('#main').innerText(),
+        /Numerator:|Denominator:|Calculation help|Optional reference charts|Optional simulator results or additional notes/,
+      );
+      assert.match(
+        await page
+          .locator('#main label[for="field-analysis-uncertainty"]')
+          .innerText(),
+        /Discuss Lab 1, Lab 2 and Lab 3 separately/,
+      );
+      assert.equal(
+        await page.locator('[data-field$=".explanation"]').count(),
+        3,
+      );
+      for (const input of await page.locator('[data-calculation-answer]').all())
+        assert.equal(await input.inputValue(), '');
+      const highAnswer = page.locator('[data-field="calculations.A0.high"]');
+      await highAnswer.fill('-');
+      assert.equal(await highAnswer.getAttribute('aria-invalid'), 'true');
+      assert.equal(
+        JSON.parse((await backup(page)).bytes).record.calculations.A0.high,
+        '-',
+      );
+      await highAnswer.fill('-12.5');
+      assert.equal(await highAnswer.getAttribute('aria-invalid'), 'false');
+      await page
+        .locator('[data-field="calculations.A1.frequencyRatio"]')
+        .fill('0');
+      for (const input of await page
+        .locator('[data-field$=".explanation"]')
+        .all())
+        await input.fill('The measured result met this lab’s timing target.');
       for (const input of await page.locator('[data-field^="analysis."]').all())
         await input.fill('Independent synthetic QA answer');
       await page.waitForFunction(() =>
@@ -267,11 +318,19 @@ async function print(page, images, native = false) {
         'TEST0001',
       );
       assert.equal(decoded.images.length, 3);
+      assert.equal(decoded.backupVersion, 2);
+      assert.equal(decoded.record.calculations.A0.high, '-12.5');
+      assert.equal(decoded.record.calculations.A1.frequencyRatio, '0');
       assert.match(saved.name, /QA-pair.*TEST0001/);
       const zip = await backup(page, 'zip');
       assert(zip.bytes[0] === 80 && zip.bytes[1] === 75);
       await print(page, 3);
       await print(page, 3, true);
+      assert.match(await page.locator('#report').innerText(), /-12.5 %/);
+      assert.doesNotMatch(
+        await page.locator('#report').innerText(),
+        /Signed deviation|Measured ratio/,
+      );
       if (engine === 'chromium') {
         await page.emulateMedia({ media: 'print' });
         await page.pdf({
@@ -285,6 +344,7 @@ async function print(page, images, native = false) {
       await page.reload();
       await page.waitForSelector('body[data-ready="true"]');
       await go(page, 3);
+      assert.equal(await highAnswer.inputValue(), '-12.5');
       assert.equal(
         await page.locator('[data-field="analysis.conclusionA"]').inputValue(),
         'Independent synthetic QA answer',
@@ -301,6 +361,38 @@ async function print(page, images, native = false) {
             false,
             `${engine}: page ${i} overflows at ${width}`,
           );
+          if (i === 3) {
+            assert.equal(await highAnswer.inputValue(), '-12.5');
+            assert.equal(
+              await page
+                .locator('.calculation-table thead')
+                .first()
+                .isVisible(),
+              width > 640,
+            );
+            await highAnswer.focus();
+            await page.keyboard.press('Tab');
+            assert.equal(
+              await page
+                .locator('[data-field="calculations.A0.low"]')
+                .evaluate((el) => el === document.activeElement),
+              true,
+            );
+            await highAnswer.scrollIntoViewIfNeeded();
+            if (
+              (await page
+                .locator('#menu-button')
+                .getAttribute('aria-expanded')) === 'true'
+            )
+              await page.keyboard.press('Escape');
+            await page.locator('#main h1').click();
+            await page.evaluate(() => window.scrollTo(0, 0));
+            await page.screenshot({
+              path: path.join(output, `${engine}-numeric-${width}.png`),
+              fullPage: true,
+              animations: 'disabled',
+            });
+          }
         }
         await page.screenshot({
           path: path.join(output, `${engine}-${width}.png`),
@@ -474,6 +566,68 @@ async function print(page, images, native = false) {
         '000002',
       );
       await firstStudent.close();
+      // Earlier individual JSON and browser-local records retain their own writing and images.
+      const earlier = structuredClone(decoded);
+      earlier.backupVersion = 1;
+      earlier.record.schemaVersion = 1;
+      delete earlier.record.calculations;
+      earlier.record.analysis.workings = 'Earlier individual numeric working';
+      earlier.record.analysis.comparison = 'Earlier individual comparison';
+      await page
+        .locator('#import-file')
+        .setInputFiles(payload(earlier, 'individual-v1.json'));
+      await page.locator('#confirm-import').click();
+      await go(page, 3);
+      assert.equal(await highAnswer.inputValue(), '');
+      await page.locator('.legacy-comparison summary').click();
+      assert.match(
+        await page.locator('.legacy-comparison').innerText(),
+        /Earlier individual numeric working/,
+      );
+      await print(page, 3);
+      assert.match(
+        await page.locator('#report').innerText(),
+        /recovery appendix/,
+      );
+      await page.evaluate(async () => {
+        const id = localStorage.getItem('electronics-555-post-lab-active-v1');
+        const db = await new Promise((resolve, reject) => {
+          const request = indexedDB.open(
+            'electronics-555-post-lab-workbooks',
+            1,
+          );
+          request.onsuccess = () => resolve(request.result);
+          request.onerror = () => reject(request.error);
+        });
+        await new Promise((resolve, reject) => {
+          const transaction = db.transaction('workbooks', 'readwrite');
+          const store = transaction.objectStore('workbooks');
+          const request = store.get(id);
+          request.onsuccess = () => {
+            const entry = request.result;
+            entry.record.schemaVersion = 1;
+            delete entry.record.calculations;
+            store.put(entry, id);
+          };
+          transaction.oncomplete = resolve;
+          transaction.onerror = () => reject(transaction.error);
+        });
+        db.close();
+      });
+      await page.reload();
+      await page.waitForSelector('body[data-ready="true"]');
+      await go(page, 3);
+      assert.equal(await highAnswer.inputValue(), '');
+      const recoveredIndividual = JSON.parse((await backup(page)).bytes);
+      assert.equal(recoveredIndividual.record.schemaVersion, 2);
+      assert.equal(
+        recoveredIndividual.record.analysis.workings,
+        earlier.record.analysis.workings,
+      );
+      assert.deepEqual(
+        recoveredIndividual.images.map((image) => image.data),
+        earlier.images.map((image) => image.data),
+      );
       // Automatic local-v2 recovery is previewed, with images and the old save untouched.
       const legacyData = structuredClone(main);
       legacyData.schemaVersion = 2;

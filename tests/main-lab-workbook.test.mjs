@@ -614,6 +614,34 @@ test('Lab 3 example traces share trigger timing and distinguish button duration 
   assert.doesNotMatch(svg, /µF|kΩ|0\.7\d* s/);
 });
 
+test('Lab 3 explains the supplied four-terminal button without changing data or evidence requirements', async () => {
+  const record = createRecord(), before = JSON.stringify(record), html = screen(record, 3);
+  const guide = html.match(/<figure class="button-guide">[\s\S]*?<\/figure>/)?.[0];
+  assert(guide);
+  assert.match(guide, /class="pushbutton-image"/);
+  assert.match(guide, /width="1380" height="644"/);
+  assert.match(guide, /1–2 are always connected/);
+  assert.match(guide, /so are <strong>3–4/);
+  assert.match(guide, /Pressing joins the two pairs; releasing separates them/);
+  assert.match(guide, /connect 1 or 2 to NE555 TRIG \(pin 2\), and 3 or 4 to GND/);
+  assert.match(guide, /Do not use 1–2 or 3–4 as the switch contacts/);
+  assert.match(guide, /Power off: confirm the pairs with DMM continuity/);
+  assert.match(guide, /These numbers identify button terminals, not NE555 pins/);
+  assert.match(guide, /data-expand="pushbutton"/);
+  assert.equal((html.match(/data-image-file=/g) || []).length, 1);
+  assert(html.indexOf('class="conversion-steps"') < html.indexOf('class="button-guide"'));
+  for (const page of [0, 1, 2, 4]) assert.doesNotMatch(screen(record, page), /button-guide|pushbutton-image/);
+  assert.doesNotMatch(report(record), /button-guide|pushbutton-image/);
+  assert.equal(JSON.stringify(record), before);
+  const png = await readFile(new URL('../activities/555-main-lab/assets/pushbutton-terminals.png', import.meta.url));
+  assert.deepEqual([...png.subarray(0, 8)], [137, 80, 78, 71, 13, 10, 26, 10]);
+  assert.equal(png.readUInt32BE(16), 1380);
+  assert.equal(png.readUInt32BE(20), 644);
+  const packaged = await readFile(new URL('../public/worksheets/555-main-lab.html', import.meta.url), 'utf8');
+  assert(packaged.includes(`data:image/png;base64,${png.toString('base64')}`), 'The supplied image must be embedded byte-for-byte, not fetched separately');
+  assert(!packaged.includes('__555_PUSHBUTTON_IMAGE_URL__'), 'The package must replace the image marker');
+});
+
 test('Lab 3 omits scope-connection teaching and its enlarged views while retaining signals and result fields', () => {
   const r = createRecord(), before = JSON.stringify(r), html = screen(r, 3);
   assert.doesNotMatch(html, /Oscilloscope setup and capture|Connect the two channels|scope-setup|capture-steps|unchanged-connections|power-connections|CH1|CH2|Probe tips/);

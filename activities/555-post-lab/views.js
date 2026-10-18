@@ -6,11 +6,11 @@ import {
   report as mainReport,
   analysisForm,
   analysisLabels,
-  comparison,
-  chart,
 } from '../555-main-lab/views.js';
-import { createRecord, groupStudents } from '../555-main-lab/model.js';
+import { groupStudents } from '../555-main-lab/model.js';
 import { PAGES, issues } from './model.js';
+import { answerProgress, DISCUSSION_KEYS } from './calculations.js';
+import { comparisonSection, legacyComparison } from './comparison.js';
 
 const names = {
   high_time: 'HIGH time',
@@ -182,11 +182,14 @@ export function postlabScreen(record, index, sources) {
               'warning',
             )
           : '') +
-        analysisForm({
-          ...record.sources.main,
-          analysis: record.analysis,
-          optional: record.optional,
-        });
+        analysisForm(
+          {
+            ...record.sources.main,
+            analysis: record.analysis,
+            optional: record.optional,
+          },
+          comparisonSection(record),
+        );
   }
   if (index === 4)
     body = paper(
@@ -195,19 +198,18 @@ export function postlabScreen(record, index, sources) {
         (record.needsReview
           ? `<label class="check"><input type="checkbox" data-reviewed><span>I have reviewed my analysis against the updated source data.</span></label>`
           : '') +
-        `<p>${Object.values(record.analysis).filter((text) => text.trim()).length}/${Object.keys(record.analysis).length} analysis fields started. Entered answers are not automatically checked for correctness.</p><p>The PDF includes your pre-lab evidence, the group’s results and screenshots, and your individual analysis. Missing measurements or images remain explicitly marked.</p><div class="actions"><button class="primary" data-action="print">Print or save report as PDF</button><button data-action="export">Download answers (JSON)</button><button data-action="zip">Download lab files (ZIP)</button></div><p>JSON and ZIP backups include both imported records, your writing and attached images. ZIP also contains the original images in a screenshots folder. Downloads do not submit your work.</p>`,
+        `<p>${answerProgress(record).started}/${answerProgress(record).total} analysis fields started. Entered answers are not automatically checked for correctness.</p><p>The PDF includes your pre-lab evidence, the group’s results and screenshots, and your individual analysis. Missing measurements or images remain explicitly marked.</p><div class="actions"><button class="primary" data-action="print">Print or save report as PDF</button><button data-action="export">Download answers (JSON)</button><button data-action="zip">Download lab files (ZIP)</button></div><p>JSON and ZIP backups include both imported records, your writing and attached images. ZIP also contains the original images in a screenshots folder. Downloads do not submit your work.</p>`,
     );
   return `<div class="screen-head"><span class="eyebrow">INDIVIDUAL POST-LAB</span><h1>${PAGES[index]}</h1><p class="leadin">${intro}</p></div>${body}`;
 }
 export function individualReport(record, sources) {
   const pre = record.sources.prelab,
     problems = issues(record);
-  const main = record.sources.main || createRecord();
   return `<header class="report-title"><p>Individual post-lab</p><h1>555 Timer Post-Lab Report</h1>${problems.length ? `<p class="report-warning">DRAFT / INCOMPLETE - ${esc(problems.join(' '))}</p>` : ''}${definitionList({ name: pre?.student.full_name || '', id: pre?.student.university_student_id || '', group: record.sources.main?.group.id || '', workbook: record.recordId }, { name: 'Student name', id: 'Student ID', group: 'Group ID', workbook: 'Individual workbook ID' })}<p>Student-entered identities and computer timestamps do not authenticate identity or prove submission.</p></header>
     <section><h2>Pre-lab evidence</h2>${prelabEvidence(pre, false)}</section>
     <section><h2>Shared main-lab data</h2>${sourceMain(record, sources)}</section>
-    <section><h2>Individual analysis and conclusions</h2>${record.sources.main ? comparison(main) + chart(main, ['A0', 'A1'], ['high', 'low'], 'Astable HIGH and LOW times') + chart(main, ['M0'], ['pulse'], 'Monostable pulse duration') : ''}${definitionList(record.analysis, analysisLabels)}</section>
-    <section><h2>Individual optional notes</h2>${definitionList(record.optional)}</section>${
+    <section><h2>Individual analysis and conclusions</h2>${comparisonSection(record, true)}${definitionList(Object.fromEntries(DISCUSSION_KEYS.map((key) => [key, record.analysis[key]])), analysisLabels)}</section>${legacyComparison(record, true)}
+    ${Object.values(record.optional).some((text) => text.trim()) ? paper('Earlier individual optional notes · recovery appendix', definitionList(record.optional)) : ''}${
       pre
         ? paper(
             'Pre-lab evidence appendix',

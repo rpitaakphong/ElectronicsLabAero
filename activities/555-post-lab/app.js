@@ -22,6 +22,7 @@ import {
   postlabZip,
 } from './model.js';
 import { postlabScreen, individualReport } from './views.js';
+import { numericAnswerIssue, updateIndividualField } from './calculations.js';
 
 const $ = (selector) => document.querySelector(selector);
 let record = createPostlab(),
@@ -449,14 +450,15 @@ document.addEventListener('input', (event) => {
     toast('Review confirmed.');
   }
   if (input.dataset.field) {
-    const [section, key] = input.dataset.field.split('.');
-    if (
-      !['analysis', 'optional'].includes(section) ||
-      !Object.hasOwn(record[section], key) ||
-      input.value.length > 4000
-    )
+    if (!updateIndividualField(record, input.dataset.field, input.value))
       return;
-    record[section][key] = input.value;
+    if (input.hasAttribute('data-calculation-answer')) {
+      const issue = numericAnswerIssue(input.value);
+      input.setAttribute('aria-invalid', String(!!issue));
+      const error = document.getElementById(`${input.id}-error`);
+      error.textContent = issue;
+      error.hidden = !issue;
+    }
     changed();
   }
 });

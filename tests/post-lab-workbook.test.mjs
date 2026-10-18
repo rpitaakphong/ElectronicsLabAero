@@ -39,6 +39,12 @@ import {
 } from '../activities/555-post-lab/views.js';
 import { screen, report } from '../activities/555-main-lab/views.js';
 import { makeValidSyntheticEvidence } from './fixtures/prelab-synthetic.mjs';
+import {
+  numericAnswerIssue,
+  answerProgress,
+  updateIndividualField,
+} from '../activities/555-post-lab/calculations.js';
+import { comparisonSection } from '../activities/555-post-lab/comparison.js';
 const encode = (value) => new TextEncoder().encode(JSON.stringify(value));
 const decode = async () => true;
 const png = Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3, 4);
@@ -358,9 +364,14 @@ test('either import order creates the same evidence, without copying earlier sha
   assert.deepEqual(issues(a, false), []);
   assert(Object.values(a.analysis).every((v) => v === ''));
   const html = postlabScreen(a, 3, {});
-  assert.match(html, /data-field="analysis.workings"/);
+  assert.match(html, /data-field="calculations.A0.high"/);
   assert.doesNotMatch(html, /data-field="configs\./);
-  assert.equal((html.match(/data-field="analysis\./g) || []).length, 10);
+  assert.equal((html.match(/data-field="analysis\./g) || []).length, 8);
+  assert.equal((html.match(/data-calculation-answer/g) || []).length, 13);
+  assert.equal(
+    (html.match(/data-field="calculations\.[^.]+\.explanation"/g) || []).length,
+    3,
+  );
   assert.doesNotMatch(html, /reflect on your pre-lab/i);
 });
 test('identity match and explicit confirmation are required, preserving leading zero IDs', () => {
@@ -429,6 +440,145 @@ test('unfinished individual work can be backed up without either source', async 
   );
   assert.deepEqual(parsed.record, record);
 });
+test('numeric answers are text drafts, not graded or calculated, and survive JSON/ZIP with images', async () => {
+  const record = individual();
+  for (const text of ['-12.5', '+3', '0', '.25', '1e-3', '9999'])
+    assert.equal(numericAnswerIssue(text), '');
+  for (const text of ['-', '.', '1e', 'Infinity', 'NaN', '1%'])
+    assert(numericAnswerIssue(text));
+  assert(updateIndividualField(record, 'calculations.A0.high', '-12.5'));
+  assert(updateIndividualField(record, 'calculations.A1.frequencyRatio', '0'));
+  assert(updateIndividualField(record, 'calculations.M0.pulse', '-'));
+  assert(
+    updateIndividualField(
+      record,
+      'calculations.A0.explanation',
+      'My short explanation',
+    ),
+  );
+  assert.equal(updateIndividualField(record, 'sources.main', 'bad'), false);
+  assert.equal(
+    updateIndividualField(record, 'calculations.__proto__.high', 'bad'),
+    false,
+  );
+  assert.equal(
+    updateIndividualField(record, 'analysis.workings', 'overwrite'),
+    false,
+  );
+  assert.deepEqual(answerProgress(record), { started: 4, total: 24 });
+  const images = {
+    A0: await validateImage('A0', new Blob([png]), 'scope.png', decode),
+  };
+  record.sources.main.evidence.A0.filename = images.A0.filename;
+  for (const bytes of [
+    encode(await postlabBackup(record, images)),
+    await postlabZip(record, images),
+  ]) {
+    const restored = await parsePostlabFile(bytes, decode);
+    assert.deepEqual(restored.record, record);
+    assert.deepEqual(
+      new Uint8Array(await restored.images.A0.blob.arrayBuffer()),
+      png,
+    );
+  }
+  const reportHtml = individualReport(record, {});
+  assert.match(reportHtml, /-12.5 %/);
+  assert.match(reportHtml, /My short explanation/);
+  assert.doesNotMatch(
+    reportHtml,
+    /Signed deviation|Measured ratio|data-calculation-answer/,
+  );
+  const changed = withSource(
+    record,
+    'main',
+    record.sources.main,
+    'reimport.json',
+  );
+  assert(changed.needsReview);
+  assert.deepEqual(changed.calculations, record.calculations);
+  const numericOnly = individual();
+  numericOnly.calculations.A0.high = '0';
+  assert(
+    withSource(numericOnly, 'main', numericOnly.sources.main, 'new.json')
+      .needsReview,
+  );
+});
+test('v1 local records and backups recover earlier writing without inventing numeric answers', async () => {
+  const legacy = individual();
+  legacy.schemaVersion = 1;
+  delete legacy.calculations;
+  legacy.analysis.workings = 'Earlier paper working';
+  legacy.analysis.comparison = 'Earlier comparison';
+  const restored = validatePostlab(legacy);
+  assert.equal(legacy.schemaVersion, 1);
+  assert.equal(restored.schemaVersion, 2);
+  assert.equal(restored.analysis.workings, legacy.analysis.workings);
+  assert(
+    Object.values(restored.calculations).every((lab) =>
+      Object.values(lab).every((v) => v === ''),
+    ),
+  );
+  const envelope = {
+    format: '555-post-lab-backup',
+    backupVersion: 1,
+    record: legacy,
+    images: [],
+  };
+  assert.deepEqual(
+    (await parsePostlabFile(encode(envelope), decode)).record,
+    restored,
+  );
+  const zipped = zipSync(
+    {
+      'earlier-individual.json': encode(envelope),
+      'screenshots/': new Uint8Array(),
+    },
+    { level: 0 },
+  );
+  assert.deepEqual((await parsePostlabFile(zipped, decode)).record, restored);
+  assert.match(
+    comparisonSection(restored),
+    /Earlier individual comparison writing \(recovery\)/,
+  );
+  assert.match(individualReport(restored, {}), /recovery appendix/);
+  assert.equal(answerProgress(restored).started, 0);
+  for (const version of [0, 3]) {
+    assert.throws(() =>
+      validatePostlab({ ...restored, schemaVersion: version }),
+    );
+    await assert.rejects(
+      parsePostlabFile(encode({ ...envelope, backupVersion: version }), decode),
+    );
+  }
+});
+test('missing references, zero denominators and changed frozen frequency never produce answers', () => {
+  const record = individual();
+  record.sources.main.configs.A0.prediction.high = '0';
+  record.sources.main.configs.A0.measurement.high = '1';
+  record.sources.main.configs.A1.measurement.low = '0';
+  record.sources.main.configs.A1.measurement.high = '1';
+  record.sources.main.configs.A0.measurement.frequency = '1.2';
+  record.sources.main.configs.A1.original = {
+    design: structuredClone(record.sources.main.configs.A1.design),
+    prediction: structuredClone(record.sources.main.configs.A1.prediction),
+    reference: { frequency: '1', capacitor: '0.47' },
+    at: new Date().toISOString(),
+  };
+  const html = comparisonSection(record);
+  assert.match(html, /denominator is zero/);
+  assert.match(html, /a reference value is not recorded/);
+  assert.match(html, /saved reference: 1 Hz/);
+  assert.match(html, /current imported Lab 1 frequency: 1.2 Hz/);
+  assert.equal(
+    (html.match(/data-calculation-answer[^>]*value=""/g) || []).length,
+    13,
+  );
+  assert.doesNotMatch(
+    html,
+    /Calculation help|Optional reference charts|Numerator:|Denominator:/,
+  );
+  assert.doesNotMatch(html, /Signed deviation|Measured ratio/);
+});
 test('invalid individual imports cannot silently become accepted sources or answers', async () => {
   const record = individual();
   record.analysis.extra = 'bad';
@@ -436,6 +586,66 @@ test('invalid individual imports cannot silently become accepted sources or answ
   const backup = await postlabBackup(individual(), {});
   backup.images = [{ slot: 'foreign' }];
   await assert.rejects(parsePostlabFile(encode(backup), decode));
+});
+test('post-lab questions are explicit without helper text or retired optional sections', async () => {
+  const record = individual();
+  const html = postlabScreen(record, 3, {});
+  assert.doesNotMatch(
+    html,
+    /Numerator:|Denominator:|Calculation help|Optional reference charts|Optional simulator results or additional notes|data-field="optional\./,
+  );
+  for (const key of [
+    'paths',
+    'conversion',
+    'timing',
+    'uncertainty',
+    'verification',
+    'conclusionA',
+    'conclusionM',
+    'improvement',
+  ]) {
+    assert.match(html, new RegExp(`data-field="analysis\\.${key}"`));
+    assert.doesNotMatch(html, new RegExp(`field-analysis-${key}-hint`));
+  }
+  for (const text of [
+    'charging and discharging paths',
+    'role of pins 2, 6 and 7',
+    'starting and ending voltages',
+    'Discuss Lab 1, Lab 2 and Lab 3 separately',
+    'support or contradict your explanation',
+    'For Lab 1 and Lab 2 separately',
+    'produced one pulse per brief button press',
+    'which result it should improve and why',
+  ])
+    assert(html.includes(text));
+  assert.equal((html.match(/data-calculation-answer/g) || []).length, 13);
+  assert.deepEqual(answerProgress(record), { started: 0, total: 24 });
+  assert.doesNotMatch(
+    individualReport(record, {}),
+    /Individual optional notes|Earlier individual optional notes/,
+  );
+  record.optional.simulation = 'Earlier individual simulation note';
+  record.analysis.paths = 'Existing discussion';
+  for (const bytes of [
+    encode(await postlabBackup(record, {})),
+    await postlabZip(record, {}),
+  ]) {
+    const parsed = await parsePostlabFile(bytes, decode);
+    assert.deepEqual(parsed.record, record);
+    const printed = individualReport(parsed.record, {});
+    assert.match(
+      printed,
+      /Earlier individual optional notes · recovery appendix/,
+    );
+    assert.match(
+      printed,
+      /Earlier individual simulation note|Existing discussion/,
+    );
+    assert.doesNotMatch(
+      printed,
+      /Numerator:|Denominator:|Calculation help|Optional reference charts/,
+    );
+  }
 });
 test('reports include complete source evidence and individual answers, not raw HTML or shared conclusions', () => {
   const record = individual();

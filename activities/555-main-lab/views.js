@@ -143,11 +143,20 @@ function visualFigure(svg, title, kind, caption) {
 function waveformGuide() {
   return visualFigure(monostableWaveforms(), 'Example oscilloscope signals', 'monostable-waveforms', 'Illustration only, not measured data or a prescribed scale. TRIG returns HIGH before OUT falls. Measure t<sub>W</sub> at the output’s mid-level crossings. The traces are vertically offset for clarity.');
 }
+export function pushbuttonImage() {
+  // The standalone HTML packager replaces this marker with the original PNG data URL.
+  const src = '__555_PUSHBUTTON_IMAGE_URL__';
+  return `<img class="pushbutton-image" src="${esc(src)}" width="1380" height="644" alt="Four-terminal pushbutton on a breadboard: button terminal 1 upper left, 2 upper right, 3 lower left and 4 lower right. The internal schematic shows 1–2 permanently joined and 3–4 permanently joined. Pressing bridges the two pairs. These numbers identify button terminals, not NE555 pins.">`;
+}
+function pushbuttonGuide() {
+  return `<figure class="button-guide"><h3>Pushbutton terminals (S1)</h3>${pushbuttonImage()}<figcaption><p>Button terminals <strong>1–2 are always connected</strong>; so are <strong>3–4</strong>. Pressing joins the two pairs; releasing separates them.</p><p><strong>Use one terminal from each pair:</strong> connect 1 or 2 to NE555 TRIG (pin 2), and 3 or 4 to GND. Do not use 1–2 or 3–4 as the switch contacts.</p><p class="small muted">Power off: confirm the pairs with DMM continuity and keep them on separate breadboard strips.</p></figcaption><button class="small" data-expand="pushbutton">Enlarge button image</button></figure>`;
+}
 function monostableCircuitGuide() {
   const compare = (mode, title, caption) => `<figure class="conversion-card"><h3>${title}</h3><div class="diagram-scroll" tabindex="0" role="region" aria-label="${title} timing connections">${conversionSchematic(mode)}</div><figcaption>${caption}</figcaption><button class="small" data-expand="conversion-${mode}">Enlarge ${mode} comparison</button></figure>`;
   return paper('Circuit Schematic - Transforming Astable Circuit to Monostable Circuit', '<p>Rewire with the power off and the timing capacitor discharged. Orange dashed highlights show what to remove; teal highlights show what to add. Both diagrams use the DIP-8 top view, with the notch at the top. Matching power and ground labels are connected.</p>'
       + `<div class="conversion-grid">${compare('astable', 'Before · Astable', 'Repeats by itself. Highlight 1 is the shared trigger connection; highlight 2 is R2.')}${compare('monostable', 'After · Monostable', 'Waits for a brief button press. The timing node uses pins 6/7; pin 2 receives the separate switch trigger.')}</div>`
       + '<ol class="conversion-steps"><li><strong>Separate pin 2</strong> from the timing node.</li><li><strong>Replace R2 with a wire.</strong> Pins 6/7 now share the capacitor node. Select R and C for your pulse duration.</li><li><strong>Add the button and 10 kΩ pull-up</strong> at pin 2. S1 is normally open.</li></ol>'
+      + pushbuttonGuide()
       + '<p class="small muted">Reference: <a href="https://www.ti.com/lit/ds/symlink/ne555.pdf#page=11" target="_blank" rel="noopener">TI NE555 datasheet, Figures 6-2 and 6-3</a>.</p>');
 }
 function fixedCapacitor(record) {
@@ -265,40 +274,34 @@ function preparation(record) {
     + paper('Components and safety checks', kit() + voltageGoals() + Object.entries(SAFETY).map(([key, label]) => check(record, `setup.safety.${key}`, label)).join(''))
     + paper('NE555 pin connections', diagram(pinGuide(), 'NE555 viewed from above. Use the notch and dot to identify pin 1 before wiring.', 'pins'));
 }
-function optionalNotes(record) {
-  return `<details class="reference"><summary>Optional simulator results or additional notes</summary><p>The simulator is optional. Record any simulator readings separately from your breadboard measurements.</p>${field(record, 'optional.tool', 'Simulator or other software used, if any')}${field(record, 'optional.simulation', 'Optional simulator results', { area: true })}${field(record, 'optional.extensions', 'Notes from any additional circuit tests', { area: true })}</details>`;
-}
-export function analysisForm(record) {
-  return paper(
+export function analysisForm(record, comparisonSection = null) {
+  return (comparisonSection ?? paper(
       '1 · Compare predicted values and measured results',
       `<p>For all three circuits, compare each measured result with the value calculated for the same components. If you corrected a calculation, state what you changed and why. In the equations below, the subscript “pred” refers to your calculated value and “meas” refers to your measurement.</p><ol><li>Calculate the percentage difference between each calculated and measured timing value. Keep the sign so that a positive value means the measured result was larger.</li><li>Calculate the difference in astable duty cycle in percentage points.</li><li>Calculate the ratio of the measured Lab 2 frequency to the measured Lab 1 frequency.</li><li>Calculate the HIGH-to-LOW time ratio for Lab 2 and compare all three required circuits with their design specifications.</li></ol>${analysisEquations()}${field(record, 'analysis.workings', 'Show your calculations for the differences and ratios', { area: true })}<details class="reference" open><summary>Table and charts of your predicted values and measured results</summary>${comparison(record)}${chart(record, ['A0', 'A1'], ['high', 'low'], 'Astable HIGH and LOW times')}${chart(record, ['M0'], ['pulse'], 'Monostable pulse duration')}</details>${field(record, 'analysis.comparison', 'Explain whether each circuit met its design specifications', { area: true, hint: 'For Lab 1, compare the frequency with the specified range. For Lab 2, compare the HIGH-to-LOW time ratio and frequency with their limits. For Lab 3, compare the pulse duration and output voltages with their limits and describe the response to the switch. Include measured values and screenshot filenames in your answer.' })}`,
-    ) + paper(
+    )) + paper(
         '2 · Explain your results',
         field(
           record,
           'analysis.paths',
-          'Explain how the capacitor charges and discharges, and the role of each timing resistor',
+          'For each lab (1, 2 and 3), describe the timing capacitor’s charging and discharging paths. Identify the resistor(s) in each path and explain how the capacitor voltage makes the output change between HIGH and LOW.',
           {
             area: true,
-            hint: 'For Labs 1 and 2, use the capacitor-voltage and output waveforms to describe the current paths and switching voltages. For Lab 3, explain the charging and discharging paths from the schematic; no capacitor-voltage capture is required.',
           },
         ) +
           field(
             record,
             'analysis.conversion',
-            'Why does the astable circuit produce pulses continuously, while the monostable circuit waits for the switch?',
+            'Compare how an output pulse starts in the astable and monostable circuits. Explain the role of pins 2, 6 and 7, why the astable repeats without a button press, and why the monostable waits for another press after its pulse ends.',
             {
               area: true,
-              hint: 'Explain the changes to pins 2, 6, and 7. Use the Lab 3 trigger/output screenshot to explain how a pulse starts. Use the schematic to explain the capacitor’s state before the press.',
             },
           ) +
           field(
             record,
             'analysis.timing',
-            'Would a monostable using the astable circuit’s R1 and timing capacitor necessarily produce a pulse equal to the astable HIGH time? Explain.',
+            'Suppose a monostable uses the same R1 and timing capacitor as your Lab 1 astable. Would its pulse duration equal the astable HIGH time? Explain by comparing the charging path and the capacitor’s starting and ending voltages in the two circuits.',
             {
               area: true,
-              hint: 'Compare which resistors the capacitor charges through and its voltage at the start of charging in each circuit. Refer to the timing equations and your recorded waveforms.',
             },
           ),
       ) +
@@ -307,19 +310,17 @@ export function analysisForm(record) {
         field(
           record,
           'analysis.uncertainty',
-          'What could explain the differences in your results?',
+          'Discuss Lab 1, Lab 2 and Lab 3 separately. For each lab, identify a difference between a predicted and measured result, suggest a specific cause, and explain how it could affect that result.',
           {
             area: true,
-            hint: 'Separate marked component values, DMM readings, and values you could not measure. Discuss component tolerances and oscilloscope measurement limits. Where your recorded information allows it, estimate the size of at least one effect. Instead of writing only “human error,” identify the specific measurement or connection that may have affected the result.',
           },
         ) +
           field(
             record,
             'analysis.verification',
-            'Describe one test you could use to check your explanation',
+            'Choose one cause you proposed above and describe a test that could check it. Identify the lab and result, what you would change or measure, and what outcome would support or contradict your explanation. State whether you performed the test or are proposing it.',
             {
               area: true,
-              hint: 'State what you would change or measure and what result you would expect. Make clear whether you carried out this test or are proposing it for future work.',
             },
           ),
       ) +
@@ -328,25 +329,24 @@ export function analysisForm(record) {
         field(
           record,
           'analysis.conclusionA',
-          'What do you conclude about your two astable designs?',
-          { area: true, hint: 'State whether Tasks 1 and 2 met their specifications. Support each conclusion with measured values, and explain any limits on what your tests show.' },
+          'For Lab 1 and Lab 2 separately, state whether your astable design met its objectives. Use your measured frequency for Lab 1, and your HIGH/LOW time ratio and frequency change for Lab 2, to support your conclusions.',
+          { area: true },
         ) +
           field(
             record,
             'analysis.conclusionM',
-            'What do you conclude about your monostable design?',
-            { area: true, hint: 'State whether the pulse duration, output voltages, and response to a brief switch press met the specifications.' },
+            'State whether your Lab 3 monostable met the pulse-duration and output-voltage targets and produced one pulse per brief button press. Support your conclusion with measured values and your observed response to the button.',
+            { area: true },
           ) +
           field(
             record,
             'analysis.improvement',
-            'Recommend one improvement and explain why it would help',
+            'Choose one of your circuits and recommend a specific improvement. Explain which result it should improve and why, using your measurements or calculations. State whether you tested the change, and give the result if you did.',
             {
               area: true,
-              hint: 'Use your calculations or measurements to justify the recommendation. State whether you tested it on the breadboard, checked it only in the simulator, or have not tested it.',
             },
           ),
-      ) + optionalNotes(record);
+      );
 }
 function saveLabData(record, attachedSlots) {
   return paper('Save the group’s lab data', review(record, attachedSlots)

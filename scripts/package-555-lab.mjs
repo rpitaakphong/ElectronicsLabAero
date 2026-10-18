@@ -22,10 +22,22 @@ for (const activity of ['555-main-lab', '555-post-lab']) {
     },
   });
   const bundle = Array.isArray(result) ? result[0] : result;
-  const js = bundle.output
+  let js = bundle.output
     .filter((item) => item.type === 'chunk')
     .map((item) => item.code)
     .join('\n');
+  if (js.includes('__555_PUSHBUTTON_IMAGE_URL__')) {
+    const image = await readFile(
+      path.join(
+        root,
+        'activities/555-main-lab/assets/pushbutton-terminals.png',
+      ),
+    );
+    js = js.replaceAll(
+      '__555_PUSHBUTTON_IMAGE_URL__',
+      `data:image/png;base64,${image.toString('base64')}`,
+    );
+  }
   const css = bundle.output
     .filter((item) => item.type === 'asset' && item.fileName.endsWith('.css'))
     .map((item) => String(item.source))

@@ -15,7 +15,9 @@ import {
 import { backupEntry, utf8 } from '../555-main-lab/archive.js';
 import { validatePrelab, MAX_JSON_BYTES } from './prelab.js';
 import { zipSync, strToU8 } from 'fflate';
+import { createCalculations, hasIndividualWriting } from './calculations.js';
 
+// Keep the pointer stable so existing v1 browser work can be reopened and migrated.
 export const ACTIVE_KEY = 'electronics-555-post-lab-active-v1';
 export const FORMAT = '555-post-lab-backup';
 export const PAGES = [
@@ -29,13 +31,14 @@ export function createPostlab() {
   const blank = createRecord();
   return {
     activityId: '555-post-lab',
-    schemaVersion: 1,
+    schemaVersion: 2,
     recordId: blank.recordId,
     createdAt: blank.createdAt,
     updatedAt: blank.updatedAt,
     sources: { prelab: null, main: null },
     sourceNames: { prelab: '', main: '' },
     analysis: blank.analysis,
+    calculations: createCalculations(),
     optional: blank.optional,
     identityConfirmed: false,
     needsReview: false,
@@ -43,6 +46,9 @@ export function createPostlab() {
 }
 export function validatePostlab(value) {
   const template = createPostlab();
+  const previous = value?.schemaVersion === 1;
+  const expected = { ...template };
+  if (previous) delete expected.calculations;
   const shape = (actual, expected) =>
     actual &&
     typeof actual === 'object' &&
@@ -50,9 +56,9 @@ export function validatePostlab(value) {
     Object.keys(actual).length === Object.keys(expected).length &&
     Object.keys(expected).every((key) => Object.hasOwn(actual, key));
   if (
-    !shape(value, template) ||
+    !shape(value, expected) ||
     value.activityId !== template.activityId ||
-    value.schemaVersion !== 1 ||
+    ![1, 2].includes(value.schemaVersion) ||
     typeof value.recordId !== 'string' ||
     !value.recordId ||
     value.recordId.length > 200 ||
@@ -76,7 +82,26 @@ export function validatePostlab(value) {
   }
   if (!shape(value.sources, template.sources))
     throw new Error('Invalid post-lab source sections.');
+  if (!previous) {
+    if (!shape(value.calculations, template.calculations))
+      throw new Error('Invalid calculation answer sections.');
+    for (const lab of Object.keys(template.calculations)) {
+      if (
+        !shape(value.calculations[lab], template.calculations[lab]) ||
+        Object.values(value.calculations[lab]).some(
+          (text) => typeof text !== 'string' || text.length > MAX_TEXT_LENGTH,
+        )
+      )
+        throw new Error(
+          'A calculation answer has an invalid format or exceeds 4,000 characters.',
+        );
+    }
+  }
   const result = clone(value);
+  if (previous) {
+    result.schemaVersion = 2;
+    result.calculations = createCalculations();
+  }
   if (value.sources.prelab !== null) {
     if (
       new TextEncoder().encode(JSON.stringify(value.sources.prelab)).length >
@@ -140,8 +165,7 @@ export function withSource(record, kind, source, filename) {
   next.sources[kind] = clone(source);
   next.sourceNames[kind] = filename.slice(0, 4000);
   next.identityConfirmed = false;
-  if (old && Object.values(record.analysis).some((text) => text.trim()))
-    next.needsReview = true;
+  if (old && hasIndividualWriting(record)) next.needsReview = true;
   next.updatedAt = new Date().toISOString();
   return validatePostlab(next);
 }
@@ -163,7 +187,7 @@ export async function postlabBackup(record, images) {
     throw new Error('Images cannot exist without their main-lab record.');
   return {
     format: FORMAT,
-    backupVersion: 1,
+    backupVersion: 2,
     record: valid,
     images: main?.images || [],
   };
@@ -178,7 +202,8 @@ export async function parsePostlabFile(bytes, decode) {
   const value = JSON.parse(text);
   if (
     value?.format !== FORMAT ||
-    value.backupVersion !== 1 ||
+    ![1, 2].includes(value.backupVersion) ||
+    value.record?.schemaVersion !== value.backupVersion ||
     !Array.isArray(value.images)
   )
     throw new Error('Choose an individual post-lab backup, not a source file.');

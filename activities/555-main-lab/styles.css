@@ -557,6 +557,10 @@ details p {
 .conversion-card figcaption { color: var(--muted); font-size: .8rem; margin: 10px 0 12px; }
 .conversion-steps { padding-left: 24px; }
 .conversion-steps li { padding-left: 5px; margin-bottom: 12px; }
+.button-guide { margin: 24px 0 0; padding-top: 20px; border-top: 1px solid var(--line); }
+.button-guide .pushbutton-image { display: block; width: 100%; max-width: 450px; height: auto; margin: 12px auto 16px; background: #fff; border-radius: 8px; }
+.button-guide figcaption p { margin: 8px 0; }
+.expanded-diagram[data-diagram="pushbutton"] .pushbutton-image { display: block; width: 1000px; max-width: none; height: auto; background: #fff; }
 .expanded-diagram[data-diagram^="conversion-"] svg,
 .expanded-diagram[data-diagram="schematic"] svg { width: 1100px; }
 .expanded-diagram[data-diagram="pins"] svg { width: 650px; }
@@ -787,6 +791,38 @@ dd {
   border: 0;
   border-radius: 0;
   z-index: 25;
+}
+.calculation-panel {
+  margin: 1.25rem 0;
+  padding: 1rem;
+  border: 1px solid var(--line, #d2e0df);
+  border-radius: 12px;
+}
+.calculation-target { font-size: .9rem; }
+.calculation-table { width: 100%; table-layout: fixed; }
+.calculation-table th, .calculation-table td { overflow-wrap: anywhere; }
+.calculation-table th:first-child { width: 25%; }
+.numeric-answer { display: flex; align-items: center; gap: .5rem; }
+.numeric-answer input { min-width: 0; width: 100%; }
+.numeric-answer > span { flex: 0 0 auto; white-space: nowrap; }
+.calculation-ratios { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.calculation-explanation { margin-top: 1rem; }
+.calculation-explanation label { font-weight: 650; }
+.calculation-explanation textarea { min-height: 90px; width: 100%; }
+.student-answer { font-weight: 650; }
+@media screen and (max-width: 640px) {
+  .calculation-table, .calculation-table tbody, .calculation-table tr,
+  .calculation-table th, .calculation-table td { display: block; width: 100%; }
+  .calculation-table thead { display: none; }
+  .calculation-table tr { padding: .65rem 0; border-bottom: 1px solid #d2e0df; }
+  .calculation-table th:first-child { width: 100%; }
+  .calculation-table td::before { content: attr(data-label); display: block; font-size: .8rem; font-weight: 650; }
+  .calculation-ratios { grid-template-columns: 1fr; }
+}
+@media print {
+  .calculation-panel { padding: 3mm; }
+  .calculation-table tr, .calculation-explanation, .calculation-ratios > div { break-inside: avoid; }
+  .calculation-panel h3, .calculation-target { break-after: avoid; }
 }
 .sr-only {
   position: absolute;

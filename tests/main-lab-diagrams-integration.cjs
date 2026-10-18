@@ -195,10 +195,66 @@ async function inspect(svg, kind) {
           });
           await page.keyboard.press('Escape');
         }
+        const guide = page.locator('.button-guide');
+        const buttonImage = guide.locator('img');
+        await buttonImage.scrollIntoViewIfNeeded();
+        await buttonImage.evaluate((img) => img.decode());
+        const imageInfo = await buttonImage.evaluate((img) => ({
+          embedded: img.src.startsWith('data:image/png;base64,'),
+          width: img.naturalWidth,
+          height: img.naturalHeight,
+          renderedWidth: img.getBoundingClientRect().width,
+          containerWidth: img.parentElement.getBoundingClientRect().width,
+          centered:
+            Math.abs(
+              (img.getBoundingClientRect().left +
+                img.getBoundingClientRect().right) /
+                2 -
+                (img.parentElement.getBoundingClientRect().left +
+                  img.parentElement.getBoundingClientRect().right) /
+                  2,
+            ) < 1,
+          fits:
+            img.getBoundingClientRect().width <=
+            img.parentElement.getBoundingClientRect().width + 1,
+          ratio:
+            img.getBoundingClientRect().width /
+            img.getBoundingClientRect().height,
+        }));
+        assert(imageInfo.embedded && imageInfo.fits);
+        assert(imageInfo.centered);
+        assert(
+          Math.abs(
+            imageInfo.renderedWidth - Math.min(450, imageInfo.containerWidth),
+          ) < 1,
+          'Inline button image must cap at 450 px and shrink to fit smaller containers',
+        );
+        assert.equal(imageInfo.width, 1380);
+        assert.equal(imageInfo.height, 644);
+        assert(Math.abs(imageInfo.ratio - 1380 / 644) < 0.01);
+        await guide.screenshot({
+          path: path.join(output, `${engine}-${width}-pushbutton.png`),
+          animations: 'disabled',
+          style: '.topbar, footer, #toast { visibility: hidden !important; }',
+        });
+        await guide.locator('[data-expand="pushbutton"]').click();
+        const enlargedButton = page.locator('#dialog .pushbutton-image');
+        await enlargedButton.evaluate((img) => img.decode());
+        assert.equal(
+          await enlargedButton.evaluate(
+            (img) => img.getBoundingClientRect().width,
+          ),
+          1000,
+        );
+        assert.equal(
+          await enlargedButton.getAttribute('src'),
+          await buttonImage.getAttribute('src'),
+        );
+        await page.keyboard.press('Escape');
       }
       assert.deepEqual(errors, []);
       console.log(
-        `PASS ${engine}: DIP-8 pin guide and all circuit drawings, normal/enlarged, desktop/tablet/phone, unclipped non-overlapping labels, local scrolling`,
+        `PASS ${engine}: DIP-8 drawings and embedded pushbutton guide, normal/enlarged, desktop/tablet/phone, correct image bytes/aspect ratio, unclipped labels and local scrolling`,
       );
     } finally {
       await context.close();
