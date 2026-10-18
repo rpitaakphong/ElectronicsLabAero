@@ -781,7 +781,9 @@ const key = 'electronics-555-main-lab-v3';
           const diagram = page.locator('.astable-schematic');
           assert(
             await diagram.evaluate(
-              (svg) => svg.getBoundingClientRect().width >= 740,
+              (svg) =>
+                svg.getBoundingClientRect().width >= 444 &&
+                svg.getBoundingClientRect().width <= 660,
             ),
           );
           assert.equal(

@@ -90,6 +90,63 @@ async function inspect(svg, kind) {
             await page.keyboard.press('Escape');
           const svg = page.locator(`#main ${selector}`);
           await inspect(svg, kind);
+          if (kind === 'schematic') {
+            const scale = await svg.evaluate((el) => {
+              const current = el.getBoundingClientRect();
+              const previousStyle = el.getAttribute('style');
+              el.style.width = '100%';
+              el.style.minWidth = '740px';
+              el.style.maxWidth = '1100px';
+              const original = el.getBoundingClientRect();
+              if (previousStyle === null) el.removeAttribute('style');
+              else el.setAttribute('style', previousStyle);
+              return {
+                width: current.width / original.width,
+                height: current.height / original.height,
+              };
+            });
+            assert(
+              Math.abs(scale.width - 0.6) < 0.005 &&
+                Math.abs(scale.height - 0.6) < 0.005,
+              'Inline astable diagram must be 40% smaller in both dimensions',
+            );
+          }
+          if (kind === 'conversion-astable') {
+            const cards = await page
+              .locator('.conversion-card')
+              .evaluateAll((els) =>
+                els.map((el) => {
+                  const { x, y, width, height } = el.getBoundingClientRect();
+                  return { x, y, width, height };
+                }),
+              );
+            if (width > 1100) {
+              assert(
+                Math.abs(cards[0].y - cards[1].y) < 1,
+                'Desktop comparisons must share one row',
+              );
+              assert(
+                cards[1].x >= cards[0].x + cards[0].width,
+                'Comparison cards must sit side by side',
+              );
+              assert(
+                await svg
+                  .locator('..')
+                  .evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
+                'Desktop figures must fit their cards',
+              );
+            } else
+              assert(
+                cards[1].y >= cards[0].y + cards[0].height,
+                'Narrow screens must stack the comparison cards',
+              );
+            await page.locator('.conversion-grid').screenshot({
+              path: path.join(output, `${engine}-${width}-comparison-row.png`),
+              animations: 'disabled',
+              style:
+                '.topbar, footer, #toast { visibility: hidden !important; }',
+            });
+          }
           assert(
             await page.evaluate(
               () => document.documentElement.scrollWidth <= innerWidth + 1,
