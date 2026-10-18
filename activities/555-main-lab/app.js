@@ -10,6 +10,10 @@ import {
   number,
   progress,
   LEGACY_STORAGE_KEY,
+  PRIOR_STORAGE_KEY,
+  pairStudents,
+  identityIssues,
+  downloadStem,
   visitedPages,
   markPageVisited,
   designForEntry,
@@ -18,7 +22,8 @@ import {
 import { esc, screen, report, schematic, pinGuide, designFeedback } from './views.js';
 import { timingEquations } from './scientific.js';
 import { conversionSchematic, monostableWaveforms } from './diagrams.js';
-import { imageStore, validateImage, createBackup, parseBackup, createLabZip, MAX_BACKUP_BYTES } from './attachments.js';
+import { imageStore, validateImage, createBackup, parseMainFile, createLabZip } from './attachments.js';
+import { MAX_ZIP_BYTES } from './archive.js';
 
 const $ = (selector) => document.querySelector(selector);
 let record = createRecord(),
@@ -33,6 +38,7 @@ let storageBlocked = false,
 let stagedImport = null,
   dialogOpener = null;
 let legacyRecord = null;
+let pendingMigration = false;
 const dialog = $('#dialog');
 /** @type {import('./attachments.js').Attachments} */
 let images = {};
@@ -41,6 +47,70 @@ let workspaceEpoch = 0, imageRevision = 0, writeQueue = Promise.resolve();
 const storage = imageStore();
 const previewUrls = [];
 const busySlots = new Set();
+const uploadTasks = new Set();
+const reportImages = new Map();
+const retiredReportUrls = new Set();
+let openingImages = Promise.resolve();
+let reportDirty = true, reportPending = false, printPreparing = false, printActive = false;
+
+function releaseReportUrls() {
+  if (printActive) return;
+  retiredReportUrls.forEach((url) => URL.revokeObjectURL(url));
+  retiredReportUrls.clear();
+}
+function refreshReport(forPrint = false) {
+  if (printActive && !forPrint) { reportDirty = true; return; }
+  let mediaChanged = false;
+  for (const slot of REQUIRED_CAPTURES) {
+    const previous = reportImages.get(slot), current = images[slot];
+    if (previous?.blob === current?.blob) continue;
+    if (previous) {
+      retiredReportUrls.add(previous.url);
+      reportImages.delete(slot);
+    }
+    if (current) reportImages.set(slot, { blob: current.blob, url: URL.createObjectURL(current.blob) });
+    mediaChanged = true;
+  }
+  const pending = imageLoading || busySlots.size > 0;
+  if (!reportDirty && !mediaChanged && pending === reportPending) return;
+  const container = $('#report');
+  // Reuse decoded images when text changes, including native browser printing.
+  const decoded = new Map([...container.querySelectorAll('img[data-report-image]')].map((img) => [img.dataset.reportImage, img]));
+  const sources = Object.fromEntries([...reportImages].map(([slot, image]) => [slot, image.url]));
+  container.innerHTML = (pending ? '<p class="report-warning">Images are still opening. Close print preview and wait for them to finish, then print again.</p>' : '') + report(record, sources);
+  container.querySelectorAll('img[data-report-image]').forEach((img) => {
+    const previous = decoded.get(img.dataset.reportImage);
+    if (previous?.src === img.src && previous.complete && previous.naturalWidth > 0) img.replaceWith(previous);
+  });
+  reportDirty = false;
+  reportPending = pending;
+  releaseReportUrls();
+}
+function setPrintPreparing(value) {
+  printPreparing = value;
+  document.querySelectorAll('[data-action="print"]').forEach((button) => {
+    /** @type {HTMLButtonElement} */ (button).disabled = value;
+    button.setAttribute('aria-busy', String(value));
+    button.textContent = value ? 'Preparing report…' : 'Print or save report as PDF';
+  });
+}
+async function waitForReportImages() {
+  await Promise.all([...$('#report').querySelectorAll('img[data-report-image]')].map(async (image) => {
+    let timeout;
+    try {
+      await Promise.race([
+        image.decode(),
+        new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('An image took too long to open.')), 10000); }),
+      ]);
+      if (!image.complete || !image.naturalWidth) throw new Error('An attached image could not be opened.');
+    } finally { clearTimeout(timeout); }
+  }));
+}
+function startUpload(slot) {
+  const task = uploadImage(slot);
+  uploadTasks.add(task);
+  void task.finally(() => uploadTasks.delete(task)).catch((error) => toast(error.message));
+}
 
 function renderAttachments() {
   previewUrls.splice(0).forEach((url) => URL.revokeObjectURL(url));
@@ -68,6 +138,8 @@ function renderAttachments() {
       preview.append(element);
     }
   });
+  refreshReport();
+  setPrintPreparing(printPreparing);
 }
 function persistImages() {
   const epoch = workspaceEpoch, revision = ++imageRevision;
@@ -168,6 +240,7 @@ function save() {
 }
 function changed() {
   unsaved = true;
+  reportDirty = true;
   record.updatedAt = new Date().toISOString();
   showSave(
     storageBlocked
@@ -181,11 +254,18 @@ function load() {
   try {
     legacyRecord = localStorage.getItem(LEGACY_STORAGE_KEY);
     $('#legacy-button').hidden = legacyRecord === null;
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const currentSaved = localStorage.getItem(STORAGE_KEY);
+    const saved = currentSaved ?? localStorage.getItem(PRIOR_STORAGE_KEY);
     if (saved !== null) {
       unreadable = saved;
       record = parseRecord(saved);
       unreadable = null;
+      if (currentSaved === null) {
+        pendingMigration = true;
+        storageBlocked = true;
+        showSave('Earlier pair data found. Confirm the recovery preview before saving a new version.');
+        return;
+      }
       showSave('Your previously saved answers have been reopened in this browser.');
     }
   } catch {
@@ -206,7 +286,7 @@ function download(name, content, type = 'application/json;charset=utf-8') {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
-const groupFilename = (candidate) => `555_MAIN_LAB_${candidate.group.id.trim().replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80) || 'DRAFT'}`;
+const groupFilename = (candidate) => downloadStem('555_MAIN_LAB', candidate.group.id, pairStudents(candidate));
 async function exportJson(zip = false) {
   try {
     if (imageLoading || busySlots.size) throw new Error('Wait for the image to finish opening, then try again.');
@@ -255,7 +335,7 @@ function draw(focus = false) {
   $('#breadcrumb').textContent =
     SCREENS[current][0];
   $('#screen-count').textContent =
-    current >= 1 && current <= 3 ? `Lab ${current} of 3` : current === 0 ? 'Preparation' : 'Post-lab';
+    current >= 1 && current <= 3 ? `Lab ${current} of 3` : current === 0 ? 'Preparation' : 'Save lab data';
   $('#progress-bar').style.width = `${(100 * (current + 1)) / SCREENS.length}%`;
   $('#main').innerHTML = screen(record, current, Object.keys(images));
   renderAttachments();
@@ -269,7 +349,7 @@ function draw(focus = false) {
   $('#next').disabled = current === SCREENS.length - 1;
   $('#next').textContent =
     current === 3
-      ? 'Continue to post-lab →'
+      ? 'Save lab data →'
       : current === SCREENS.length - 1
         ? 'Final page'
         : 'Continue →';
@@ -307,16 +387,33 @@ function importPreview(candidate) {
   const incoming = candidate.record;
   openDialog(
     'Check the backup before loading',
-    `<p><strong>Group:</strong> ${esc(incoming.group.id || '(not entered)')}</p><p class="prewrap"><strong>Members:</strong> ${esc(incoming.group.members || '(not entered)')}</p><p>Workbook version ${incoming.schemaVersion} · Last saved ${esc(incoming.updatedAt)} (computer time)</p><p>${p.preserved}/3 initial designs saved · ${p.captures}/${REQUIRED_CAPTURES.length} images attached.</p><p>Loading replaces the current answers and attachments; it never combines groups. Older filename-only backups need their images attached again. Download your current backup first if you want to keep it.</p><div class="actions"><button data-action="export">Download current answers</button><button id="cancel-import">Keep current answers</button><button id="confirm-import" class="primary">Load these answers</button></div>`,
+    `<p><strong>Group:</strong> ${esc(incoming.group.id || '(not entered)')}</p>${pairStudents(incoming).map((student,i) => `<p>Student ${i+1}: ${esc(student.name || '(name missing)')} · ${esc(student.id || '(ID missing)')}</p>`).join('')}${candidate.migrated ? '<p class="callout warning">Earlier v2 data: all readings, images, original predictions and earlier shared analysis are retained. Confirm the two names and add student IDs. The earlier saved file is not overwritten.</p>' : ''}<p>Workbook version ${incoming.schemaVersion} · Last saved ${esc(incoming.updatedAt)} (computer time)</p><p>${p.preserved}/3 initial designs saved · ${p.captures}/${REQUIRED_CAPTURES.length} images attached.</p><p>Loading replaces the current answers and attachments; it never combines groups. Older filename-only backups need their images attached again. Download your current backup first if you want to keep it.</p><div class="actions"><button data-action="export">Download current answers</button><button id="cancel-import">Keep current answers</button><button id="confirm-import" class="primary">Load these answers</button></div>`,
   );
 }
-function printReport() {
+async function printReport() {
+  if (printPreparing || printActive) return;
+  const issues = identityIssues(record);
+  if (issues.length) { toast(issues.join(' ') + ' Draft JSON/ZIP backups are still available.'); return; }
   closeSaveMenu();
-  $('#report').innerHTML = report(record);
-  const previousTitle = document.title;
-  document.title = `555_MAIN_LAB_${record.group.id.trim() || 'DRAFT'}`;
-  window.print();
-  document.title = previousTitle;
+  const epoch = workspaceEpoch;
+  setPrintPreparing(true);
+  try {
+    // Persistence is not required: session-only attachments print too.
+    do {
+      await openingImages;
+      await Promise.all(uploadTasks);
+      if (epoch !== workspaceEpoch) throw new Error('The workbook changed. Print the current workbook again.');
+      refreshReport();
+      await waitForReportImages();
+      if (epoch !== workspaceEpoch) throw new Error('The workbook changed. Print the current workbook again.');
+    } while (reportDirty || imageLoading || busySlots.size);
+    const previousTitle = document.title;
+    document.title = groupFilename(record);
+    try { window.print(); }
+    finally { document.title = previousTitle; }
+  } catch (error) {
+    toast(`Could not prepare the report. ${error.message} Your answers and images have not been changed.`);
+  } finally { setPrintPreparing(false); }
 }
 function action(name) {
   if (name !== 'print') closeSaveMenu();
@@ -330,7 +427,7 @@ function action(name) {
     $('#import-file').value = '';
     $('#import-file').click();
   }
-  if (name === 'print') printReport();
+  if (name === 'print') void printReport();
   if (name === 'legacy' && legacyRecord !== null)
     download('555_MAIN_LAB_previous_v1_record.json', legacyRecord);
   if (name === 'recover' && unreadable !== null)
@@ -409,7 +506,7 @@ document.addEventListener('click', (event) => {
   if (!button) return;
   if (button.dataset.step !== undefined) go(Number(button.dataset.step));
   if (button.dataset.action) action(button.dataset.action);
-  if (button.dataset.upload) void uploadImage(button.dataset.upload);
+  if (button.dataset.upload) startUpload(button.dataset.upload);
   if (button.dataset.removeImage) {
     const slot = button.dataset.removeImage;
     if (REQUIRED_CAPTURES.includes(slot) && !busySlots.has(slot) && !imageLoading) {
@@ -481,10 +578,10 @@ $('#import-file').addEventListener('change', async (event) => {
   event.target.value = '';
   if (!file) return;
   try {
-    if (file.size > MAX_BACKUP_BYTES)
-      throw new Error('The file is larger than the 64 MiB backup limit.');
+    if (file.size > MAX_ZIP_BYTES)
+      throw new Error('The file is larger than the supported backup limit.');
     const epoch = workspaceEpoch;
-    const candidate = await parseBackup(await file.text());
+    const candidate = await parseMainFile(new Uint8Array(await file.arrayBuffer()));
     if (epoch === workspaceEpoch) importPreview(candidate);
   } catch (error) {
     toast(
@@ -551,7 +648,13 @@ window.addEventListener('resize', () => {
   syncNav();
 });
 window.addEventListener('beforeprint', () => {
-  $('#report').innerHTML = report(record);
+  printActive = true;
+  refreshReport(true);
+});
+window.addEventListener('afterprint', () => {
+  printActive = false;
+  refreshReport();
+  releaseReportUrls();
 });
 window.addEventListener('beforeunload', (event) => {
   if ((unsaved && !save()) || imageSaving || imageStorageFailed || busySlots.size) event.preventDefault();
@@ -581,7 +684,11 @@ async function openImages() {
       // Only refresh attachment controls: keep any answers being typed intact.
       renderAttachments();
       if (current === 4) draw();
+      if (pendingMigration) {
+        pendingMigration = false;
+        importPreview({record, images, migrated:true});
+      }
     }
   }
 }
-void openImages();
+openingImages = openImages();

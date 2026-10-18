@@ -1,7 +1,8 @@
 /* Workbook data only. No simulator, answer key, or correctness classifier. */
 export const ACTIVITY = '555-main-lab';
-export const VERSION = 2;
-export const STORAGE_KEY = 'electronics-555-main-lab-v2';
+export const VERSION = 3;
+export const STORAGE_KEY = 'electronics-555-main-lab-v3';
+export const PRIOR_STORAGE_KEY = 'electronics-555-main-lab-v2';
 export const LEGACY_STORAGE_KEY = 'electronics-555-main-lab-v1';
 export const MAX_TEXT_LENGTH = 4000;
 export const MAX_RECORD_BYTES = 8 * 1024 * 1024;
@@ -21,7 +22,7 @@ export const SCREENS = [
   [TASKS.A0.title, 'Design and test your circuit'],
   [TASKS.A1.title, 'Continue from Lab 1'],
   [TASKS.M0.title, 'Use a switch to trigger the pulse'],
-  ['Post-lab Analysis and Report', 'Analyze your results and save your report'],
+  ['Save lab data', 'Download the pair’s data for individual post-lab work'],
 ];
 // Version-2 backups retain the original eleven page codes. Navigation uses
 // these groups, never the new page indexes, so old answers need no migration.
@@ -102,7 +103,8 @@ export function createRecord() {
       `lab-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     createdAt: at,
     updatedAt: at,
-    group: { id: '', members: '' },
+    group: { id: '', student1: { name: '', id: '' }, student2: { name: '', id: '' } },
+    legacyMembers: '',
     setup: {
       supply: '',
       scope: '',
@@ -315,8 +317,14 @@ export function validateRecord(value) {
   if (value?.activityId === ACTIVITY && value?.schemaVersion === 1)
     throw new Error('This backup belongs to the earlier lab. Open START_HERE-v1.html and load it there.');
   const template = createRecord();
+  const previous = value?.activityId === ACTIVITY && value?.schemaVersion === 2;
+  if (previous) {
+    template.schemaVersion = 2;
+    template.group = /** @type {any} */ ({ id: '', members: '' });
+    delete template.legacyMembers;
+  }
   checkShape(value, template, 'Record');
-  if (value.activityId !== ACTIVITY || value.schemaVersion !== VERSION)
+  if (value.activityId !== ACTIVITY || value.schemaVersion !== (previous ? 2 : VERSION))
     throw new Error('This backup is from a different activity or workbook version. Select a backup saved by this workbook.');
   if (!validDate(value.createdAt) || !validDate(value.updatedAt))
     throw new Error('The backup contains an unreadable save date. Try another backup file.');
@@ -368,7 +376,39 @@ export function validateRecord(value) {
         `${taskLabel(id)}: the backup includes measurements but no saved initial design and predictions.`,
       );
   }
-  return clone(value);
+  const result = clone(value);
+  if (previous) {
+    const names = result.group.members.split(/\r?\n/).map((name) => name.trim()).filter(Boolean);
+    result.legacyMembers = result.group.members;
+    result.group = { id: result.group.id, student1: { name: names.length === 2 ? names[0] : '', id: '' }, student2: { name: names.length === 2 ? names[1] : '', id: '' } };
+    result.schemaVersion = VERSION;
+  }
+  return result;
+}
+export const pairStudents = (record) => [record.group.student1, record.group.student2];
+export function identityIssues(record) {
+  const issues = [];
+  if (!record.group.id.trim()) issues.push('Enter the Group ID.');
+  pairStudents(record).forEach((student, i) => {
+    if (!student.name.trim()) issues.push(`Enter Student ${i + 1} name.`);
+    if (!student.id.trim()) issues.push(`Enter Student ${i + 1} ID.`);
+  });
+  if (record.group.student1.id.trim() && record.group.student1.id.trim() === record.group.student2.id.trim()) issues.push('The two student IDs must be different.');
+  return issues;
+}
+export function downloadStem(prefix, groupId, students) {
+  const safe = (text, limit) => {
+    const cleaned = text.trim().replace(/[^\p{L}\p{M}\p{N}_-]/gu, '_');
+    const encoder = new TextEncoder();
+    let name = '', bytes = 0;
+    for (const character of cleaned) {
+      const size = encoder.encode(character).length;
+      if (bytes + size > limit) break;
+      name += character; bytes += size;
+    }
+    return name || 'DRAFT';
+  };
+  return [prefix, safe(groupId, 24), ...students.flatMap((student) => [safe(student.name, 24), safe(student.id, 40)])].join('_');
 }
 export function parseRecord(text) {
   if (new TextEncoder().encode(text).length > MAX_RECORD_BYTES)

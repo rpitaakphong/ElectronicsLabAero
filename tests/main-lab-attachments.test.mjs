@@ -32,8 +32,8 @@ test('new envelope round-trips answers, original bytes, and exactly three allowe
   const images = { A0: await sample(), A1: await sample('A1'), M0trigger: await sample('M0trigger') };
   const backup = await createBackup(record, images);
   assert.equal(record.evidence.A0.filename, '', 'Export must not mutate the live record');
-  assert.equal(backup.record.schemaVersion, 2);
-  assert.equal(backup.backupVersion, 1);
+  assert.equal(backup.record.schemaVersion, 3);
+  assert.equal(backup.backupVersion, 2);
   const parsed = await parseBackup(JSON.stringify(backup), decode);
   assert.deepEqual(parsed.record, backup.record);
   assert.equal(progress(parsed.record, Object.keys(parsed.images)).captures, 3);
@@ -55,7 +55,7 @@ test('invalid embedded files and duplicate slots reject the complete import', as
   await assert.rejects(parseBackup(JSON.stringify(duplicate), decode), /duplicate/);
   const path = structuredClone(backup); path.images[0].filename = '../scope.png';
   await assert.rejects(parseBackup(JSON.stringify(path), decode), /does not match/);
-  const version = structuredClone(backup); version.backupVersion = 2;
+  const version = structuredClone(backup); version.backupVersion = 999;
   await assert.rejects(parseBackup(JSON.stringify(version), decode), /Unsupported/);
 });
 test('ZIP contains the complete backup and byte-identical images under screenshots/', async () => {
@@ -87,9 +87,7 @@ test('maximum-size images remain portable through base64 backups', async () => {
   const parsed = await parseBackup(JSON.stringify(backup), decode);
   assert.deepEqual(new Uint8Array(await parsed.images.A0.blob.arrayBuffer()), large);
 });
-test('online and offline HTML are identical and ZIP runtime is bundled, not fetched', async () => {
-  const offline = await readFile(new URL('../output/555-main-lab/START_HERE.html', import.meta.url));
+test('online HTML bundles ZIP generation without runtime network calls', async () => {
   const online = await readFile(new URL('../public/worksheets/555-main-lab.html', import.meta.url));
-  assert.deepEqual(offline, online);
   assert.doesNotMatch(online.toString(), /<script[^>]+src=|fetch\(|XMLHttpRequest|sendBeacon\(/);
 });

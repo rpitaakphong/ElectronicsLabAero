@@ -18,7 +18,7 @@
           <span class="brand-icon" aria-hidden="true">∿</span>
           <div>
             <strong>Electronics Lab</strong
-            ><span>555 timer · Main lab and post-lab</span>
+            ><span>555 timer · Paired main lab</span>
           </div>
         </div>
         <button id="close-navigation" aria-label="Close activity navigation">
@@ -29,7 +29,7 @@
         <div class="side-note">
           <strong>Build and test on the breadboard.</strong>
           <p>A check mark means you have opened a page, not completed it.</p>
-          <p>Complete the post-lab sections as homework. The simulator is optional.</p>
+          <p>Collect data as a pair. Complete the post-lab individually in its separate workspace.</p>
         </div>
       </aside>
       <div class="frame">
@@ -62,7 +62,7 @@
           <button data-action="save">Save in this browser</button
           ><button data-action="export">Download answers (JSON)</button
           ><button data-action="zip">Download lab files (ZIP)</button
-          ><button data-action="import">Load answers (JSON)…</button
+          ><button data-action="import">Load lab data (JSON or ZIP)…</button
           ><button data-action="print">Print or save report as PDF</button
           ><button data-action="recover" id="recover-button" hidden>
             Download the saved file that could not be opened</button
@@ -103,7 +103,7 @@
     <input
       id="import-file"
       type="file"
-      accept="application/json,.json"
+      accept="application/json,application/zip,.json,.zip"
       hidden
       aria-label="Select a JSON backup of your workbook answers"
     />

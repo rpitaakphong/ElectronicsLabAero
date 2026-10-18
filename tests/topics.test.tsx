@@ -110,8 +110,10 @@ test('unknown routes offer a home link', () => {
 test('555 topic and Resources link directly to the standalone local worksheet', () => {
   open('/555-timer');
   assert.equal(screen.getByRole('link', { name: /Open worksheet/ }).getAttribute('href'), '/worksheets/555-main-lab.html');
+  assert.equal(screen.getByRole('link', { name: /Open individual post-lab/ }).getAttribute('href'), '/worksheets/555-post-lab.html');
   cleanup();
   open('/resources');
+  assert.equal(screen.getByRole('link', { name: /Open individual post-lab/ }).getAttribute('href'), '/worksheets/555-post-lab.html');
   assert.equal(screen.getByRole('link', { name: /Open worksheet/ }).getAttribute('href'), '/worksheets/555-main-lab.html');
   assert.equal(screen.getByRole('link', { name: '555 Main Lab Worksheet' }).getAttribute('href'), '/worksheets/555-main-lab.html');
 });

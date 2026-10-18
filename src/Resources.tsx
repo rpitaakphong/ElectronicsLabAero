@@ -26,6 +26,9 @@ export function Resources() {
         <Link reloadDocument to="/worksheets/555-main-lab.html">
           555 Main Lab Worksheet
         </Link>
+        <Link reloadDocument to="/worksheets/555-post-lab.html">
+          555 Individual Post-Lab
+        </Link>
       </nav>
       <div className="resource-guide-grid">
         {guides.map((guide, i) => (
@@ -58,7 +61,7 @@ export function Resources() {
         <span className="eyebrow">WORKSHEET</span>
         <h2 id="worksheet-title">555 Main Lab Worksheet</h2>
         <p>
-          Complete the three labs online. Answers and attached images stay in
+          Complete the three labs as a pair. Answers and attached images stay in
           your browser; download a backup to keep them or move to another
           computer.
         </p>
@@ -68,6 +71,22 @@ export function Resources() {
           to="/worksheets/555-main-lab.html"
         >
           Open worksheet <ArrowRight size={16} aria-hidden="true" />
+        </Link>
+      </section>
+      <section className="panel resource-guide" aria-labelledby="postlab-title">
+        <span className="eyebrow">INDIVIDUAL WORKSHEET</span>
+        <h2 id="postlab-title">555 Individual Post-Lab</h2>
+        <p>
+          Import your own finalized pre-lab and the pair’s main-lab ZIP. Review
+          the evidence, write your own analysis and conclusions, and download
+          your report. Work stays in your browser.
+        </p>
+        <Link
+          reloadDocument
+          className="topic-link"
+          to="/worksheets/555-post-lab.html"
+        >
+          Open individual post-lab <ArrowRight size={16} aria-hidden="true" />
         </Link>
       </section>
       <section

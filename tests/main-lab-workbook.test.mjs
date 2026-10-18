@@ -52,9 +52,9 @@ const first = (r) => {
   r.configs.A0.measurement.frequency = '1.02';
 };
 
-test('v2 starts with no prescribed timing parts, predictions, or physical readings', () => {
+test('v3 starts with no prescribed timing parts, predictions, or physical readings', () => {
   const r = createRecord();
-  assert.equal(VERSION, 2); assert.equal(STORAGE_KEY, 'electronics-555-main-lab-v2');
+  assert.equal(VERSION, 3); assert.equal(STORAGE_KEY, 'electronics-555-main-lab-v3');
   for (const id of IDS) {
     assert.equal(r.configs[id].original, null);
     for (const section of ['design', 'prediction', 'measurement'])
@@ -143,7 +143,7 @@ test('required progress excludes optional extension and its evidence', () => {
   assert(!comparisonRows(r).some((row) => row.id === 'M1'));
 });
 test('partial and populated JSON round-trip without changing precision or units', () => {
-  const r = createRecord(); r.group.id = 'Bench 3'; r.group.members = 'Ada\nBo';
+  const r = createRecord(); r.group.id = 'Bench 3'; r.group.student1.name = 'Ada'; r.group.student2.name = 'Bo';
   prepare(r, 'M0'); r.configs.M0.prediction.pulse = '.72600'; preservePrediction(r, 'M0');
   r.configs.M0.measurement.pulse = '.741'; r.evidence.M0trigger.filename = 'trigger.png';
   assert.deepEqual(parseRecord(JSON.stringify(r)), r);
@@ -154,14 +154,14 @@ test('imports reject legacy, foreign, malformed, oversized, incomplete and hosti
   assert.throws(() => parseRecord(' '.repeat(MAX_RECORD_BYTES + 1)), /8 MB/);
   assert.throws(() => validateRecord({ activityId: '555-main-lab', schemaVersion: 1 }), /START_HERE-v1/);
   for (const mutate of [
-    (r) => { r.activityId = 'prelab'; }, (r) => { r.schemaVersion = 3; },
+    (r) => { r.activityId = 'prelab'; }, (r) => { r.schemaVersion = 999; },
     (r) => { delete r.analysis; }, (r) => { r.configs.A0.measurement.high = 0; },
     (r) => { r.visited = [99]; }, (r) => { r.visited = [0, 0]; },
     (r) => { r.configs.A1.design.capacitor = '999'; },
     (r) => { r.configs.A0.measurement.high = '.5'; },
     (r) => { r.createdAt = 'not-a-date'; },
   ]) { const r = createRecord(); mutate(r); assert.throws(() => validateRecord(r)); }
-  const text = JSON.stringify(createRecord()).replace('"members":""', '"members":"","__proto__":{"polluted":true}');
+  const text = JSON.stringify(createRecord()).replace('"legacyMembers":""', '"legacyMembers":"","__proto__":{"polluted":true}');
   assert.throws(() => parseRecord(text), /fields/); assert.equal({}.polluted, undefined);
 });
 test('invalid originals and references cannot bypass import gates', () => {
@@ -199,7 +199,7 @@ test('every nominal A0 solution has a feasible A1 within the resistor stock and 
   assert(pulse(33, 10) >= .25 && pulse(33, 10) <= .50);
 });
 test('five pages use the task titles without visible legacy codes or repeated specifications', () => {
-  assert.deepEqual(SCREENS.map(([title]) => title), ['Before you begin', 'Lab 1 - Astable Circuit Design', 'Lab 2 - Astable Circuit Modification', 'Lab 3 - Monostable Circuit Design', 'Post-lab Analysis and Report']);
+  assert.deepEqual(SCREENS.map(([title]) => title), ['Before you begin', 'Lab 1 - Astable Circuit Design', 'Lab 2 - Astable Circuit Modification', 'Lab 3 - Monostable Circuit Design', 'Save lab data']);
   const r = createRecord(), before = JSON.stringify(r);
   for (let i = 0; i < SCREENS.length; i++) {
     const html = screen(r, i), text = html.replace(/<[^>]*>/g, ' ');
@@ -215,7 +215,7 @@ test('five pages use the task titles without visible legacy codes or repeated sp
   assert.match(screen(r, 2), /Continuing from Lab 1, modify your circuit/);
   assert.match(screen(r, 3), /normally-open momentary pushbutton/);
   assert.match(screen(r, 3), /TRIG returns HIGH before OUT falls/);
-  assert.match(screen(r, 4), /Signed timing deviation/);
+  assert.match(screen(r, 4), /recommended transfer file/);
   assert.match(pinGuide(), /TOP VIEW/);
   assert.doesNotMatch(schematic(), /10 kΩ|33 kΩ|1 µF/);
 });
@@ -611,7 +611,7 @@ test('version-2 page history maps to the combined pages without rewriting saved 
   assert.deepEqual(r.visited, [2, 5, 10, 6, 3]);
   assert.deepEqual(PAGE_HISTORY.map(([first]) => first), [0, 1, 3, 4, 8]);
   assert.deepEqual(parseRecord(JSON.stringify(r)), r);
-  assert.equal(VERSION, 2); assert.equal(STORAGE_KEY, 'electronics-555-main-lab-v2');
+  assert.equal(VERSION, 3); assert.equal(STORAGE_KEY, 'electronics-555-main-lab-v3');
 });
 
 test('retired shorter-pulse answers survive JSON but never appear in tasks, charts or reports', () => {
@@ -627,18 +627,55 @@ test('retired shorter-pulse answers survive JSON but never appear in tasks, char
 });
 
 test('print report retains originals and only changed corrections without teaching instructions', () => {
-  const r = createRecord(); first(r); r.group.members = '<img src=x onerror=alert(1)>';
+  const r = createRecord(); first(r); r.group.student1.name = '<img src=x onerror=alert(1)>';
   r.configs.A0.original.prediction.high = '.5268'; r.configs.A0.prediction.high = '.5300';
   r.analysis.conclusionM = 'Evidence-backed conclusion'; const html = report(r);
   assert.match(html, /&lt;img/); assert.doesNotMatch(html, /<img src=x|<script/);
   assert.match(html, /\.5268/); assert.match(html, /\.5300/); assert.match(html, /Not recorded/);
-  assert.match(html, /Evidence-backed conclusion/); assert.match(html, /Screenshot 1 - Lab 1/);
+  assert.doesNotMatch(html, /Evidence-backed conclusion/); assert.match(html, /Screenshot 1 - Lab 1/);
   assert.match(html, /IC orientation and pin numbers/);
   assert.doesNotMatch(html, /Locate the notch and pin 1 on the IC|Before switching on the supply, check/);
   assert.doesNotMatch(html, /class="goal-panel"|class="formula-sheet"|<svg[^>]*viewBox="0 0 1000 540"/); assert.match(html, /<math/);
 });
+test('reports embed current screenshots under each lab without changing the answer record', () => {
+  const r = createRecord();
+  for (const [slot, index] of [['A0', 1], ['A1', 2], ['M0trigger', 3]]) r.evidence[slot].filename = `Screenshot_${index}_Lab_${index}.png`;
+  r.evidence.A0.annotation = 'Earlier screenshot note';
+  const before = JSON.stringify(r);
+  const html = report(r, { A0: 'blob:qa-one', A1: 'blob:qa-two', M0trigger: 'blob:qa-three', M0capacitor: 'blob:not-required' });
+  assert.equal((html.match(/data-report-image=/g) || []).length, 3);
+  assert.equal((html.match(/Image not attached/g) || []).length, 0);
+  for (const [slot, id] of [['A0', 'A0'], ['A1', 'A1'], ['M0trigger', 'M0']]) {
+    const section = html.match(new RegExp(`<section class="report-config"><h2>${TASKS[id].title}[\\s\\S]*?<\\/section>`))?.[0];
+    assert(section?.includes(`data-report-image="${slot}"`));
+    assert(section.indexOf('Measured results') < section.indexOf('class="report-image"'));
+    assert(section.includes(`<figcaption>${r.evidence[slot].filename}</figcaption>`));
+  }
+  assert(html.includes('Earlier screenshot note'));
+  assert(!html.includes('blob:not-required'));
+  assert.equal(JSON.stringify(r), before);
+});
+test('reports distinguish missing image data from filenames and never load images from a filename or remote URL', () => {
+  const r = createRecord(); r.evidence.A0.filename = 'legacy.png';
+  const empty = report(r), single = report(r, { A1: 'blob:qa-one' });
+  assert.equal((empty.match(/Image not attached/g) || []).length, 3);
+  assert(!empty.includes('<img'));
+  assert(empty.includes('legacy.png'));
+  assert.equal((single.match(/data-report-image=/g) || []).length, 1);
+  assert.equal((single.match(/Image not attached/g) || []).length, 2);
+  const unsafe = report(r, { A0: 'https://example.com/remote.png', A1: 'file:///legacy.png' });
+  assert(!unsafe.includes('<img'));
+  assert(!unsafe.includes('https://example.com/remote.png'));
+});
+test('report captions and image attributes remain escaped', () => {
+  const r = createRecord(); r.evidence.A0.filename = '<script>QA</script>.png';
+  const html = report(r, { A0: 'blob:qa" onerror="alert(1)' });
+  assert.match(html, /&lt;script&gt;QA&lt;\/script&gt;\.png/);
+  assert.match(html, /src="blob:qa&quot; onerror=&quot;alert\(1\)"/);
+  assert.doesNotMatch(html, /<script>|src="blob:qa" onerror=/);
+});
 test('packaged file is standalone, protects v1 and contains no hidden timing solutions', async () => {
-  const html = await readFile(new URL('../output/555-main-lab/START_HERE.html', import.meta.url), 'utf8');
+  const html = await readFile(new URL('../public/worksheets/555-main-lab.html', import.meta.url), 'utf8');
   assert.doesNotMatch(html, /<script[^>]+src=|<link\b[^>]*href="(?!data:)|<iframe\b|fetch\(|XMLHttpRequest|WORKBOOK_JS|WORKBOOK_CSS/);
   assert.match(html, /555-main-lab-v2/); assert.doesNotMatch(html, /0\.52679|0\.45747|0\.72508|1\.01598/);
   assert.match(html, /Download answers from the earlier lab/);
@@ -653,10 +690,10 @@ test('maximum-length text stays portable and nonfinite derived results remain mi
     preservePrediction(r, id);
     for (const k of Object.keys(c.measurement)) if (id !== 'A0' || k !== 'frequency') c.measurement[k] = long;
   }
-  for (const object of [r.group, r.analysis, r.optional, ...Object.values(r.evidence)])
+  for (const object of [r.group.student1, r.group.student2, r.analysis, r.optional, ...Object.values(r.evidence)])
     for (const k of Object.keys(object)) object[k] = long;
   const bytes = JSON.stringify(r); assert(new TextEncoder().encode(bytes).length < MAX_RECORD_BYTES);
   assert.deepEqual(parseRecord(bytes), r);
-  assert.throws(() => updateField(r, 'group.members', 'a'.repeat(MAX_TEXT_LENGTH + 1)), /4,000/);
+  assert.throws(() => updateField(r, 'group.student1.name', 'a'.repeat(MAX_TEXT_LENGTH + 1)), /4,000/);
   assert.equal(signedDeviation('1e-300', '1e300'), null);
 });

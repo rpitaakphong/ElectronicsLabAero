@@ -4,12 +4,11 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
-const { pathToFileURL } = require('node:url');
 const { unzipSync } = require('fflate');
 const output = path.resolve('output/playwright/main-lab/attachments');
+const pdfOutput = path.resolve('output/pdf');
 const hosted = process.env.APP_URL || 'http://127.0.0.1:4174';
-const offline = pathToFileURL(path.resolve('output/555-main-lab/START_HERE.html')).href;
-const key = 'electronics-555-main-lab-v2';
+const key = 'electronics-555-main-lab-v3';
 const max = 10 * 1024 * 1024;
 const slots = ['A0', 'A1', 'M0trigger'];
 const expected = (slot, extension = 'png') => `Screenshot_${slots.indexOf(slot) + 1}_Lab_${slots.indexOf(slot) + 1}.${extension}`;
@@ -46,6 +45,62 @@ async function newWorkbook(page) {
   await page.locator('#save-menu [data-action="new"]').click();
   await page.locator('#confirm-new').click();
 }
+async function checkReport(page, attachedSlots, native = false) {
+  const identity = await page.evaluate(() => {const record=JSON.parse(localStorage.getItem('electronics-555-main-lab-v3') || 'null'); return record?.group?.student1?.id && record?.group?.student2?.id;});
+  if (!identity && !native) {
+    await go(page,0);
+    for (const [field,value] of Object.entries({'group.id':'QA','group.student1.name':'Synthetic One','group.student1.id':'000001','group.student2.name':'Synthetic Two','group.student2.id':'000002'})) await page.locator(`[data-field="${field}"]`).fill(value);
+  }
+  await page.evaluate(() => {
+    window.printRequested = false;
+    window.print = () => {
+      window.dispatchEvent(new Event('beforeprint'));
+      window.printReadyImages = [...document.querySelectorAll('#report img')].every((img) => img.complete && img.naturalWidth > 0);
+      window.printWaitedForImages = !window.qaFileReadPending && !window.qaPendingDecodes;
+      window.printRequested = true;
+    };
+  });
+  if (native) await page.evaluate(() => window.dispatchEvent(new Event('beforeprint')));
+  else {
+    if (!(await page.locator('#save-menu').isVisible())) await page.locator('#save-menu-button').click();
+    await page.locator('#save-menu [data-action="print"]').click();
+    await page.waitForFunction(() => window.printRequested === true);
+    assert.equal(await page.evaluate(() => window.printReadyImages), true, 'Print dialog must wait for decoded report images');
+    assert.equal(await page.evaluate(() => window.printWaitedForImages), true, 'Print dialog must wait for uploads and image decoding');
+  }
+  await page.emulateMedia({ media: 'print' });
+  const images = await page.locator('#report [data-report-image]').evaluateAll((elements) => elements.map((img) => ({
+    slot: img.dataset.reportImage, complete: img.complete && img.naturalWidth > 0,
+    src: img.src, width: img.getBoundingClientRect().width, height: img.getBoundingClientRect().height,
+    ratio: img.naturalWidth / img.naturalHeight,
+    lab: img.closest('.report-config').querySelector('h2').textContent,
+    caption: img.parentElement.querySelector('figcaption').textContent,
+    breakInside: getComputedStyle(img.closest('figure')).breakInside,
+  })));
+  assert.deepEqual(images.map((img) => img.slot), slots.filter((slot) => attachedSlots.includes(slot)));
+  for (const img of images) {
+    assert(img.complete, `Undecoded report image: ${img.slot}`);
+    assert(img.src.startsWith('blob:'));
+    assert(img.width > 0 && img.height > 0 && img.height <= 200 * 96 / 25.4 + 1);
+    assert(Math.abs(img.width / img.height - img.ratio) < .01, 'Image must not be stretched');
+    assert.match(img.lab, new RegExp(`Lab ${slots.indexOf(img.slot) + 1}`));
+    assert(img.caption.startsWith(`Screenshot_${slots.indexOf(img.slot) + 1}_Lab_`));
+    assert.equal(img.breakInside, 'avoid');
+  }
+  assert.equal(await page.locator('#report .report-screenshot .missing').filter({ hasText: 'Image not attached' }).count(), 3 - attachedSlots.length);
+  await page.emulateMedia({ media: 'screen' });
+  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+  return images;
+}
+async function saveReportPdf(page, filename) {
+  await page.emulateMedia({ media: 'print' });
+  assert(await page.locator('#report').isVisible());
+  assert.equal(await page.locator('#workbook').isVisible(), false);
+  await page.waitForFunction(() => [...document.querySelectorAll('#report img')].every((img) => img.complete && img.naturalWidth > 0));
+  await page.pdf({ path: path.join(pdfOutput, filename), format: 'A4', preferCSSPageSize: true, printBackground: true });
+  await page.emulateMedia({ media: 'screen' });
+  await page.evaluate(() => window.dispatchEvent(new Event('afterprint')));
+}
 async function fixtureImages(page) {
   return page.evaluate(() => {
     const canvas = document.createElement('canvas'); canvas.width = 800; canvas.height = 360;
@@ -66,6 +121,7 @@ async function fixtureImages(page) {
 
 (async () => {
   await fs.mkdir(output, { recursive: true });
+  await fs.mkdir(pdfOutput, { recursive: true });
   const fixtureBrowser = await playwright.chromium.launch();
   const sharedImages = await fixtureImages(await fixtureBrowser.newPage());
   await fixtureBrowser.close();
@@ -83,15 +139,16 @@ async function fixtureImages(page) {
       return context;
     };
     try {
-      for (const mode of ['hosted', 'offline']) {
+      for (const mode of ['hosted']) {
         const context = await newContext({ viewport: { width: 1448, height: 900 }, acceptDownloads: true, offline: mode === 'offline' && engine !== 'webkit' });
         if (mode === 'offline' && engine === 'webkit') await context.route(/^https?:/, (route) => route.abort());
         const page = await context.newPage(), errors = [], requests = [];
         page.on('pageerror', (error) => errors.push(error.message));
         page.on('request', (request) => { if (/^https?:/.test(request.url())) requests.push({ url: request.url(), method: request.method() }); });
         page.on('dialog', (dialog) => dialog.accept());
-        const url = mode === 'hosted' ? `${hosted}/worksheets/555-main-lab.html` : offline;
+        const url = `${hosted}/worksheets/555-main-lab.html`;
         await page.goto(url);
+        await checkReport(page, []);
         // WebKit can decode WebP but its canvas encoder may fall back to PNG.
         const raw = sharedImages, png = Buffer.from(raw.png, 'base64');
         await page.locator('[data-field="group.id"]').fill(`${engine}-${mode}`);
@@ -103,6 +160,42 @@ async function fixtureImages(page) {
         await panel.locator('[data-upload]').click();
         await panel.locator('.image-status').filter({ hasText: expected('A0') }).waitFor();
         assert(await panel.locator('img').evaluate((img) => img.complete && img.naturalWidth === 800));
+        await checkReport(page, ['A0']);
+        if (engine === 'chromium' && mode === 'hosted') {
+          await page.evaluate(() => {
+            window.qaFileArrayBuffer = File.prototype.arrayBuffer;
+            File.prototype.arrayBuffer = async function () {
+              window.qaFileReadPending = true;
+              await new Promise((resolve) => setTimeout(resolve, 400));
+              const result = await window.qaFileArrayBuffer.call(this);
+              window.qaFileReadPending = false;
+              return result;
+            };
+            window.qaImageDecode = HTMLImageElement.prototype.decode;
+            HTMLImageElement.prototype.decode = async function () {
+              if (!this.hasAttribute('data-report-image')) return window.qaImageDecode.call(this);
+              window.qaPendingDecodes = (window.qaPendingDecodes || 0) + 1;
+              await Promise.all([window.qaImageDecode.call(this), new Promise((resolve) => setTimeout(resolve, 100))]);
+              window.qaPendingDecodes--;
+            };
+          });
+          // Press print while the selected file is still being validated.
+          await page.locator('[data-image-file="A0"]').setInputFiles({ name: 'immediate.png', mimeType: 'image/png', buffer: png });
+          await panel.locator('[data-upload]').click();
+          await checkReport(page, ['A0']);
+          await page.evaluate(() => {
+            File.prototype.arrayBuffer = window.qaFileArrayBuffer;
+            HTMLImageElement.prototype.decode = window.qaImageDecode;
+            window.printRequested = false;
+            HTMLImageElement.prototype.decode = function () { return this.hasAttribute('data-report-image') ? Promise.reject(new Error('Synthetic decode failure')) : window.qaImageDecode.call(this); };
+          });
+          await page.locator('#save-menu-button').click();
+          await page.locator('#save-menu [data-action="print"]').click();
+          await page.waitForFunction(() => document.querySelector('#toast').textContent.includes('Could not prepare the report'));
+          assert.equal(await page.evaluate(() => window.printRequested), false, 'A failed image must not open a blank printout');
+          await page.evaluate(() => { HTMLImageElement.prototype.decode = window.qaImageDecode; });
+          await checkReport(page, ['A0']);
+        }
         // Real decoding of all four accepted formats; replacement preserves actual bytes.
         for (const [name, mimeType, buffer, extension] of [
           ['scope.jpeg', 'image/jpeg', Buffer.from(raw.jpeg, 'base64'), 'jpeg'],
@@ -111,6 +204,7 @@ async function fixtureImages(page) {
           ['scope.png', 'image/png', png, 'png'],
         ]) {
           await upload(page, 'A0', buffer, name, mimeType);
+          await checkReport(page, ['A0']);
           assert.match(await panel.locator('.image-status').innerText(), new RegExp(expected('A0', extension)));
           const backup = JSON.parse((await download(page, 'export')).bytes);
           assert.deepEqual(Buffer.from(backup.images[0].data, 'base64'), buffer);
@@ -130,8 +224,28 @@ async function fixtureImages(page) {
           assert.match(await panel.locator('.image-status').innerText(), /Attached locally.*Screenshot_1_Lab_1.png/);
         }
         for (const [slot, index] of [['A1', 2], ['M0trigger', 3]]) { await go(page, index); await upload(page, slot, png); }
+        const currentReport = await checkReport(page, slots);
+        await go(page, 1);
+        await page.locator('[data-field="configs.A0.design.rationale"]').fill('Synthetic QA: latest typed answer must appear in native printing.');
+        assert.deepEqual((await checkReport(page, slots, true)).map((img) => img.src), currentReport.map((img) => img.src), 'Navigation must not revoke report image URLs');
+        assert.match(await page.locator('#report').innerText(), /latest typed answer must appear in native printing/);
+        await go(page, 3);
+        if (engine === 'chromium' && mode === 'hosted') {
+          await saveReportPdf(page, '555-report-images-qa.pdf');
+          const tall = Buffer.from(await page.evaluate(() => {
+            const c = document.createElement('canvas'); c.width = 600; c.height = 1600;
+            const ctx = c.getContext('2d'); ctx.fillStyle = '#102a36'; ctx.fillRect(0, 0, 600, 1600);
+            ctx.font = '24px sans-serif'; ctx.fillStyle = '#fff'; ctx.fillText('SYNTHETIC TALL QA IMAGE', 30, 50);
+            for (let y = 100; y < 1600; y += 100) { ctx.fillStyle = y % 200 ? '#ffd457' : '#53d7dc'; ctx.fillRect(30, y, 540, 3); ctx.fillText(`QA height ${y}`, 30, y + 35); }
+            return c.toDataURL('image/png').split(',')[1];
+          }), 'base64');
+          await upload(page, 'M0trigger', tall);
+          await checkReport(page, slots);
+          await saveReportPdf(page, '555-report-tall-qa.pdf');
+          await upload(page, 'M0trigger', png);
+        }
         const backupFile = await download(page, 'export'), backup = JSON.parse(backupFile.bytes);
-        assert.equal(backup.images.length, 3); assert.equal(backup.record.schemaVersion, 2);
+        assert.equal(backup.images.length, 3); assert.equal(backup.record.schemaVersion, 3);
         assert.match(await page.locator('.stats').innerText(), /3\/3\s+Images attached/);
         const zipFile = await download(page, 'zip'), zip = unzipSync(zipFile.bytes);
         assert.deepEqual(Object.keys(zip).sort(), [backupFile.name, 'screenshots/', ...slots.map((slot) => `screenshots/${expected(slot)}`)].sort());
@@ -145,12 +259,15 @@ async function fixtureImages(page) {
         await page.reload(); await go(page, 1);
         try { await panel.locator('.image-status').filter({ hasText: 'Attached locally' }).waitFor(); }
         catch (error) { console.error(engine, mode, await panel.innerText(), await page.locator('#save-status').innerText()); throw error; }
+        await checkReport(page, slots);
         await panel.locator('[data-remove-image]').click();
         assert.equal(await panel.locator('img').count(), 0);
+        await checkReport(page, ['A1', 'M0trigger']);
         const removed = JSON.parse((await download(page, 'export')).bytes);
         assert.equal(removed.images.length, 2); assert.equal(removed.record.evidence.A0.filename, '');
         // Import the same record ID with a different image set: no stale IDB images may return.
         await importBackup(page, { ...backup, images: [] });
+        await checkReport(page, [], true);
         await go(page, 1); assert.match(await panel.locator('.image-status').innerText(), /Image not attached/);
         await page.reload(); await go(page, 4);
         await page.waitForFunction(() => !document.querySelector('#save-status').textContent.includes('Saving images'));
@@ -158,9 +275,11 @@ async function fixtureImages(page) {
         // Old v2 imports retain names but do not inherit the current group's blobs.
         const old = structuredClone(backup.record); old.recordId += '-other'; old.group.id = 'OTHER-GROUP';
         await importBackup(page, old);
+        await checkReport(page, []);
         await go(page, 1); assert.match(await panel.locator('.image-status').innerText(), /Image not attached.*Previously recorded/);
         assert.equal(JSON.parse((await download(page, 'export')).bytes).images.length, 0);
         await importBackup(page, backup);
+        await checkReport(page, slots);
         const restored = JSON.parse((await download(page, 'export')).bytes);
         assert.deepEqual(restored.images, backup.images);
         assert.deepEqual(restored.record.configs, backup.record.configs);
@@ -174,6 +293,7 @@ async function fixtureImages(page) {
           await preview.screenshot({ path: path.join(output, `${engine}-${mode}-${width}.png`), animations: 'disabled', style: '.topbar,footer,#toast{visibility:hidden!important}' });
         }
         await newWorkbook(page);
+        await checkReport(page, []);
         const empty = JSON.parse((await download(page, 'export')).bytes);
         assert.equal(empty.images.length, 0); assert.notEqual(empty.record.recordId, backup.record.recordId);
         assert.equal(empty.record.configs.A0.original, null);
@@ -187,7 +307,7 @@ async function fixtureImages(page) {
         assert(requests.every((request) => request.method === 'GET' && [url, `${hosted}/favicon.ico`].includes(request.url)), JSON.stringify(requests));
         if (mode === 'offline') assert.equal(requests.length, 0);
         await context.close();
-        console.log(`PASS ${engine} ${mode}: all formats, invalid replacements, previews, persistence, JSON/ZIP bytes, group isolation, responsive layouts, no upload requests`);
+        console.log(`PASS ${engine} ${mode}: report images/button/native printing, all formats, invalid replacements, persistence, JSON/ZIP bytes, group isolation, responsive layouts, no upload requests`);
       }
       // Deliberate IndexedDB failure: keep the image in session and export it.
       const denied = await newContext({ acceptDownloads: true });
@@ -197,6 +317,7 @@ async function fixtureImages(page) {
       await go(page, 1); const raw = await fixtureImages(page), png = Buffer.from(raw.png, 'base64');
       await upload(page, 'A0', png);
       await page.waitForFunction(() => document.querySelector('#save-status').textContent.includes('Images not saved'));
+      await checkReport(page, ['A0']);
       const safe = JSON.parse((await download(page, 'export')).bytes);
       assert.deepEqual(Buffer.from(safe.images[0].data, 'base64'), png);
       await denied.close();

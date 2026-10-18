@@ -17,6 +17,8 @@ import {
   designForEntry,
   TASKS,
   taskLabel,
+  pairStudents,
+  identityIssues,
 } from './model.js';
 import { n, v, op, row, frac, unit, math, valueLine, range, timingEquations, analysisEquations } from './scientific.js';
 import { conversionSchematic, monostableWaveforms } from './diagrams.js';
@@ -46,9 +48,10 @@ export const field = (record, path, label, options = {}) => {
     positive = false,
     disabled = false,
     value = get(record, path),
+    maxLength = MAX_TEXT_LENGTH,
   } = options;
   const id = `field-${path.replaceAll('.', '-')}`;
-  const attributes = `id="${id}" data-field="${path}" ${numeric ? 'inputmode="decimal" data-numeric="true"' : ''} ${positive ? 'data-positive="true"' : ''} ${disabled ? 'disabled' : ''} maxlength="${MAX_TEXT_LENGTH}" ${hint ? `aria-describedby="${id}-hint"` : ''}`;
+  const attributes = `id="${id}" data-field="${path}" ${numeric ? 'inputmode="decimal" data-numeric="true"' : ''} ${positive ? 'data-positive="true"' : ''} ${disabled ? 'disabled' : ''} maxlength="${maxLength}" ${hint ? `aria-describedby="${id}-hint"` : ''}`;
   return `<div class="field"><label for="${id}">${label}${unit ? ` <span class="unit">(${unit})</span>` : ''}</label>${area ? `<textarea ${attributes} rows="3">${esc(value)}</textarea>` : `<input ${attributes} type="text" value="${esc(value)}" autocomplete="off">`}${hint ? `<small id="${id}-hint">${hint}</small>` : ''}</div>`;
 };
 const check = (record, path, label) =>
@@ -57,9 +60,9 @@ const select = (record, path, label, choices) => {
   const id = `field-${path.replaceAll('.', '-')}`;
   return `<div class="field"><label for="${id}">${label}</label><select id="${id}" data-field="${path}">${choices.map(([v, text]) => `<option value="${v}" ${get(record, path) === v ? 'selected' : ''}>${text}</option>`).join('')}</select></div>`;
 };
-const box = (title, text, type = '') =>
+export const box = (title, text, type = '') =>
   `<div class="callout ${type}"><strong>${title}</strong><p>${text}</p></div>`;
-const paper = (title, content, subtitle = '') =>
+export const paper = (title, content, subtitle = '') =>
   `<section class="paper"><div class="section-heading"><h2>${title}</h2>${subtitle ? `<span class="chip">${subtitle}</span>` : ''}</div>${content}</section>`;
 const fields = (content) => `<div class="fields">${content}</div>`;
 const timingKeys = (id) =>
@@ -223,13 +226,13 @@ function measurementPanel(record, id) {
     'Breadboard measurements',
   );
 }
-function comparison(record) {
+export function comparison(record) {
   const rows = comparisonRows(record);
   const a = number(record.configs.A0.measurement.frequency),
     b = number(record.configs.A1.measurement.frequency);
   return `<p>This table compares the predicted values and measured results you entered. A dash indicates that a value is missing or cannot be calculated. Duty-cycle differences are shown in percentage points (pp).</p><div class="table-scroll" tabindex="0" role="region" aria-label="Predicted values compared with measured results"><table><thead><tr><th>Circuit and quantity</th><th>Predicted values</th><th>Measured results</th><th>Difference</th></tr></thead><tbody>${rows.map((row) => `<tr><th scope="row">${taskLabel(row.id)} · ${quantityLabel(row.key, PREDICTION_FIELDS[row.key][0])} (${PREDICTION_FIELDS[row.key][1]})</th><td>${fmt(row.predicted)}</td><td>${fmt(row.measured)}</td><td>${fmt(row.difference)}${row.difference === null ? '' : row.key === 'duty' ? ' pp' : ' %'}</td></tr>`).join('')}</tbody></table></div>${math(row(v('k', 'frequency'), op('='), a !== null && a > 0 && b !== null && Number.isFinite(b / a) ? n(fmt(b / a)) : '<mtext>not available</mtext>'), 'Ratio of the measured Lab 2 frequency to the measured Lab 1 frequency')}`;
 }
-function chart(record, ids, keys, title) {
+export function chart(record, ids, keys, title) {
   const groups = ids.flatMap((id) =>
     keys.map((key) => ({
       id,
@@ -268,18 +271,18 @@ function chart(record, ids, keys, title) {
 }
 function review(record, attachedSlots) {
   const p = progress(record, attachedSlots);
-  return `<div class="stats"><div><strong>${p.preserved}/3</strong><span>Initial designs saved</span></div><div><strong>${p.captures}/${REQUIRED_CAPTURES.length}</strong><span>Images attached</span></div><div><strong>${p.conclusions}/2</strong><span>Conclusions entered</span></div></div><p>Use this checklist to find sections you still need to complete. It checks whether answers have been entered, not whether they are correct. Check the screenshot files themselves before submitting. You can download your work even if some sections are incomplete.</p><ul class="review-list">${REQUIRED_IDS.map((id) => `<li><strong>${taskLabel(id)}</strong><span>${record.configs[id].original ? 'Initial design and predictions saved' : 'Initial design and predictions not yet saved'} · ${Object.values(record.configs[id].measurement).some((v) => v.trim()) ? 'Measured results section started' : 'Measured results not yet entered'}</span></li>`).join('')}</ul>`;
+  return `<div class="stats"><div><strong>${p.preserved}/3</strong><span>Initial designs saved</span></div><div><strong>${p.captures}/${REQUIRED_CAPTURES.length}</strong><span>Images attached</span></div></div><p>Use this checklist to find sections you still need to complete. It checks whether answers have been entered, not whether they are correct. Check the screenshot files themselves before submitting. You can download your work even if some sections are incomplete.</p><ul class="review-list">${REQUIRED_IDS.map((id) => `<li><strong>${taskLabel(id)}</strong><span>${record.configs[id].original ? 'Initial design and predictions saved' : 'Initial design and predictions not yet saved'} · ${Object.values(record.configs[id].measurement).some((v) => v.trim()) ? 'Measured results section started' : 'Measured results not yet entered'}</span></li>`).join('')}</ul>`;
 }
 function preparation(record) {
-  return box('Your work stays in this browser', 'Everyone uses the same link, but work stays in this browser profile. Upload attaches images locally, not to a server. Download a JSON or ZIP backup before closing or changing computers. Move offline work online by loading JSON; the copies do not synchronise. Browser data can be cleared or lost. On shared computers, download your work and start a new workbook before leaving.')
-    + paper('Group details and equipment', `${fields(field(record, 'group.id', 'Group ID') + field(record, 'group.members', 'Group members — one name per line', { area: true }))}${fields(field(record, 'setup.supply', 'Power supply model or bench number, and current-limit setting') + field(record, 'setup.scope', 'Oscilloscope model or bench number') + field(record, 'setup.generator', 'Function generator model, if used') + field(record, 'setup.dmm', 'DMM model or bench number'))}${field(record, 'setup.notes', 'Record any missing components or equipment problems', { area: true })}<p>Save your initial design and predictions before building each circuit. You can correct your answers later; the original version will remain in your report.</p>`)
+  return box('Your work stays in this browser', 'Work together on one computer. This is the pair’s data sheet; each student completes the post-lab separately. Answers and uploaded images stay in this browser, not on a server. Download lab files (ZIP) before leaving or changing computers. Keep a copy for each partner. Browser data can be cleared or lost.')
+    + paper('Group details and equipment', `${fields(field(record, 'group.id', 'Group ID'))}${pairStudents(record).map((_, i) => `<h3>Student ${i + 1}</h3>${fields(field(record, `group.student${i + 1}.name`, `Student ${i + 1} name`, { maxLength: 200 }) + field(record, `group.student${i + 1}.id`, `Student ${i + 1} ID`, { maxLength: 40 }))}`).join('')}${record.legacyMembers || Object.values(record.analysis).some(value => value.trim()) ? `<details class="reference"><summary>Earlier group details and shared analysis (recovery only)</summary><p class="prewrap">${esc(record.legacyMembers)}</p>${definitionList(record.analysis, analysisLabels)}<p>These earlier answers are retained in backups, not assigned to either student’s individual report. Confirm the two names above and add their IDs.</p></details>` : ''}${fields(field(record, 'setup.supply', 'Power supply model or bench number, and current-limit setting') + field(record, 'setup.scope', 'Oscilloscope model or bench number') + field(record, 'setup.generator', 'Function generator model, if used') + field(record, 'setup.dmm', 'DMM model or bench number'))}${field(record, 'setup.notes', 'Record any missing components or equipment problems', { area: true })}<p>Save your initial design and predictions before building each circuit. You can correct your answers later; the original version will remain in your report.</p>`)
     + paper('Components and safety checks', kit() + voltageGoals() + Object.entries(SAFETY).map(([key, label]) => check(record, `setup.safety.${key}`, label)).join(''))
     + paper('NE555 pin connections', diagram(pinGuide(), 'NE555 viewed from above. Use the notch and dot to identify pin 1 before wiring.', 'pins'));
 }
 function optionalNotes(record) {
   return `<details class="reference"><summary>Optional simulator results or additional notes</summary><p>The simulator is optional. Record any simulator readings separately from your breadboard measurements.</p>${field(record, 'optional.tool', 'Simulator or other software used, if any')}${field(record, 'optional.simulation', 'Optional simulator results', { area: true })}${field(record, 'optional.extensions', 'Notes from any additional circuit tests', { area: true })}</details>`;
 }
-function postlab(record, attachedSlots) {
+export function analysisForm(record) {
   return paper(
       '1 · Compare predicted values and measured results',
       `<p>For all three circuits, compare each measured result with the value calculated for the same components. If you corrected a calculation, state what you changed and why. In the equations below, the subscript “pred” refers to your calculated value and “meas” refers to your measurement.</p><ol><li>Calculate the percentage difference between each calculated and measured timing value. Keep the sign so that a positive value means the measured result was larger.</li><li>Calculate the difference in astable duty cycle in percentage points.</li><li>Calculate the ratio of the measured Lab 2 frequency to the measured Lab 1 frequency.</li><li>Calculate the HIGH-to-LOW time ratio for Lab 2 and compare all three required circuits with their design specifications.</li></ol>${analysisEquations()}${field(record, 'analysis.workings', 'Show your calculations for the differences and ratios', { area: true })}<details class="reference" open><summary>Table and charts of your predicted values and measured results</summary>${comparison(record)}${chart(record, ['A0', 'A1'], ['high', 'low'], 'Astable HIGH and LOW times')}${chart(record, ['M0'], ['pulse'], 'Monostable pulse duration')}</details>${field(record, 'analysis.comparison', 'Explain whether each circuit met its design specifications', { area: true, hint: 'For Lab 1, compare the frequency with the specified range. For Lab 2, compare the HIGH-to-LOW time ratio and frequency with their limits. For Lab 3, compare the pulse duration and output voltages with their limits and describe the response to the switch. Include measured values and screenshot filenames in your answer.' })}`,
@@ -357,10 +360,12 @@ function postlab(record, attachedSlots) {
               hint: 'Use your calculations or measurements to justify the recommendation. State whether you tested it on the breadboard, checked it only in the simulator, or have not tested it.',
             },
           ),
-      ) + optionalNotes(record) + paper(
-      'Check your report before submitting',
-      `${review(record, attachedSlots)}${box('Save and submit your work', 'Download answers (JSON) keeps your answers and attached images together. Download lab files (ZIP) includes that backup and the original images in a screenshots folder when extracted. Print or save report as PDF produces your report. Submit the report and three images as instructed; downloads do not submit them.')}<div class="actions"><button class="primary" data-action="export">Download answers (JSON)</button><button data-action="zip">Download lab files (ZIP)</button><button data-action="print">Print or save report as PDF</button><button data-action="import">Load answers (JSON)…</button></div><p class="small muted">Downloads go to your browser’s download location. You can download incomplete work and return later.</p>`,
-    );
+      ) + optionalNotes(record);
+}
+function saveLabData(record, attachedSlots) {
+  return paper('Save the pair’s lab data', review(record, attachedSlots)
+    + box('Next: individual post-lab', 'Download lab files (ZIP) is the recommended transfer file. Each partner needs a copy of the same ZIP, plus their own finalized pre-lab ZIP. Open the individual workspace in another tab and import both files. A PDF is for reading, not importing.')
+    + '<div class="actions"><button class="primary" data-action="zip">Download lab files (ZIP)</button><button data-action="export">Download answers (JSON)</button><button data-action="print">Print or save report as PDF</button></div><p><a href="/worksheets/555-post-lab.html" target="_blank" rel="noopener">Open individual post-lab workspace ↗</a></p><p class="small muted">Downloads do not submit your work. Incomplete backups are allowed; finish both students’ details before using the file for post-lab work.</p>');
 }
 export function screen(record, index, attachedSlots = []) {
   const [title] = SCREENS[index];
@@ -369,9 +374,9 @@ export function screen(record, index, attachedSlots = []) {
     'Design a 555 astable circuit using the available resistors and capacitors, then build it and measure its output.',
     'Continuing from Lab 1, modify your circuit so that the HIGH time is approximately twice the LOW time, while keeping the frequency within the limits shown below.',
     'Convert your astable circuit to a monostable circuit that produces one HIGH pulse after a brief switch press and release. After the pulse, the output should remain LOW until the next press.',
-    'Compare your calculated and measured results, explain the differences, and complete your conclusions before saving the report.',
+    'Download the pair’s shared measurements and screenshots, then complete the post-lab individually.',
   ];
-  const head = `<div class="screen-head"><span class="eyebrow">${index === 4 ? 'POST-LAB' : index === 0 ? 'PREPARATION' : 'MAIN LAB'}</span><h1>${title}</h1><p class="leadin">${intros[index]}</p></div>`;
+  const head = `<div class="screen-head"><span class="eyebrow">${index === 4 ? 'SAVE LAB DATA' : index === 0 ? 'PREPARATION' : 'MAIN LAB'}</span><h1>${title}</h1><p class="leadin">${intros[index]}</p></div>`;
   let body;
   if (index === 0) body = preparation(record);
   if (index === 1) body = goalPanel(record, 'A0')
@@ -386,10 +391,10 @@ export function screen(record, index, attachedSlots = []) {
     + measurementPanel(record, 'A1');
   if (index === 3) body = goalPanel(record, 'M0') + monostableCircuitGuide() + predictionPanel(record, 'M0')
     + measurementPanel(record, 'M0');
-  if (index === 4) body = postlab(record, attachedSlots);
+  if (index === 4) body = saveLabData(record, attachedSlots);
   return head + body;
 }
-function definitionList(object, labels = {}) {
+export function definitionList(object, labels = {}) {
   return `<dl>${Object.entries(object)
     .map(
       ([key, value]) =>
@@ -484,8 +489,17 @@ const screenshotLabels = {
   A1: 'Screenshot 2 - Lab 2 output and capacitor voltage',
   M0trigger: 'Screenshot 3 - Lab 3 trigger and output',
 };
-function reportScreenshots(record, id) {
-  return (id === 'M0' ? ['M0trigger'] : [id]).map((key) => `<div class="report-screenshot"><h3>${screenshotLabels[key]}</h3>${definitionList(relevant(record.evidence[key], ['filename']), { filename: 'Oscilloscope screenshot filename', annotation: 'Previously recorded screenshot description' })}</div>`).join('');
+function reportScreenshots(record, id, imageSources) {
+  return (id === 'M0' ? ['M0trigger'] : [id]).map((key) => {
+    const source = imageSources[key], evidence = record.evidence[key];
+    // Only runtime-created local URLs are allowed, never filenames or remote URLs.
+    const attached = typeof source === 'string' && source.startsWith('blob:');
+    const image = attached
+      ? `<figure class="report-image"><h3>${screenshotLabels[key]}</h3><img data-report-image="${key}" src="${esc(source)}" alt="${screenshotLabels[key]}" loading="eager"><figcaption>${esc(evidence.filename || 'Attached screenshot')}</figcaption></figure>`
+      : `<h3>${screenshotLabels[key]}</h3>${definitionList({ filename: evidence.filename }, { filename: 'Oscilloscope screenshot filename' })}<p class="missing">Image not attached.</p>`;
+    const notes = evidence.annotation.trim() ? definitionList({ annotation: evidence.annotation }, { annotation: 'Previously recorded screenshot description' }) : '';
+    return `<div class="report-screenshot">${image}${notes}</div>`;
+  }).join('');
 }
 const recordedOnly = (object) => Object.fromEntries(Object.entries(object).filter(([, value]) => typeof value === 'boolean' ? value : value.trim()));
 function earlierNotes(record) {
@@ -496,7 +510,7 @@ function earlierNotes(record) {
     + (Object.keys(capacitor).length ? `<h3>Earlier Lab 3 capacitor capture (not required)</h3>${definitionList(capacitor, { filename: 'Previously recorded filename', annotation: 'Previously recorded screenshot description' })}` : '')
     + (Object.keys(handoff).length ? `<h3>Earlier bench notes</h3>${definitionList(handoff, { poweredDown: 'Supply switched off, capacitor discharged, and bench checked', evidenceChecked: 'Screenshot files and filenames checked', notes: 'Unfinished measurements or problems to follow up' })}` : '') + '</section>';
 }
-const analysisLabels = {
+export const analysisLabels = {
   workings: 'Calculations for differences and ratios', comparison: 'Comparison with the design specifications', paths: 'Capacitor charging, discharging, and timing resistor functions', conversion: 'Why the astable repeats and the monostable waits for the switch', timing: 'Why the astable HIGH time and monostable pulse duration differ', uncertainty: 'Possible causes of differences between calculated and measured values', verification: 'Test to check the explanation', conclusionA: 'Conclusions about the astable circuits', conclusionM: 'Conclusions about the monostable circuit', improvement: 'Recommended improvement and whether it was tested',
 };
 const safetyReportLabels = {
@@ -507,11 +521,10 @@ const safetyReportLabels = {
   modifications: 'Power-off changes and safe capacitor discharge',
   probes: 'Probe settings and unloaded output',
 };
-export function report(record) {
-  return `<header class="report-title"><p>Electronics Lab - Main lab and post-lab results</p><h1>555 Timer Laboratory Report</h1>${definitionList(record.group, { id: 'Group ID', members: 'Group members' })}<p>Workbook ID: ${esc(record.recordId)} - Version ${record.schemaVersion}<br>Created ${esc(record.createdAt)} - Updated ${esc(record.updatedAt)} (computer times)</p></header>
+export function report(record, imageSources = {}) {
+  return `<header class="report-title"><p>Electronics Lab - Paired data collection</p><h1>555 Timer Main Lab Data Report</h1>${identityIssues(record).length ? `<p class="report-warning">DRAFT - ${esc(identityIssues(record).join(" "))}</p>` : ""}${definitionList({id: record.group.id}, {id: "Group ID"})}${pairStudents(record).map((student,i) => `<h3>Student ${i+1}</h3>${definitionList(student,{name:"Name",id:"Student ID"})}`).join("")}<p>Workbook ID: ${esc(record.recordId)} - Version ${record.schemaVersion}<br>Created ${esc(record.createdAt)} - Updated ${esc(record.updatedAt)} (computer times)</p></header>
   <section><h2>Equipment and safety checks</h2>${definitionList(Object.fromEntries(Object.entries(record.setup).filter(([key]) => key !== 'safety')), { supply: 'Power supply and current-limit setting', scope: 'Oscilloscope', generator: 'Optional function generator', dmm: 'DMM', notes: 'Equipment problems' })}${definitionList(record.setup.safety, safetyReportLabels)}</section>
   <section class="report-specifications"><h2>Specification summary</h2><p>Shared conditions: regulated supply and high-impedance oscilloscope inputs, with other output loads disconnected.</p><div class="parameter-grid">${valueLine('V', 'CC', '5', 'V')}${math(row(n('3.0'), unit('V'), op('≤'), v('V', 'OH'), op('≤'), v('V', 'CC')), 'HIGH output at least 3.0 volts and not above supply')}${math(row(v('V', 'OL'), op('≤'), n('0.5'), unit('V')), 'LOW output no more than 0.5 volts')}</div><table><thead><tr><th>Lab</th><th>Required output</th></tr></thead><tbody>${REQUIRED_IDS.map((id) => `<tr><th>${TASKS[id].title}</th><td>${targetExpressions(record, id)}${id === 'A1' && number(designReference(record, id).frequency) > 0 ? valueLine('f', 'Lab 1, reference', designReference(record, id).frequency, 'Hz') : ''}${id === 'A1' ? '<p>Keep the Lab 1 timing capacitor.</p>' : id === 'M0' ? '<p>One pulse per brief switch press and release.</p>' : ''}</td></tr>`).join('')}</tbody></table></section>
-  ${REQUIRED_IDS.map((id) => `<section class="report-config"><h2>${TASKS[id].title}</h2>${reportDesign(record, id)}<h3>Measured results</h3>${measurementList(id, record.configs[id].measurement)}${reportScreenshots(record, id)}</section>`).join('')}
-  <section><h2>Post-lab analysis and conclusions</h2>${comparison(record)}${chart(record, ['A0', 'A1'], ['high', 'low'], 'Astable HIGH and LOW times')}${chart(record, ['M0'], ['pulse'], 'Monostable pulse duration')}${definitionList(record.analysis, analysisLabels)}</section>
+  ${REQUIRED_IDS.map((id) => `<section class="report-config"><h2>${TASKS[id].title}</h2>${reportDesign(record, id)}<h3>Measured results</h3>${measurementList(id, record.configs[id].measurement)}${reportScreenshots(record, id, imageSources)}</section>`).join('')}
   ${earlierNotes(record)}${Object.values(record.optional).some((value) => value.trim()) ? `<section><h2>Optional notes</h2>${definitionList(record.optional, { tool: 'Simulator or software used', simulation: 'Simulator results', extensions: 'Notes from additional circuit tests' })}</section>` : ''}`;
 }

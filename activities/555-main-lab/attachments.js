@@ -1,5 +1,6 @@
 import { zipSync, strToU8 } from 'fflate';
 import { REQUIRED_CAPTURES, MAX_RECORD_BYTES, parseRecord, validateRecord } from './model.js';
+import { backupEntry, utf8 } from './archive.js';
 
 export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 export const MAX_BACKUP_BYTES = 64 * 1024 * 1024;
@@ -74,14 +75,14 @@ export async function createBackup(record, images) {
     valid.evidence[slot].filename = image.filename;
     return { slot, filename: image.filename, type: image.type, data: base64(new Uint8Array(await image.blob.arrayBuffer())) };
   }));
-  return { format: BACKUP_FORMAT, backupVersion: 1, record: valid, images: entries };
+  return { format: BACKUP_FORMAT, backupVersion: 2, record: valid, images: entries };
 }
 export async function parseBackup(text, decode = decodeImage) {
   if (new TextEncoder().encode(text).length > MAX_BACKUP_BYTES) throw new Error('The backup exceeds the 64 MiB limit.');
   let value;
   try { value = JSON.parse(text); } catch { throw new Error('This is not a readable JSON backup.'); }
-  if (value?.format !== BACKUP_FORMAT) return { record: parseRecord(text), images: {} };
-  if (value.backupVersion !== 1 || !Array.isArray(value.images) || value.images.length > 3) throw new Error('Unsupported image backup format.');
+  if (value?.format !== BACKUP_FORMAT) return { record: parseRecord(text), images: {}, migrated: value?.schemaVersion === 2 };
+  if (![1, 2].includes(value.backupVersion) || !Array.isArray(value.images) || value.images.length > 3) throw new Error('Unsupported image backup format.');
   if (new TextEncoder().encode(JSON.stringify(value.record)).length > MAX_RECORD_BYTES) throw new Error('The answer record exceeds the 8 MiB limit.');
   const record = validateRecord(value.record);
   /** @type {Attachments} */
@@ -93,7 +94,7 @@ export async function parseBackup(text, decode = decodeImage) {
     images[item.slot] = image;
     record.evidence[item.slot].filename = image.filename;
   }
-  return { record, images };
+  return { record, images, migrated: value.record.schemaVersion === 2 };
 }
 export async function createLabZip(record, images, backupName) {
   const backup = await createBackup(record, images);
@@ -104,17 +105,31 @@ export async function createLabZip(record, images, backupName) {
   // Store original bytes, without re-encoding or recompressing the images.
   return zipSync(files, { level: 0 });
 }
+export async function parseMainFile(bytes, decode = decodeImage) {
+  if (bytes[0] !== 80 || bytes[1] !== 75) return parseBackup(utf8(bytes), decode);
+  const { files, text, name } = backupEntry(bytes);
+  const parsed = await parseBackup(text, decode);
+  const expected = new Set([name, 'screenshots/']);
+  for (const slot of REQUIRED_CAPTURES) if (parsed.images[slot]) {
+    const image = parsed.images[slot], path = `screenshots/${image.filename}`;
+    expected.add(path);
+    const original = files.get(path), embedded = new Uint8Array(await image.blob.arrayBuffer());
+    if (!original || original.length !== embedded.length || original.some((byte, i) => byte !== embedded[i])) throw new Error('ZIP screenshots do not match the embedded backup.');
+  }
+  if ([...files.keys()].some((key) => !expected.has(key)) || (files.get('screenshots/')?.length || 0)) throw new Error('Unexpected ZIP file. Choose the original worksheet download.');
+  return parsed;
+}
 
 // One atomic entry per record ID, so imports never merge another group's files.
 /** @param {IDBFactory | null} [factory] */
-export function imageStore(factory) {
+export function imageStore(factory, databaseName = 'electronics-555-main-lab-images') {
   let database;
   async function open() {
     // Access itself can throw in restricted/private browser contexts.
     if (factory === undefined) factory = globalThis.indexedDB;
     if (!factory) throw new Error('Image storage is unavailable.');
     if (!database) database = new Promise((resolve, reject) => {
-      const request = factory.open('electronics-555-main-lab-images', 1);
+      const request = factory.open(databaseName, 1);
       const timeout = setTimeout(() => reject(new Error('Image storage did not respond.')), 5000);
       request.onupgradeneeded = () => request.result.createObjectStore('workbooks');
       request.onerror = () => { clearTimeout(timeout); reject(request.error); };
