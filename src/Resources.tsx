@@ -23,6 +23,9 @@ export function Resources() {
           </Link>
         ))}
         <Link to="/resources#offline-simulators">Offline simulators</Link>
+        <Link reloadDocument to="/worksheets/555-main-lab.html">
+          555 Main Lab Worksheet
+        </Link>
       </nav>
       <div className="resource-guide-grid">
         {guides.map((guide, i) => (
@@ -48,6 +51,25 @@ export function Resources() {
           </section>
         ))}
       </div>
+      <section
+        className="panel resource-guide"
+        aria-labelledby="worksheet-title"
+      >
+        <span className="eyebrow">WORKSHEET</span>
+        <h2 id="worksheet-title">555 Main Lab Worksheet</h2>
+        <p>
+          Complete the three labs online. Answers and attached images stay in
+          your browser; download a backup to keep them or move to another
+          computer.
+        </p>
+        <Link
+          reloadDocument
+          className="topic-link"
+          to="/worksheets/555-main-lab.html"
+        >
+          Open worksheet <ArrowRight size={16} aria-hidden="true" />
+        </Link>
+      </section>
       <section
         id="offline-simulators"
         tabIndex={-1}

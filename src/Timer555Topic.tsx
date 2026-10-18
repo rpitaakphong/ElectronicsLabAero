@@ -38,6 +38,26 @@ export function Timer555Topic() {
             </div>
           </article>
         ))}
+        <article className="panel topic-card">
+          <div className="topic-art">
+            <span className="eyebrow">RECORD YOUR EXPERIMENT</span>
+            <TopicArt timer />
+          </div>
+          <div className="topic-card-body">
+            <h2>Main Lab Worksheet</h2>
+            <p>
+              Record all three labs, attach scope images locally, and download
+              your answers and lab files. Your work stays in your browser.
+            </p>
+            <Link
+              reloadDocument
+              className="open-lab"
+              to="/worksheets/555-main-lab.html"
+            >
+              Open worksheet <span aria-hidden="true">↗</span>
+            </Link>
+          </div>
+        </article>
       </div>
     </main>
   );

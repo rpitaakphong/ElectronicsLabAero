@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <link rel="icon" href="data:," />
+    <title>555 Timer Main Lab</title>
+    <style>
+      /* WORKBOOK_CSS */
+    </style>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to activity</a>
+    <div id="workbook">
+      <aside id="sidebar" aria-label="Activity navigation">
+        <div class="brand">
+          <span class="brand-icon" aria-hidden="true">∿</span>
+          <div>
+            <strong>Electronics Lab</strong
+            ><span>555 timer · Main lab and post-lab</span>
+          </div>
+        </div>
+        <button id="close-navigation" aria-label="Close activity navigation">
+          ✕
+        </button>
+        <p class="nav-label">LAB SECTIONS</p>
+        <nav id="steps" aria-label="Workbook screens"></nav>
+        <div class="side-note">
+          <strong>Build and test on the breadboard.</strong>
+          <p>A check mark means you have opened a page, not completed it.</p>
+          <p>Complete the post-lab sections as homework. The simulator is optional.</p>
+        </div>
+      </aside>
+      <div class="frame">
+        <header class="topbar">
+          <button
+            id="menu-button"
+            class="icon-button"
+            aria-label="Open activity navigation"
+            aria-expanded="false"
+            aria-controls="sidebar"
+          >
+            ☰
+          </button>
+          <div class="trail">
+            <strong>555 Main Lab</strong><span id="breadcrumb"></span>
+          </div>
+          <span id="screen-count"></span
+          ><button
+            id="save-menu-button"
+            aria-expanded="false"
+            aria-controls="save-menu"
+          >
+            Save and load
+          </button>
+        </header>
+        <div id="save-menu" class="save-menu" hidden>
+          <p id="save-detail" role="status">
+            Not saved yet. Download your answers before closing.
+          </p>
+          <button data-action="save">Save in this browser</button
+          ><button data-action="export">Download answers (JSON)</button
+          ><button data-action="zip">Download lab files (ZIP)</button
+          ><button data-action="import">Load answers (JSON)…</button
+          ><button data-action="print">Print or save report as PDF</button
+          ><button data-action="recover" id="recover-button" hidden>
+            Download the saved file that could not be opened</button
+          ><button data-action="legacy" id="legacy-button" hidden>
+            Download answers from the earlier lab</button
+          ><button data-action="new">Start a new workbook…</button>
+        </div>
+        <div class="progress-track" aria-hidden="true">
+          <div id="progress-bar"></div>
+        </div>
+        <main id="main" tabindex="-1"></main>
+        <footer>
+          <span id="save-status" role="status" aria-live="polite"
+            >Not saved yet</span
+          >
+          <div class="footer-actions">
+            <button id="previous">← Previous</button
+            ><button id="next" class="primary">Continue →</button>
+          </div>
+        </footer>
+      </div>
+    </div>
+    <button
+      id="nav-shade"
+      aria-label="Close activity navigation overlay"
+      tabindex="-1"
+      hidden
+    ></button>
+    <div id="report"></div>
+    <dialog id="dialog" aria-labelledby="dialog-title">
+      <div class="dialog-head">
+        <h2 id="dialog-title"></h2>
+        <button id="dialog-close" aria-label="Close dialog">✕</button>
+      </div>
+      <div id="dialog-body"></div>
+    </dialog>
+    <div id="toast" role="status" aria-live="polite" hidden></div>
+    <input
+      id="import-file"
+      type="file"
+      accept="application/json,.json"
+      hidden
+      aria-label="Select a JSON backup of your workbook answers"
+    />
+    <noscript
+      >Enable JavaScript in your browser to use this workbook. You do not need an internet connection or a server.</noscript
+    >
+    <script>
+      /* WORKBOOK_JS */
+    </script>
+  </body>
+</html>

@@ -107,6 +107,14 @@ test('unknown routes offer a home link', () => {
   assert.ok(screen.getByRole('heading', { name: 'Page not found' }));
   assert.ok(screen.getByRole('link', { name: /Go to all topics/ }));
 });
+test('555 topic and Resources link directly to the standalone local worksheet', () => {
+  open('/555-timer');
+  assert.equal(screen.getByRole('link', { name: /Open worksheet/ }).getAttribute('href'), '/worksheets/555-main-lab.html');
+  cleanup();
+  open('/resources');
+  assert.equal(screen.getByRole('link', { name: /Open worksheet/ }).getAttribute('href'), '/worksheets/555-main-lab.html');
+  assert.equal(screen.getByRole('link', { name: '555 Main Lab Worksheet' }).getAttribute('href'), '/worksheets/555-main-lab.html');
+});
 
 test('op-amp topic offers both tools and learning breadcrumbs return to the category', async () => {
   const user = userEvent.setup();
