@@ -66,16 +66,14 @@ const key = 'electronics-555-main-lab-v3';
       };
     };
     const attach = async (slot) => {
-      await page
-        .locator(`[data-image-file="${slot}"]`)
-        .setInputFiles({
-          name: 'scope.png',
-          mimeType: 'image/png',
-          buffer: Buffer.from(
-            'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aDV8AAAAASUVORK5CYII=',
-            'base64',
-          ),
-        });
+      await page.locator(`[data-image-file="${slot}"]`).setInputFiles({
+        name: 'scope.png',
+        mimeType: 'image/png',
+        buffer: Buffer.from(
+          'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aDV8AAAAASUVORK5CYII=',
+          'base64',
+        ),
+      });
       await page.locator(`[data-upload="${slot}"]`).click();
       await page
         .locator(`[data-attachment="${slot}"] .image-status`)
@@ -606,13 +604,6 @@ const key = 'electronics-555-main-lab-v3';
       );
       const sizing = await page.locator('.diagram-pins svg').evaluate((svg) => {
         const current = svg.getBoundingClientRect();
-        const previousStyle = svg.getAttribute('style');
-        svg.style.width = '60%';
-        svg.style.minWidth = innerWidth <= 560 ? '276px' : '282px';
-        svg.style.maxHeight = '336px';
-        const original = svg.getBoundingClientRect();
-        if (previousStyle === null) svg.removeAttribute('style');
-        else svg.setAttribute('style', previousStyle);
         const root = parseFloat(
           getComputedStyle(document.documentElement).fontSize,
         );
@@ -620,17 +611,17 @@ const key = 'electronics-555-main-lab-v3';
           getComputedStyle(document.querySelector('.trail strong')).fontSize,
         );
         return {
-          widthRatio: current.width / original.width,
-          heightRatio: current.height / original.height,
+          width: current.width,
+          ratio: current.width / current.height,
           fontIncrease: title - root * (innerWidth <= 560 ? 0.84 : 0.9),
         };
       });
       assert(
-        Math.abs(sizing.widthRatio - 0.5) < 0.005,
+        sizing.width >= 340 && sizing.width <= 650,
         `pin width at ${width}: ${JSON.stringify(sizing)}`,
       );
       assert(
-        Math.abs(sizing.heightRatio - 0.5) < 0.005,
+        Math.abs(sizing.ratio - 800 / 570) < 0.005,
         `pin height at ${width}: ${JSON.stringify(sizing)}`,
       );
       assert(
@@ -787,24 +778,20 @@ const key = 'electronics-555-main-lab-v3';
           );
         }
         if (i === 1) {
-          const scale = await page.locator('.diagram svg').evaluate((svg) => {
-            const current = svg.getBoundingClientRect();
-            const previousStyle = svg.getAttribute('style');
-            svg.style.width = '100%';
-            svg.style.minWidth = innerWidth <= 560 ? '460px' : '470px';
-            svg.style.maxHeight = '560px';
-            const original = svg.getBoundingClientRect();
-            if (previousStyle === null) svg.removeAttribute('style');
-            else svg.setAttribute('style', previousStyle);
-            return {
-              width: current.width / original.width,
-              height: current.height / original.height,
-            };
-          });
+          const diagram = page.locator('.astable-schematic');
           assert(
-            Math.abs(scale.width - 0.5) < 0.005 &&
-              Math.abs(scale.height - 0.5) < 0.005,
-            `circuit diagram scale at ${width}: ${JSON.stringify(scale)}`,
+            await diagram.evaluate(
+              (svg) => svg.getBoundingClientRect().width >= 740,
+            ),
+          );
+          assert.equal(
+            await diagram.locator('[data-chip-layout="dip8-top"]').count(),
+            1,
+          );
+          assert.equal(await diagram.locator('[data-open-pin="5"]').count(), 1);
+          assert.equal(
+            await diagram.locator('[data-component="control-bypass"]').count(),
+            0,
           );
         }
         assert.equal(
@@ -852,7 +839,7 @@ const key = 'electronics-555-main-lab-v3';
       await page
         .locator('.expanded-diagram svg')
         .evaluate((svg) => svg.getBoundingClientRect().width),
-      550,
+      1100,
     );
     await page.keyboard.press('Escape');
     assert.equal(await page.getByRole('dialog').count(), 0);
@@ -873,13 +860,13 @@ const key = 'electronics-555-main-lab-v3';
         'conversion-astable',
         'Before conversion · Astable timing connections',
         'conversion-schematic',
-        720,
+        1100,
       ],
       [
         'conversion-monostable',
         'After conversion · Monostable timing connections',
         'conversion-schematic',
-        720,
+        1100,
       ],
     ]) {
       const opener = page.locator(`[data-expand="${kind}"]`);

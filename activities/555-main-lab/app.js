@@ -614,6 +614,12 @@ document.addEventListener('click', (event) => {
     closeSaveMenu();
 });
 document.addEventListener('keydown', (event) => {
+  const region = event.target instanceof HTMLElement && event.target.matches('.diagram-scroll, .expanded-diagram') ? event.target : null;
+  if (region && !event.altKey && !event.ctrlKey && !event.metaKey && ['ArrowLeft', 'ArrowRight'].includes(event.key) && region.scrollWidth > region.clientWidth) {
+    event.preventDefault();
+    region.scrollLeft += event.key === 'ArrowRight' ? 48 : -48;
+    return;
+  }
   if (event.key === 'Escape' && !dialog.open) {
     if (navOpen) closeNav(true);
     else {

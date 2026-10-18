@@ -10,7 +10,7 @@ import {
 } from '../activities/555-main-lab/model.js';
 import { screen, report, schematic, pinGuide, designSummary, designFeedback } from '../activities/555-main-lab/views.js';
 import { timingEquations } from '../activities/555-main-lab/scientific.js';
-import { monostableSchematic, conversionSchematic, monostableWaveforms } from '../activities/555-main-lab/diagrams.js';
+import { DIP8_PINS, monostableSchematic, conversionSchematic, monostableWaveforms } from '../activities/555-main-lab/diagrams.js';
 
 // Trace the actual right-angle SVG wire geometry, not just its description.
 const wireSegments = (svg) => [...svg.matchAll(/<path data-wire-net="([^"]+)" d="([^"]+)"/g)].flatMap(([, net, path]) => {
@@ -334,16 +334,17 @@ test('key deliverables stay concise and omit timing units without removing input
 test('redundant standalone monostable and unchanged-power sections are omitted', () => {
   const svg = monostableSchematic(), segments = wireSegments(svg);
   independentNets(segments);
-  for (const [net, x, y] of [['timing', 470, 245], ['timing', 470, 300], ['trigger', 680, 380], ['vcc', 520, 180], ['vcc', 580, 180], ['ground', 545, 470], ['control', 635, 470], ['output', 680, 245]])
+  for (const [net, x, y] of [['timing', 740, 360], ['timing', 740, 450], ['trigger', 320, 360], ['vcc', 320, 540], ['vcc', 740, 270], ['ground', 320, 270], ['output', 320, 450]])
     assert(wiredPoint(segments, net, x, y), `Missing pin connection ${net} at ${x},${y}`);
-  for (const id of ['timing-r', 'timing-c', 'trigger-pullup', 'trigger-switch', 'control-bypass', 'supply-bypass']) assert(svg.includes(`data-component="${id}"`));
+  for (const id of ['timing-r', 'timing-c', 'trigger-pullup', 'trigger-switch', 'supply-bypass']) assert(svg.includes(`data-component="${id}"`));
   assert.match(svg, /normally-open/);
-  assert.match(svg, /10 kΩ/); assert.match(svg, /10 nF/); assert.match(svg, /100 nF/);
+  assert.match(svg, /10 kΩ/); assert.doesNotMatch(svg, /10 nF|control-bypass/); assert.match(svg, /100 nF/);
   assert.doesNotMatch(svg, /33 kΩ|66 kΩ|10 µF|1 µF/);
   const r = createRecord(), before = JSON.stringify(r), html = screen(r, 3);
   assert.match(html, /Circuit Schematic - Transforming Astable Circuit to Monostable Circuit/);
   assert.doesNotMatch(html, /Monostable circuit schematic|For Screenshot 4|complete schematic above/);
-  assert.match(html, /functional, not the physical DIP-8 layout/);
+  assert.match(html, /Both diagrams use the DIP-8 top view/);
+  assert.doesNotMatch(html, /functional, not|C_control|control-bypass/);
   assert.match(html, /ne555\.pdf#page=11/);
   assert.doesNotMatch(html, /Keep these connections unchanged|data-expand="unchanged-connections"|class="power-connections"/);
   assert.equal((html.match(/class="monostable-schematic"/g) || []).length, 0);
@@ -356,9 +357,9 @@ test('before/after diagrams show the actual three conversion changes without pre
   for (const mode of ['astable', 'monostable']) {
     const svg = conversionSchematic(mode), segments = wireSegments(svg);
     independentNets(segments);
-    assert(wiredPoint(segments, mode === 'astable' ? 'timing' : 'trigger', 470, 300));
-    assert(wiredPoint(segments, 'timing', 280, 260));
-    assert(wiredPoint(segments, mode === 'astable' ? 'discharge' : 'timing', 280, 180));
+    assert(wiredPoint(segments, mode === 'astable' ? 'timing' : 'trigger', 320, 360));
+    assert(wiredPoint(segments, 'timing', 740, 450));
+    assert(wiredPoint(segments, mode === 'astable' ? 'discharge' : 'timing', 740, 360));
     assert.equal(svg.includes('data-component="r2"'), mode === 'astable');
     assert.equal(svg.includes('data-component="trigger-switch"'), mode === 'monostable');
     assert.equal(svg.includes('data-component="trigger-pullup"'), mode === 'monostable');
@@ -370,6 +371,57 @@ test('before/after diagrams show the actual three conversion changes without pre
   assert.doesNotMatch(html, /Retain the power, RESET, and bypass wiring in both circuits/);
   assert.match(html, /data-expand="conversion-astable"/);
   assert.match(html, /data-expand="conversion-monostable"/);
+});
+
+test('all circuit renderers and the pin guide share the physical DIP-8 pin order and orientation', () => {
+  assert.deepEqual(DIP8_PINS.map((p) => [p.number, p.name, p.x, p.y]), [
+    [1, 'GND', 320, 270], [2, 'TRIG', 320, 360], [3, 'OUT', 320, 450], [4, 'RESET', 320, 540],
+    [8, 'VCC', 740, 270], [7, 'DISCH', 740, 360], [6, 'THRES', 740, 450], [5, 'CONT', 740, 540],
+  ]);
+  for (const svg of [pinGuide(), schematic(), monostableSchematic(), conversionSchematic('astable'), conversionSchematic('monostable')]) {
+    assert.match(svg, /data-chip-layout="dip8-top"/);
+    assert.match(svg, /data-notch="top" d="M490 180a40 40 0 0 0 80 0"/);
+    assert.match(svg, /data-pin1-dot="true" cx="405" cy="212"/);
+    assert.equal((svg.match(/data-pin="/g) || []).length, 8);
+    for (const p of DIP8_PINS) {
+      assert(svg.includes(`data-pin="${p.number}" data-pin-x="${p.x}" data-pin-y="${p.y}"`));
+      assert(svg.includes(`${p.number} · ${p.name}</text>`));
+    }
+  }
+});
+
+test('schematics retain supply decoupling, open CONT, and correct timing/trigger/component nets without crossings', () => {
+  for (const [mono, svg] of [[false, schematic()], [false, conversionSchematic('astable')], [true, monostableSchematic()], [true, conversionSchematic('monostable')]]) {
+    const segments = wireSegments(svg);
+    independentNets(segments);
+    const expected = { 1: 'ground', 2: mono ? 'trigger' : 'timing', 3: 'output', 4: 'vcc', 8: 'vcc', 7: mono ? 'timing' : 'discharge', 6: 'timing' };
+    for (const p of DIP8_PINS) {
+      if (p.number === 5) {
+        assert(!segments.some((s) => wiredPoint([s], s.net, p.x, p.y)), 'CONT must have no electrical net');
+        continue;
+      }
+      assert(wiredPoint(segments, expected[p.number], p.x, p.y));
+    }
+    for (const [net, x, y] of [['vcc', 1110, 230], ['ground', 1110, 242], ['vcc', 900, 160], [mono ? 'timing' : 'discharge', 900, 220], ['timing', 900, 560], ['ground', 900, 572]])
+      assert(wiredPoint(segments, net, x, y), `${net} must reach component terminal ${x},${y}`);
+    if (mono) {
+      for (const [net, x, y] of [['vcc', 100, 160], ['trigger', 100, 220], ['trigger', 100, 420], ['ground', 100, 470]])
+        assert(wiredPoint(segments, net, x, y));
+    } else {
+      assert(wiredPoint(segments, 'discharge', 900, 330));
+      assert(wiredPoint(segments, 'timing', 900, 390));
+    }
+    assert.match(svg, /data-component="supply-bypass"/);
+    assert.match(svg, /data-open-pin="5"/);
+    assert.match(svg, /CONT is unused and open/);
+    assert.doesNotMatch(svg, /control-bypass|C_control|10 nF/);
+    assert.equal(svg.includes('data-component="trigger-pullup"'), mono);
+    assert.equal(svg.includes('data-component="trigger-switch"'), mono);
+    assert.doesNotMatch(svg, /33 kΩ|66 kΩ|10 µF|1 µF/);
+  }
+  const prep = screen(createRecord(), 0);
+  assert.match(prep, /Leave pin 5 CONT open; no control capacitor is used/);
+  assert.doesNotMatch(prep, /C control|C_control|10 nF/);
 });
 
 test('Lab 1 and 2 omit live component-value strips while retaining input feedback and saved summaries', () => {

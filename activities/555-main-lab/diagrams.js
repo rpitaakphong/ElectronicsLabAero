@@ -1,96 +1,111 @@
-/* Workbook-only vector drawings. Pin positions are functional, not a DIP layout.
- * Keep trigger and timing nets separate in every monostable view. No timing
- * component answers are supplied here; students select R and C themselves. */
+/* Workbook-only vector drawings. Every IC uses the same DIP-8 top view.
+ * Trigger and timing nets stay separate in monostable views. Timing values
+ * are selected by students; only supply decoupling and trigger bias are fixed. */
 const ink = '#254e5b', change = '#087f85', remove = '#b65b24';
 const text = (x, y, label, extra = '') => `<text x="${x}" y="${y}" ${extra}>${label}</text>`;
 const wire = (net, path, extra = '') => `<path data-wire-net="${net}" d="${path}" ${extra}/>`;
-const dot = (x, y, color = ink) => `<circle cx="${x}" cy="${y}" r="4" fill="${color}" stroke="none"/>`;
+const dot = (x, y, color = ink) => `<circle data-junction="true" cx="${x}" cy="${y}" r="4" fill="${color}" stroke="none"/>`;
 const resistor = (id, x, top, height, extra = '') => `<rect data-component="${id}" x="${x - 15}" y="${top}" width="30" height="${height}" rx="2" fill="#fcfefd" ${extra}/>`;
 const capacitor = (id, x, y) => `<path data-component="${id}" d="M${x - 22} ${y}h44m-44 12h44"/>`;
-const badge = (x, y, number, color) => `<g aria-hidden="true"><circle cx="${x}" cy="${y}" r="15" fill="${color}" stroke="none"/><text x="${x}" y="${y + 6}" text-anchor="middle" font-size="18" font-weight="700" fill="#fff">${number}</text></g>`;
+const badge = (x, y, number, color) => `<g aria-hidden="true"><circle cx="${x}" cy="${y}" r="16" fill="${color}" stroke="none"/><text x="${x}" y="${y + 6}" text-anchor="middle" font-size="19" font-weight="700" fill="#fff">${number}</text></g>`;
 
-export function monostableSchematic() {
-  return `<svg class="monostable-schematic" viewBox="0 0 1000 640" role="img" aria-label="Complete 555 monostable schematic. Timing resistor R connects VCC to the timing node shared by pins 6 and 7. Timing capacitor C connects that node to ground. Pin 2 TRIG is separate, pulled up to VCC through 10 kiloohms, with a normally-open pushbutton to ground. Pins 8 and 4 connect to VCC; pin 1 connects to ground. Pin 5 has a 10 nanofarad bypass; the supply has a 100 nanofarad bypass. Output is pin 3.">
-    <g fill="none" stroke="${ink}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
-      <rect x="470" y="180" width="210" height="290" rx="10" fill="#edf5f4"/>
-      ${wire('vcc', 'M80 60H940M210 60V120M520 60V180M580 60V180M790 60V120M940 60V330')}
-      ${wire('timing', 'M210 180V425M210 245H470M210 300H470', 'data-pins="6 7"')}
-      ${wire('trigger', 'M790 180V424M680 380H790', 'data-pins="2" stroke="#087f85"')}
-      ${wire('ground', 'M80 570H940M210 437V570M545 470V570M635 512V570M790 472V570M940 342V570')}
-      ${wire('control', 'M635 470V500', 'data-pins="5"')}
-      ${wire('output', 'M680 245H745', 'data-pins="3"')}
-      ${resistor('timing-r', 210, 120, 60)}
-      ${resistor('trigger-pullup', 790, 120, 60, 'stroke="#087f85"')}
-      ${capacitor('timing-c', 210, 425)}
-      ${capacitor('control-bypass', 635, 500)}
-      ${capacitor('supply-bypass', 940, 330)}
-      <g data-component="trigger-switch" data-state="normally-open" stroke="#087f85">
-        <circle cx="790" cy="424" r="4" fill="#fcfefd"/><circle cx="790" cy="472" r="4" fill="#fcfefd"/>
-        <path d="M790 468L813 435"/>
-      </g>
-      ${dot(210, 245)}${dot(210, 300)}${dot(790, 380, change)}
-      ${dot(520, 60)}${dot(580, 60)}${dot(790, 60)}
-    </g>
-    <g fill="${ink}" font-family="system-ui,sans-serif" font-size="18">
-      ${text(80, 38, 'VCC = +5 V')}${text(80, 608, 'GND · common supply return and oscilloscope grounds')}
-      ${text(170, 150, 'R (timing)', 'text-anchor="end"')}
-      ${text(245, 447, 'C (timing)')}
-      ${text(485, 250, '7 DISCH')}${text(485, 305, '6 THRES')}
-      ${text(663, 385, '2 TRIG', 'text-anchor="end" fill="#087f85"')}
-      ${text(520, 203, '4', 'text-anchor="middle" font-size="16"')}${text(520, 224, 'RESET', 'text-anchor="middle" font-size="15"')}
-      ${text(580, 203, '8', 'text-anchor="middle" font-size="16"')}${text(580, 224, 'VCC', 'text-anchor="middle" font-size="15"')}
-      ${text(575, 345, 'NE555', 'text-anchor="middle" font-size="28"')}
-      ${text(545, 455, '1 GND', 'text-anchor="middle" font-size="16"')}
-      ${text(635, 455, '5 CONT', 'text-anchor="middle" font-size="16"')}
-      ${text(663, 240, '3 OUT', 'text-anchor="end"')}${text(695, 280, 'CH1: OUT', 'font-size="16"')}
-      ${text(820, 145, '10 kΩ')}${text(820, 170, 'pull-up', 'font-size="16"')}
-      ${text(820, 442, 'S1')}${text(820, 467, 'Normally-open', 'font-size="16"')}${text(820, 490, 'pushbutton', 'font-size="16"')}
-      ${text(670, 512, '10 nF')}${text(900, 340, '100 nF', 'text-anchor="end"')}
-    </g>
+// Lead endpoints are shared by the pin guide, every circuit and connectivity tests.
+export const DIP8_PINS = Object.freeze([
+  { number: 1, name: 'GND', x: 320, y: 270 }, { number: 2, name: 'TRIG', x: 320, y: 360 },
+  { number: 3, name: 'OUT', x: 320, y: 450 }, { number: 4, name: 'RESET', x: 320, y: 540 },
+  { number: 8, name: 'VCC', x: 740, y: 270 }, { number: 7, name: 'DISCH', x: 740, y: 360 },
+  { number: 6, name: 'THRES', x: 740, y: 450 }, { number: 5, name: 'CONT', x: 740, y: 540 },
+].map((pin) => Object.freeze(pin)));
+function dip8Chip(guide = false) {
+  return `<g data-chip-layout="dip8-top" fill="none" stroke="${ink}" stroke-width="2.5">
+    <rect x="380" y="180" width="300" height="440" rx="18" fill="#edf5f4"/>
+    <path data-notch="top" d="M490 180a40 40 0 0 0 80 0"/>
+    <circle data-pin1-dot="true" cx="405" cy="212" r="7" fill="${ink}" stroke="none"/>
+    ${DIP8_PINS.map((p) => {
+      const left = p.x === 320;
+      const labelX = guide ? (left ? 310 : 750) : (left ? 397 : 663);
+      const anchor = guide ? (left ? 'end' : 'start') : (left ? 'start' : 'end');
+      return `<g data-pin="${p.number}" data-pin-x="${p.x}" data-pin-y="${p.y}"><path d="M${p.x} ${p.y}H${left ? 380 : 680}"/>${text(labelX, p.y + 8, `${p.number} · ${p.name}`, `fill="${ink}" stroke="none" font-size="${guide ? 30 : 24}" text-anchor="${anchor}"`)}</g>`;
+    }).join('')}
+    ${text(530, 417, 'NE555', 'fill="' + ink + '" stroke="none" text-anchor="middle" font-size="40"')}
+  </g>`;
+}
+export function dip8PinGuide() {
+  return `<svg class="dip8-pin-guide" viewBox="130 110 800 570" role="img" aria-label="NE555 DIP-8 top view, notch at the top. Left pins from top: 1 ground, 2 trigger, 3 output, 4 reset. Right pins from top: 8 VCC, 7 discharge, 6 threshold, 5 control." font-family="system-ui,sans-serif">
+    ${dip8Chip(true)}
+    <g fill="${ink}">${text(530, 145, 'DIP-8 · TOP VIEW', 'text-anchor="middle" font-size="30"')}${text(530, 658, 'Notch at top · dot identifies pin 1', 'text-anchor="middle" font-size="23"')}</g>
   </svg>`;
 }
-export function conversionSchematic(mode) {
+
+// Local supply/ground symbols are named nets, avoiding wires across the input/output leads.
+function commonConnections() {
+  return `
+    ${wire('vcc', 'M80 80H1110M780 80V270H740', 'data-pins="8"')}
+    ${wire('vcc', 'M320 540H250V500', 'data-pins="4"')}
+    <path d="M241 510L250 500L259 510"/>
+    ${wire('ground', 'M320 270H270V300', 'data-pins="1"')}
+    <path d="M256 300H284M260 308H280M265 316H275"/>
+    ${wire('ground', 'M80 740H1110M900 572V740M1110 242V740')}
+    ${wire('vcc', 'M1110 80V230')}
+    ${capacitor('supply-bypass', 1110, 230)}
+    ${wire('output', 'M320 450H220', 'data-pins="3"')}
+    <circle data-open-pin="5" cx="780" cy="540" r="4" fill="#fcfefd"/><path data-unused-pin="5" d="M740 540H776"/>
+    ${dot(780, 80)}${dot(900, 80)}${dot(900, 740)}
+  `;
+}
+function circuit(mode, conversion = false) {
   const mono = mode === 'monostable';
-  const label = mono
-    ? 'After: monostable timing connections. Pins 6 and 7 share the timing capacitor node; R2 is replaced by a wire. Pin 2 is independent, connected to a 10 kiloohm pull-up and normally-open switch. R and C are selected for the required pulse.'
-    : 'Before: astable timing connections. Pins 2 and 6 share the timing capacitor node. Orange numbered highlights show the pin 2 link to disconnect and R2 to remove. R1 and R2 set the repeating timing.';
-  return `<svg class="conversion-schematic" data-conversion-mode="${mode}" viewBox="0 0 600 470" role="img" aria-label="${label}">
+  const description = `${mono ? 'Monostable' : 'Astable'} schematic, NE555 DIP-8 top view, notch at top. ${mono
+    ? 'R connects VCC to the timing node shared by pins 6 and 7. Pin 2 TRIG is separate, pulled up to VCC through 10 kiloohms, with a normally-open pushbutton to ground.'
+    : 'R1 connects VCC to pin 7. R2 connects pin 7 to the timing node shared by pins 2 and 6.'} Timing capacitor C connects the timing node to ground. Pins 8 and 4 connect to +5 V; pin 1 connects to GND. Matching power and ground labels denote connected nets. Pin 5 CONT is unused and open. C_supply, 100 nanofarads, connects VCC to GND. Output is pin 3.`;
+  return `<svg class="${conversion ? 'conversion-schematic' : mono ? 'monostable-schematic' : 'astable-schematic'}" ${conversion ? `data-conversion-mode="${mode}"` : ''} viewBox="0 0 1280 810" role="img" aria-label="${description}">
     <g fill="none" stroke="${ink}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
-      <rect x="280" y="100" width="190" height="240" rx="10" fill="#edf5f4"/>
-      ${wire('vcc', `M60 45H550M100 45V80${mono ? 'M530 45V80' : ''}`)}
-      ${wire('ground', `M60 430H560M100 362V430${mono ? 'M530 398V430' : ''}`)}
-      ${wire('timing', 'M100 300H220V260H280M100 300V350', 'data-pins="6"')}
-      ${wire('output', 'M470 180H500', 'data-pins="3"')}
-      ${resistor(mono ? 'timing-r' : 'r1', 100, 80, 50)}
-      ${capacitor('timing-c', 100, 350)}
+      ${commonConnections()}
+      ${wire('vcc', 'M900 80V160')}
+      ${resistor(mono ? 'timing-r' : 'r1', 900, 160, 60)}
+      ${wire(mono ? 'timing' : 'discharge', 'M900 220V330M900 300H810V360H740', 'data-pins="7"')}
+      ${wire('timing', 'M740 450H900V560', 'data-pins="6"')}
+      ${capacitor('timing-c', 900, 560)}
       ${mono ? `
-        ${wire('timing', 'M100 130V300M100 180H280', 'data-pins="7"')}
-        ${wire('timing', 'M100 180V300', 'stroke="#087f85" stroke-width="4" data-change="2"')}
-        ${wire('trigger', 'M530 130V350M470 300H530', 'data-pins="2" stroke="#087f85"')}
-        ${resistor('trigger-pullup', 530, 80, 50, 'stroke="#087f85"')}
-        <g data-component="trigger-switch" data-state="normally-open" stroke="#087f85"><circle cx="530" cy="350" r="3"/><circle cx="530" cy="398" r="3"/><path d="M530 395L548 362"/></g>
-        ${dot(530, 300, change)}
+        ${wire('timing', 'M900 330V450', conversion ? 'stroke="' + change + '" stroke-width="4" data-change="2"' : '')}
+        ${wire('vcc', 'M100 80V160')}
+        ${resistor('trigger-pullup', 100, 160, 60, 'stroke="' + change + '"')}
+        ${wire('trigger', 'M100 220V420M100 360H320', 'data-pins="2" stroke="' + change + '"')}
+        <g data-component="trigger-switch" data-state="normally-open" stroke="${change}"><circle cx="100" cy="420" r="4" fill="#fcfefd"/><circle cx="100" cy="470" r="4" fill="#fcfefd"/><path d="M100 466L123 430"/></g>
+        ${wire('ground', 'M100 470V740')}
+        ${dot(100, 80)}${dot(100, 360, change)}${dot(100, 740)}
       ` : `
-        ${wire('discharge', 'M100 130V215M100 180H280', 'data-pins="7"')}
-        ${resistor('r2', 100, 215, 50, 'stroke="#b65b24"')}
-        ${wire('timing', 'M100 265V300')}
-        ${wire('timing', 'M180 300V385H515V300H470', 'data-pins="2" data-change="1" stroke="#b65b24" stroke-dasharray="6 5"')}
-        <rect x="74" y="203" width="52" height="74" rx="6" stroke="#b65b24" stroke-dasharray="5 5"/>
-        ${dot(180, 300)}
+        ${resistor('r2', 900, 330, 60, conversion ? 'stroke="' + remove + '"' : '')}
+        ${wire('timing', 'M900 390V450')}
+        ${wire('timing', 'M320 360H100V650H850V450', 'data-pins="2"' + (conversion ? ' data-change="1" stroke="' + remove + '" stroke-dasharray="7 5"' : ''))}
+        ${dot(850, 450)}
+        ${conversion ? '<rect x="872" y="318" width="56" height="84" rx="6" stroke="' + remove + '" stroke-dasharray="6 5"/>' : ''}
       `}
-      ${dot(100, 180)}${dot(100, 300)}
+      ${dot(900, 300)}${dot(900, 450)}
     </g>
-    <g fill="${ink}" font-family="system-ui,sans-serif" font-size="18">
-      ${text(60, 30, 'VCC')}${text(60, 457, 'GND')}
-      ${text(70, 110, mono ? 'R' : 'R1', 'text-anchor="end"')}${text(133, 373, 'C')}
-      ${text(295, 185, '7 DISCH')}${text(295, 265, '6 THRES')}
-      ${text(455, 305, '2 TRIG', 'text-anchor="end"')}${text(480, 207, 'OUT', 'font-size="16"')}
-      ${text(375, 140, 'NE555', 'text-anchor="middle" font-size="23"')}
-      ${mono ? text(493, 73, '10 kΩ', 'text-anchor="end" font-size="16"') + text(547, 332, 'S1', 'font-size="16"') + text(375, 385, 'Pin 2 is separate', 'text-anchor="middle" fill="#087f85" font-size="16"') : text(140, 247, 'R2', 'fill="#b65b24"')}
+    <g font-family="system-ui,sans-serif">
+      ${dip8Chip()}
+      <g fill="${ink}" font-size="23">
+        ${text(80, 52, 'VCC = +5 V')}${text(80, 780, 'GND')}
+        ${text(530, 145, 'DIP-8 · TOP VIEW', 'text-anchor="middle"')}
+        ${text(270, 342, 'GND', 'text-anchor="middle" font-size="20"')}
+        ${text(250, 482, '+5 V', 'text-anchor="middle" font-size="20"')}
+        ${text(220, 430, 'OUT', 'text-anchor="middle"')}
+        ${text(740, 585, 'Unused', 'font-size="21"')}
+        ${text(940, 198, mono ? 'R (timing)' : 'R1')}
+        ${text(940, 578, 'C (timing)')}
+        ${text(1140, 230, 'C_supply', 'font-size="22"')}
+        ${text(1140, 260, '100 nF', 'font-size="22"')}
+        ${mono ? text(140, 180, '10 kΩ', 'font-size="22"') + text(140, 208, 'Pull-up', 'font-size="21"') + text(140, 432, 'S1', 'font-size="22"') + text(140, 478, 'Brief', 'font-size="20"') + text(140, 507, 'press', 'font-size="20"') : text(940, 370, 'R2')}
+        ${text(530, 705, 'Same labels = connected nets', 'text-anchor="middle" font-size="21"')}
+      </g>
     </g>
-    ${mono ? badge(45, 240, 2, change) + badge(562, 300, 3, change) : badge(340, 385, 1, remove) + badge(45, 240, 2, remove)}
+    ${conversion ? (mono ? badge(865, 390, 2, change) + badge(55, 360, 3, change) : badge(530, 650, 1, remove) + badge(865, 360, 2, remove)) : ''}
   </svg>`;
 }
+export const astableSchematic = () => circuit('astable');
+export const monostableSchematic = () => circuit('monostable');
+export const conversionSchematic = (mode) => circuit(mode, true);
 
 export function monostableWaveforms() {
   return `<svg class="monostable-waveforms" viewBox="0 0 900 420" role="img" aria-label="Example oscilloscope traces, not measured data. The TRIG input normally reads HIGH. A brief button press pulls TRIG LOW; release returns it HIGH. The OUT signal rises when TRIG falls, stays HIGH after release, then returns LOW automatically. Output pulse duration t_W is measured between its rising and falling edges at mid-level. Both traces share a time axis; vertical positions are offset and no voltage or time scale is prescribed.">

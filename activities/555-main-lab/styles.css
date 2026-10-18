@@ -515,6 +515,18 @@ details p {
   min-width: 141px;
   margin-inline: auto;
 }
+.diagram svg.astable-schematic {
+  width: 100%;
+  min-width: 740px;
+  max-width: 1100px;
+  max-height: none;
+}
+.diagram.diagram-pins svg.dip8-pin-guide {
+  width: 100%;
+  min-width: 340px;
+  max-width: 650px;
+  max-height: none;
+}
 .diagram figcaption {
   font-size: 0.76rem;
   color: var(--muted);
@@ -538,20 +550,21 @@ details p {
   display: block;
   margin-inline: auto;
 }
-.conversion-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin: 20px 0; }
+.conversion-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; margin: 20px 0; }
 .conversion-card { margin: 0; min-width: 0; padding: 16px; border: 1px solid var(--line); border-radius: 12px; background: #fcfefd; color: #254e5b; }
 .conversion-card h3 { margin: 0 0 12px; font-size: .95rem; }
-.conversion-card svg { display: block; width: 100%; min-width: 430px; max-width: 650px; margin-inline: auto; }
+.conversion-card svg { display: block; width: 100%; min-width: 740px; max-width: 1100px; margin-inline: auto; }
 .conversion-card figcaption { color: var(--muted); font-size: .8rem; margin: 10px 0 12px; }
 .conversion-steps { padding-left: 24px; }
 .conversion-steps li { padding-left: 5px; margin-bottom: 12px; }
-.expanded-diagram[data-diagram^="conversion-"] svg { width: 720px; }
+.expanded-diagram[data-diagram^="conversion-"] svg,
+.expanded-diagram[data-diagram="schematic"] svg { width: 1100px; }
+.expanded-diagram[data-diagram="pins"] svg { width: 650px; }
 .lab-visual { margin: 22px 0; min-width: 0; }
 .lab-visual h3 { font-size: .95rem; margin: 0 0 12px; }
 .lab-visual svg { display: block; width: 100%; min-width: 600px; max-width: 900px; margin-inline: auto; }
 .lab-visual figcaption { color: var(--muted); font-size: .8rem; margin: 10px 0; }
 .expanded-diagram[data-diagram="monostable-waveforms"] svg { width: 900px; }
-@media (max-width: 1100px) { .conversion-grid { grid-template-columns: 1fr; } }
 .table-scroll {
   overflow-x: auto;
   max-width: 100%;
