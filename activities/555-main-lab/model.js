@@ -9,8 +9,6 @@ export const MAX_RECORD_BYTES = 8 * 1024 * 1024;
 export const IDS = ['A0', 'A1', 'M0', 'M1'];
 export const REQUIRED_IDS = ['A0', 'A1', 'M0'];
 export const REQUIRED_CAPTURES = ['A0', 'A1', 'M0trigger'];
-export const RESISTORS = [1, 3.3, 4.7, 10, 33];
-export const CAPACITORS = [1, 10];
 export const TASKS = {
   A0: { number: 1, title: 'Lab 1 - Astable Circuit Design' },
   A1: { number: 2, title: 'Lab 2 - Astable Circuit Modification' },
@@ -22,7 +20,7 @@ export const SCREENS = [
   [TASKS.A0.title, 'Design and test your circuit'],
   [TASKS.A1.title, 'Continue from Lab 1'],
   [TASKS.M0.title, 'Use a switch to trigger the pulse'],
-  ['Save lab data', 'Download the pair’s data for individual post-lab work'],
+  ['Save lab data', 'Download the group’s data for individual post-lab work'],
 ];
 // Version-2 backups retain the original eleven page codes. Navigation uses
 // these groups, never the new page indexes, so old answers need no migration.
@@ -174,34 +172,17 @@ export const resistance = (d, prefix) => {
   const total = first !== null && first > 0 && second !== null ? first + second : null;
   return total !== null && Number.isFinite(total) ? total : null;
 };
-const resistorCombinations = RESISTORS.flatMap((first, i) => [[first], ...RESISTORS.slice(i).map((second) => [first, second])]);
-const stockFits = (parts) => RESISTORS.every((value) => parts.filter((part) => part === value).length <= 2);
-function resistanceParts(d, prefix) {
-  if (d[`${prefix}b`].trim()) {
-    const parts = [number(d[`${prefix}a`]), number(d[`${prefix}b`])];
-    return parts.every((part) => RESISTORS.includes(part)) ? [parts] : [];
-  }
-  const total = resistance(d, prefix);
-  return total === null ? [] : resistorCombinations.filter((parts) => Math.abs(parts.reduce((sum, part) => sum + part, 0) - total) < 1e-8);
-}
 export function designIssues(id, d) {
   const issues = [];
   const prefixes = id.startsWith('A') ? ['r1', 'r2'] : ['r1'];
-  let combinations = [[]];
   for (const prefix of prefixes) {
     const label = id.startsWith('A') ? prefix.toUpperCase() : 'R';
     if (!(resistance(d, prefix) > 0)) {
       issues.push(`Enter a total resistance greater than zero for ${label}, in kΩ.`);
-      continue;
     }
-    const parts = resistanceParts(d, prefix);
-    if (!parts.length) issues.push(`${label} cannot be made from one supplied resistor or two supplied resistors in series. Check the total resistance.`);
-    combinations = combinations.flatMap((current) => parts.map((next) => [...current, ...next]));
   }
-  if (!d.capacitor) issues.push('Select a timing capacitor.');
-  else if (!CAPACITORS.includes(number(d.capacitor))) issues.push('Enter the value of one supplied timing capacitor: 1 or 10 µF.');
+  if (!(number(d.capacitor) > 0)) issues.push('Enter a timing capacitance greater than zero, in µF.');
   if (!id.startsWith('A') && (d.r2a || d.r2b)) issues.push('Remove R2 from the component selection; the monostable circuit uses one timing resistance.');
-  if (!issues.length && !combinations.some(stockFits)) issues.push('Only two resistors of each value are available. These totals need more than the supplied quantities; change one of the resistance values.');
   return issues;
 }
 export function designReference(record, id) {
@@ -232,8 +213,8 @@ export function preservePrediction(record, id) {
   if (id === 'A1') {
     if (!record.configs.A0.original || !(number(reference.frequency) > 0))
       throw new Error('Measure the Lab 1 output frequency and enter a value greater than zero in Lab 1 → Measured results → Frequency (Hz) before saving the Lab 2 design.');
-    if (!reference.capacitor)
-      throw new Error('Record the timing capacitor used in Lab 1 before saving the Lab 2 design.');
+    if (!(number(reference.capacitor) > 0))
+      throw new Error('Record a positive timing capacitance used in Lab 1 before saving the Lab 2 design.');
   }
   const design = designForEntry(record, id);
   const issues = designIssues(id, design);
@@ -339,13 +320,8 @@ export function validateRecord(value) {
     throw new Error('The backup contains an invalid list of visited pages. Try another backup file.');
   for (const id of IDS) {
     const config = value.configs[id];
-    const checkDesign = (d) => {
-      // Typed Lab 3 capacitance drafts, like resistance drafts, must remain
-      // exportable even mid-edit. Originals pass the stock checks below.
-      if (id !== 'M0' && !['', ...CAPACITORS.map(String)].includes(d.capacitor))
-        throw new Error(`${taskLabel(id)}: the backup lists a component that is not available in this lab.`);
-    };
-    checkDesign(config.design);
+    // Current text inputs remain portable drafts; saved originals require
+    // finite, positive equivalent timing resistance and capacitance only.
     if (config.original !== null) {
       checkShape(
         config.original,
@@ -362,12 +338,11 @@ export function validateRecord(value) {
         !Object.values(config.original.prediction).some((v) => v.trim())
       )
         throw new Error(`${taskLabel(id)}: the original predictions or their save date are missing or unreadable.`);
-      checkDesign(config.original.design);
       if (designIssues(id, config.original.design).length)
-        throw new Error(`${taskLabel(id)}: the original component selection is incomplete or exceeds the available resistor quantities.`);
+        throw new Error(`${taskLabel(id)}: the original component selection needs finite, positive timing resistance and capacitance.`);
       const ref = config.original.reference;
       if (id === 'A1') {
-        if (!(number(ref.frequency) > 0) || !CAPACITORS.map(String).includes(ref.capacitor) || config.original.design.capacitor !== ref.capacitor || !value.configs.A0.original)
+        if (!(number(ref.frequency) > 0) || !(number(ref.capacitor) > 0) || config.original.design.capacitor !== ref.capacitor || !value.configs.A0.original)
           throw new Error('Lab 2: the saved Lab 1 frequency or capacitor value is missing or inconsistent. Try another backup file.');
       } else if (ref.frequency || ref.capacitor)
         throw new Error(`${taskLabel(id)}: the backup includes reference values that do not belong to this circuit section.`);
@@ -380,16 +355,16 @@ export function validateRecord(value) {
   if (previous) {
     const names = result.group.members.split(/\r?\n/).map((name) => name.trim()).filter(Boolean);
     result.legacyMembers = result.group.members;
-    result.group = { id: result.group.id, student1: { name: names.length === 2 ? names[0] : '', id: '' }, student2: { name: names.length === 2 ? names[1] : '', id: '' } };
+    result.group = { id: result.group.id, student1: { name: names.length >= 1 && names.length <= 2 ? names[0] : '', id: '' }, student2: { name: names.length === 2 ? names[1] : '', id: '' } };
     result.schemaVersion = VERSION;
   }
   return result;
 }
-export const pairStudents = (record) => [record.group.student1, record.group.student2];
+export const groupStudents = (record) => [record.group.student1, ...((record.group.student2.name.trim() || record.group.student2.id.trim()) ? [record.group.student2] : [])];
 export function identityIssues(record) {
   const issues = [];
   if (!record.group.id.trim()) issues.push('Enter the Group ID.');
-  pairStudents(record).forEach((student, i) => {
+  groupStudents(record).forEach((student, i) => {
     if (!student.name.trim()) issues.push(`Enter Student ${i + 1} name.`);
     if (!student.id.trim()) issues.push(`Enter Student ${i + 1} ID.`);
   });

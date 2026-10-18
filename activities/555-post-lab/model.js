@@ -2,7 +2,7 @@ import {
   createRecord,
   validateRecord,
   identityIssues,
-  pairStudents,
+  groupStudents,
   clone,
   downloadStem,
   MAX_TEXT_LENGTH,
@@ -88,7 +88,7 @@ export function validatePostlab(value) {
   if (value.sources.main !== null) {
     if (value.sources.main.schemaVersion !== 3)
       throw new Error(
-        'Open the earlier main-lab backup in the main worksheet, confirm both students and add their IDs, then download a new ZIP.',
+        'Open the earlier main-lab backup in the main worksheet, confirm the participating students and add their IDs, then download a new ZIP.',
       );
     result.sources.main = validateRecord(value.sources.main);
   }
@@ -99,21 +99,21 @@ export function issues(record, confirmation = true) {
     pre = record.sources.prelab,
     main = record.sources.main;
   if (!pre) list.push('Import your own finalized pre-lab evidence.');
-  if (!main) list.push('Import the pair’s main-lab ZIP or JSON backup.');
+  if (!main) list.push('Import the group’s main-lab ZIP or JSON backup.');
   if (main) list.push(...identityIssues(main));
   if (
     pre &&
     main &&
-    pairStudents(main).filter(
+    groupStudents(main).filter(
       (s) => s.id.trim() === pre.student.university_student_id.trim(),
     ).length !== 1
   )
     list.push(
-      'The pre-lab student ID must match exactly one student in the pair.',
+      'The pre-lab student ID must match exactly one student in the group.',
     );
   if (confirmation && !record.identityConfirmed)
     list.push(
-      'Confirm that these are your own pre-lab and your pair’s results.',
+      'Confirm that these are your own pre-lab and your group’s results.',
     );
   if (confirmation && record.needsReview)
     list.push(

@@ -216,7 +216,7 @@ const key = 'electronics-555-main-lab-v3';
       await page
         .locator('[data-design-feedback="A0"] .design-status')
         .innerText(),
-      /can be made from the supplied components/,
+      /Timing values entered/,
     );
     for (const [k, v] of Object.entries({
       high: '.5268',
@@ -391,20 +391,20 @@ const key = 'electronics-555-main-lab-v3';
           await page
             .locator('[data-design-feedback="A1"] .design-status')
             .innerText(),
-          /can be made from the supplied components/,
+          /Timing values entered/,
         );
       }
       for (const [k, v] of Object.entries(predictions))
         await fill(`configs.${id}.prediction.${k}`, v);
       if (id === 'M0') {
-        await fill('configs.M0.design.capacitor', '3.3');
+        await fill('configs.M0.design.capacitor', '0');
         await page
           .getByRole('button', {
             name: 'Save initial design and predictions for Lab 3',
           })
           .click();
         await page
-          .getByText(/Enter the value of one supplied timing capacitor/)
+          .getByText(/Enter a timing capacitance greater than zero/)
           .first()
           .waitFor();
         assert(

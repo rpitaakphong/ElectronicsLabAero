@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import {
-  createRecord, IDS, RESISTORS, CAPACITORS, VERSION, STORAGE_KEY, SCREENS, TASKS, PAGE_HISTORY, visitedPages, markPageVisited,
+  createRecord, IDS, VERSION, STORAGE_KEY, SCREENS, TASKS, PAGE_HISTORY, visitedPages, markPageVisited,
   number, signedDeviation, preservePrediction, updateField,
   validateRecord, parseRecord, comparisonRows, progress,
   designIssues, designReference, designForEntry, resistance, taskLabel,
@@ -65,7 +65,7 @@ test('v3 starts with no prescribed timing parts, predictions, or physical readin
   assert.equal(createRecord().configs.A0.prediction.high, '');
   assert.equal(r.configs.A1.prediction.high, '');
 });
-test('first attempt requires available components and a genuine prediction, not a correct answer', () => {
+test('first attempt requires positive component values and a genuine prediction, not a correct answer', () => {
   const r = createRecord();
   assert.throws(() => updateField(r, 'configs.A0.measurement.high', '.5'), /Save your initial design/);
   assert.throws(() => preservePrediction(r, 'A0'), /predicted values/);
@@ -76,10 +76,10 @@ test('first attempt requires available components and a genuine prediction, not 
   assert.equal(r.configs.A0.measurement.high, '.5');
   assert.throws(() => updateField(r, 'configs.A0.original.at', 'replacement'), /cannot be edited/);
 });
-test('series combinations respect two of each resistor across the complete circuit', () => {
+test('legacy series parts accept positive equivalent values without stock or quantity limits', () => {
   const r = createRecord(), d = r.configs.A0.design;
   Object.assign(d, { r1a: '33', r1b: '33', r2a: '33', capacitor: '10' });
-  assert.match(designIssues('A0', d).join(' '), /Only two resistors/);
+  assert.deepEqual(designIssues('A0', d), []);
   assert.equal(resistance(d, 'r1'), 66);
   d.r1b = '10'; assert.deepEqual(designIssues('A0', d), []);
   assert.equal(resistance(d, 'r1'), 43);
@@ -157,7 +157,7 @@ test('imports reject legacy, foreign, malformed, oversized, incomplete and hosti
     (r) => { r.activityId = 'prelab'; }, (r) => { r.schemaVersion = 999; },
     (r) => { delete r.analysis; }, (r) => { r.configs.A0.measurement.high = 0; },
     (r) => { r.visited = [99]; }, (r) => { r.visited = [0, 0]; },
-    (r) => { r.configs.A1.design.capacitor = '999'; },
+    (r) => { r.configs.A1.design.capacitor = 999; },
     (r) => { r.configs.A0.measurement.high = '.5'; },
     (r) => { r.createdAt = 'not-a-date'; },
   ]) { const r = createRecord(); mutate(r); assert.throws(() => validateRecord(r)); }
@@ -183,20 +183,13 @@ test('missing values stay missing and duty differences use percentage points', (
   assert.equal(comparisonRows(r).find((row) => row.id === 'A0' && row.key === 'duty').difference, 3);
   assert(comparisonRows(createRecord()).every((row) => row.measured === null && row.difference === null));
 });
-test('every nominal A0 solution has a feasible A1 within the resistor stock and same capacitor', () => {
-  const parts = RESISTORS.flatMap((a, i) => [[a], ...RESISTORS.slice(i).map((b) => [a, b])]);
-  const sum = (p) => p.reduce((a, b) => a + b, 0), all = [];
-  for (const a of parts) for (const b of parts) for (const c of CAPACITORS) {
-    const d = { ...createRecord().configs.A0.design, r1a: String(a[0]), r1b: a[1] ? String(a[1]) : '', r2a: String(b[0]), r2b: b[1] ? String(b[1]) : '', capacitor: String(c) };
-    if (designIssues('A0', d).length) continue;
-    const h = Math.log(2) * (sum(a) + sum(b)) * c / 1000, l = Math.log(2) * sum(b) * c / 1000;
-    all.push({ c, f: 1 / (h + l), ratio: h / l });
+test('positive arbitrary timing values are not constrained to a stock list', () => {
+  for(const capacitor of ['0.47','22','1e-6','1000']) {
+    const r=createRecord(); Object.assign(r.configs.A0.design,{r1a:'127',r2a:'812.25',capacitor});
+    r.configs.A0.prediction.reason='Synthetic independent choice';
+    assert.deepEqual(designIssues('A0',r.configs.A0.design),[]);preservePrediction(r,'A0');
+    assert.deepEqual(parseRecord(JSON.stringify(r)),r);
   }
-  const a0 = all.filter((t) => t.f >= .8 && t.f <= 1.3); assert.equal(a0.length, 24);
-  for (const a of a0) assert(all.some((b) => b.c === a.c && b.ratio >= 1.8 && b.ratio <= 2.2 && b.f >= .8 * a.f && b.f <= 1.2 * a.f));
-  const pulse = (r, c) => Math.log(3) * r * c / 1000;
-  assert(pulse(66, 10) >= .55 && pulse(66, 10) <= .95);
-  assert(pulse(33, 10) >= .25 && pulse(33, 10) <= .50);
 });
 test('five pages use the task titles without visible legacy codes or repeated specifications', () => {
   assert.deepEqual(SCREENS.map(([title]) => title), ['Before you begin', 'Lab 1 - Astable Circuit Design', 'Lab 2 - Astable Circuit Modification', 'Lab 3 - Monostable Circuit Design', 'Save lab data']);
@@ -379,7 +372,7 @@ test('before/after diagrams show the actual three conversion changes without pre
   assert.match(html, /data-expand="conversion-monostable"/);
 });
 
-test('Lab 1 and 2 omit live component-value strips while retaining stock feedback and saved summaries', () => {
+test('Lab 1 and 2 omit live component-value strips while retaining input feedback and saved summaries', () => {
   const r = createRecord(); first(r); prepare(r, 'A1'); preservePrediction(r, 'A1');
   const before = JSON.stringify(r);
   for (const [i, id] of [[1, 'A0'], [2, 'A1']]) {
@@ -477,16 +470,16 @@ test('typed resistance totals save predictions without calculation-work or sketc
   assert.equal(resistance(r.configs.A0.design, 'r2'), 66);
   assert.deepEqual(parseRecord(JSON.stringify(r)), r);
   r.configs.A0.design.r1a = '33';
-  assert.match(designIssues('A0', r.configs.A0.design).join(' '), /Only two resistors/);
+  assert.deepEqual(designIssues('A0', r.configs.A0.design), []);
 });
 
 test('invalid or partial typed resistance values remain portable drafts without becoming valid designs', () => {
-  for (const value of ['', '.', 'not sure', '-1', '999', '1e309']) {
+  for (const value of ['', '.', 'not sure', '0', '-1', '1e309']) {
     const r = createRecord();
     Object.assign(r.configs.A0.design, { r1a: value, r2a: '33', capacitor: '10' });
     r.configs.A0.prediction.frequency = '1';
     assert.deepEqual(parseRecord(JSON.stringify(r)), r);
-    assert.throws(() => preservePrediction(r, 'A0'), /resistance|supplied resistor/);
+    assert.throws(() => preservePrediction(r, 'A0'), /resistance/);
   }
 });
 
@@ -543,17 +536,17 @@ test('Lab 3 capacitance uses manual numeric entry and retains partial drafts wit
   assert.match(html, /Timing capacitor C[^<]*<span class="unit">\(µF\)/);
   assert.match(html, /Output pulse duration <var>t<sub>W<\/sub><\/var>/);
   prepare(r, 'M0');
-  for (const draft of ['0', '-1', '3.3', '1e', 'not a value']) {
+  for (const draft of ['0', '-1', '1e309', '1e', 'not a value']) {
     updateField(r, 'configs.M0.design.capacitor', draft);
     assert.deepEqual(parseRecord(JSON.stringify(r)), r);
-    assert.throws(() => preservePrediction(r, 'M0'), /supplied timing capacitor/);
+    assert.throws(() => preservePrediction(r, 'M0'), /capacitance greater than zero/);
     assert.equal(r.configs.M0.original, null);
   }
   updateField(r, 'configs.M0.design.capacitor', '10.00');
   preservePrediction(r, 'M0');
   assert.equal(r.configs.M0.original.design.capacitor, '10.00');
   assert.deepEqual(parseRecord(JSON.stringify(r)), r);
-  const invalid = structuredClone(r); invalid.configs.M0.original.design.capacitor = '5';
+  const invalid = structuredClone(r); invalid.configs.M0.original.design.capacitor = '0';
   assert.throws(() => validateRecord(invalid), /original component selection/);
 });
 

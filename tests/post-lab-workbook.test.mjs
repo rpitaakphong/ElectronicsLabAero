@@ -8,6 +8,9 @@ import {
   preservePrediction,
   identityIssues,
   downloadStem,
+  groupStudents,
+  designIssues,
+  designReference,
 } from '../activities/555-main-lab/model.js';
 import {
   createLabZip,
@@ -61,7 +64,7 @@ function individual() {
     'lab.zip',
   );
 }
-test('pair form has exactly four identity textboxes plus Group ID and no editable analysis', () => {
+test('group form has exactly four identity textboxes plus Group ID and no editable analysis', () => {
   const form = screen(main(), 0);
   assert.equal([...form.matchAll(/data-field="group\./g)].length, 5);
   assert.doesNotMatch(form, /group\.members|one name per line/);
@@ -75,6 +78,123 @@ test('pair form has exactly four identity textboxes plus Group ID and no editabl
   const bad = main();
   bad.group.student2.id = 'TEST0001';
   assert.match(identityIssues(bad).join(' '), /different/);
+});
+test('solo identity is valid, while partial secondary details and duplicate IDs are blocked', () => {
+  const record = main();
+  record.group.student1.id = '000001';
+  record.group.student2 = { name: ' ', id: '' };
+  assert.deepEqual(identityIssues(record), []);
+  assert.equal(groupStudents(record).length, 1);
+  assert.doesNotMatch(report(record), /Student 2/);
+  assert.match(screen(record, 0), /Student 2 name \(optional\)/);
+  assert.match(screen(record, 0), /Student 2 ID \(optional\)/);
+  const filename = downloadStem('MAIN', record.group.id, groupStudents(record));
+  assert.match(filename, /000001/);
+  assert.doesNotMatch(filename, /DRAFT|Partner/);
+  record.group.student2.name = 'Second student';
+  assert.deepEqual(identityIssues(record), ['Enter Student 2 ID.']);
+  record.group.student2 = { name: '', id: '000002' };
+  assert.deepEqual(identityIssues(record), ['Enter Student 2 name.']);
+  record.group.student2.name = 'Second student';
+  assert.deepEqual(identityIssues(record), []);
+  record.group.student2.id = '000001';
+  assert.match(identityIssues(record).join(' '), /different/);
+});
+test('solo legacy recovery retains the recorded member and requires only that student ID', () => {
+  const legacy = main();
+  legacy.schemaVersion = 2;
+  legacy.group = { id: 'Solo legacy', members: '  Original Student  ' };
+  delete legacy.legacyMembers;
+  legacy.analysis.conclusionA = 'Earlier shared writing';
+  const recovered = validateRecord(legacy);
+  assert.equal(recovered.group.student1.name, 'Original Student');
+  assert.deepEqual(recovered.group.student2, { name: '', id: '' });
+  assert.equal(recovered.legacyMembers, '  Original Student  ');
+  assert.equal(recovered.analysis.conclusionA, legacy.analysis.conclusionA);
+  assert.deepEqual(identityIssues(recovered), ['Enter Student 1 ID.']);
+  recovered.group.student1.id = '000001';
+  assert.deepEqual(identityIssues(recovered), []);
+});
+test('free timing choices freeze Lab 2 capacitance and survive main and individual JSON/ZIP transfers', async () => {
+  for (const capacitor of ['0.47', '22']) {
+    const record = main();
+    record.group.student2 = { name: '', id: '' };
+    for (const id of ['A0', 'A1', 'M0']) {
+      Object.assign(record.configs[id].design, {
+        r1a: '127.25',
+        capacitor,
+        measuredR1: '126.8',
+        measuredC: capacitor,
+      });
+      if (id.startsWith('A')) record.configs[id].design.r2a = '812.75';
+      record.configs[id].prediction.reason = 'Student-selected values';
+      preservePrediction(record, id);
+      if (id === 'A0') record.configs.A0.measurement.frequency = '1.01';
+    }
+    record.configs.A0.design.capacitor = '47';
+    record.configs.A0.measurement.frequency = '9';
+    assert.deepEqual(designReference(record, 'A1'), {
+      frequency: '1.01',
+      capacitor,
+    });
+    const original = structuredClone(record.configs);
+    const images = {
+      A0: await validateImage('A0', new Blob([png]), 'scope.png', decode),
+    };
+    for (const bytes of [
+      encode(await createBackup(record, images)),
+      await createLabZip(record, images, 'main.json'),
+    ]) {
+      const restored = await parseMainFile(bytes, decode);
+      assert.deepEqual(restored.record.configs, original);
+      assert.deepEqual(identityIssues(restored.record), []);
+      let post = withSource(
+        withSource(createPostlab(), 'main', restored.record, 'main.zip'),
+        'prelab',
+        makeValidSyntheticEvidence(),
+        'prelab.json',
+      );
+      post.identityConfirmed = true;
+      assert.deepEqual(issues(post), []);
+      assert.doesNotMatch(postlabScreen(post, 0, restored.images), /Student 2/);
+      for (const exportBytes of [
+        encode(await postlabBackup(post, restored.images)),
+        await postlabZip(post, restored.images),
+      ]) {
+        const recovered = await parsePostlabFile(exportBytes, decode);
+        assert.deepEqual(recovered.record.sources.main.configs, original);
+        assert.deepEqual(
+          new Uint8Array(await recovered.images.A0.blob.arrayBuffer()),
+          png,
+        );
+      }
+    }
+  }
+});
+test('invalid timing text stays portable as a draft but cannot become a frozen initial design', async () => {
+  for (const value of [
+    '',
+    '0',
+    '-0.47',
+    'Infinity',
+    '1e309',
+    'not yet measured',
+  ]) {
+    const record = main();
+    Object.assign(record.configs.A0.design, {
+      r1a: '127',
+      r2a: '812',
+      capacitor: value,
+    });
+    record.configs.A0.prediction.reason = 'Draft';
+    assert(designIssues('A0', record.configs.A0.design).length);
+    assert.throws(() => preservePrediction(record, 'A0'), /capacitance/);
+    const restored = await parseMainFile(
+      encode(await createBackup(record, {})),
+      decode,
+    );
+    assert.equal(restored.record.configs.A0.design.capacitor, value);
+  }
 });
 test('v2 migration preserves original information, snapshots and earlier shared analysis', () => {
   const legacy = main();

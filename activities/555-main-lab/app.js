@@ -11,7 +11,7 @@ import {
   progress,
   LEGACY_STORAGE_KEY,
   PRIOR_STORAGE_KEY,
-  pairStudents,
+  groupStudents,
   identityIssues,
   downloadStem,
   visitedPages,
@@ -263,7 +263,7 @@ function load() {
       if (currentSaved === null) {
         pendingMigration = true;
         storageBlocked = true;
-        showSave('Earlier pair data found. Confirm the recovery preview before saving a new version.');
+        showSave('Earlier group data found. Confirm the recovery preview before saving a new version.');
         return;
       }
       showSave('Your previously saved answers have been reopened in this browser.');
@@ -286,7 +286,7 @@ function download(name, content, type = 'application/json;charset=utf-8') {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
-const groupFilename = (candidate) => downloadStem('555_MAIN_LAB', candidate.group.id, pairStudents(candidate));
+const groupFilename = (candidate) => downloadStem('555_MAIN_LAB', candidate.group.id, groupStudents(candidate));
 async function exportJson(zip = false) {
   try {
     if (imageLoading || busySlots.size) throw new Error('Wait for the image to finish opening, then try again.');
@@ -387,7 +387,7 @@ function importPreview(candidate) {
   const incoming = candidate.record;
   openDialog(
     'Check the backup before loading',
-    `<p><strong>Group:</strong> ${esc(incoming.group.id || '(not entered)')}</p>${pairStudents(incoming).map((student,i) => `<p>Student ${i+1}: ${esc(student.name || '(name missing)')} · ${esc(student.id || '(ID missing)')}</p>`).join('')}${candidate.migrated ? '<p class="callout warning">Earlier v2 data: all readings, images, original predictions and earlier shared analysis are retained. Confirm the two names and add student IDs. The earlier saved file is not overwritten.</p>' : ''}<p>Workbook version ${incoming.schemaVersion} · Last saved ${esc(incoming.updatedAt)} (computer time)</p><p>${p.preserved}/3 initial designs saved · ${p.captures}/${REQUIRED_CAPTURES.length} images attached.</p><p>Loading replaces the current answers and attachments; it never combines groups. Older filename-only backups need their images attached again. Download your current backup first if you want to keep it.</p><div class="actions"><button data-action="export">Download current answers</button><button id="cancel-import">Keep current answers</button><button id="confirm-import" class="primary">Load these answers</button></div>`,
+    `<p><strong>Group:</strong> ${esc(incoming.group.id || '(not entered)')}</p>${groupStudents(incoming).map((student,i) => `<p>Student ${i+1}: ${esc(student.name || '(name missing)')} · ${esc(student.id || '(ID missing)')}</p>`).join('')}${candidate.migrated ? '<p class="callout warning">Earlier v2 data: all readings, images, original predictions and earlier shared analysis are retained. Confirm the participating students’ names and IDs. The earlier saved file is not overwritten.</p>' : ''}<p>Workbook version ${incoming.schemaVersion} · Last saved ${esc(incoming.updatedAt)} (computer time)</p><p>${p.preserved}/3 initial designs saved · ${p.captures}/${REQUIRED_CAPTURES.length} images attached.</p><p>Loading replaces the current answers and attachments; it never combines groups. Older filename-only backups need their images attached again. Download your current backup first if you want to keep it.</p><div class="actions"><button data-action="export">Download current answers</button><button id="cancel-import">Keep current answers</button><button id="confirm-import" class="primary">Load these answers</button></div>`,
   );
 }
 async function printReport() {
@@ -468,7 +468,9 @@ document.addEventListener('input', (event) => {
       input.setAttribute('aria-invalid', String(invalid));
       input.title = invalid
         ? input.dataset.positive
-          ? 'Enter a resistance greater than zero, in kΩ, without typing the unit. Incomplete entries are kept in draft backups.'
+          ? input.dataset.field.endsWith('.capacitor')
+            ? 'Enter a capacitance greater than zero, in µF, without typing the unit. Incomplete entries are kept in draft backups.'
+            : 'Enter a resistance greater than zero, in kΩ, without typing the unit. Incomplete entries are kept in draft backups.'
           : 'Enter a number that is zero or greater, without units. If you do not know the value, leave it blank and explain why in the notes.'
         : '';
     }

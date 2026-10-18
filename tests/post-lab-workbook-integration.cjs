@@ -441,13 +441,11 @@ async function print(page, images, native = false) {
       const firstStudent = await context.newPage();
       await firstStudent.goto(`${host}/worksheets/555-post-lab.html`);
       await firstStudent.waitForSelector('body[data-ready="true"]');
-      await firstStudent
-        .locator('#import-file')
-        .setInputFiles({
-          name: 'first-student.json',
-          mimeType: 'application/json',
-          buffer: saved.bytes,
-        });
+      await firstStudent.locator('#import-file').setInputFiles({
+        name: 'first-student.json',
+        mimeType: 'application/json',
+        buffer: saved.bytes,
+      });
       await firstStudent.locator('#confirm-import').click();
       await go(page, 3);
       await page
@@ -547,6 +545,173 @@ async function print(page, images, native = false) {
         /Save failed|Saving|Unsaved/,
       );
       await denied.close();
+      // A solo group selects unrestricted timing values through the real forms.
+      const solo = createRecord();
+      solo.group = {
+        id: 'QA-solo',
+        student1: { name: pre.student.full_name, id: 'TEST0001' },
+        student2: { name: '', id: '' },
+      };
+      await mainPage
+        .locator('#import-file')
+        .setInputFiles(payload(await createBackup(solo, images)));
+      await mainPage.locator('#confirm-import').click();
+      await go(mainPage, 0);
+      assert.equal(
+        await mainPage
+          .getByLabel('Student 2 name (optional)', { exact: true })
+          .count(),
+        1,
+      );
+      const fillMain = (field, value) =>
+        mainPage.locator(`[data-field="${field}"]`).fill(value);
+      for (const [index, id, values] of [
+        [1, 'A0', { r1a: '127.25', r2a: '812.75', capacitor: '0.47' }],
+        [2, 'A1', { r1a: '500.5', r2a: '501.5' }],
+        [3, 'M0', { r1a: '31.5', capacitor: '22' }],
+      ]) {
+        await go(mainPage, index);
+        if (id !== 'A1') {
+          assert.equal(
+            await mainPage
+              .locator(`[data-field="configs.${id}.design.capacitor"]`)
+              .evaluate((el) => el.tagName),
+            'INPUT',
+          );
+        }
+        for (const [key, value] of Object.entries(values))
+          await fillMain(`configs.${id}.design.${key}`, value);
+        await fillMain(
+          `configs.${id}.prediction.${id === 'M0' ? 'pulse' : 'frequency'}`,
+          '1',
+        );
+        await mainPage.locator(`[data-preserve="${id}"]`).click();
+        assert.equal(
+          await mainPage
+            .locator(
+              `[data-field="configs.${id}.measurement.${id === 'M0' ? 'pulse' : 'frequency'}"]`,
+            )
+            .isEnabled(),
+          true,
+        );
+        await fillMain(
+          `configs.${id}.measurement.${id === 'M0' ? 'pulse' : 'frequency'}`,
+          '1.01',
+        );
+        await mainPage
+          .locator('summary')
+          .filter({ hasText: 'Component measurements and tolerances' })
+          .click();
+        await fillMain(
+          `configs.${id}.design.measuredC`,
+          values.capacitor || '0.47',
+        );
+      }
+      await go(mainPage, 1);
+      await fillMain('configs.A0.design.capacitor', '47');
+      await go(mainPage, 2);
+      assert.match(
+        await mainPage.locator('[data-fixed-capacitor]').textContent(),
+        /0.47/,
+      );
+      const soloJson = await backup(mainPage);
+      const soloData = JSON.parse(soloJson.bytes);
+      assert.match(soloJson.name, /QA-solo.*TEST0001/);
+      assert.doesNotMatch(soloJson.name, /DRAFT|Partner/);
+      assert.equal(
+        soloData.record.configs.A0.original.design.capacitor,
+        '0.47',
+      );
+      assert.equal(
+        soloData.record.configs.A1.original.reference.capacitor,
+        '0.47',
+      );
+      assert.equal(soloData.record.configs.M0.original.design.capacitor, '22');
+      const soloZip = await backup(mainPage, 'zip');
+      await print(mainPage, 3);
+      assert.doesNotMatch(
+        await mainPage.locator('#report').textContent(),
+        /Student 2|DRAFT/,
+      );
+      if (engine === 'chromium') {
+        await mainPage.emulateMedia({ media: 'print' });
+        await mainPage.pdf({
+          path: 'output/pdf/555-solo-main-lab-qa.pdf',
+          format: 'A4',
+          printBackground: true,
+          preferCSSPageSize: true,
+        });
+        await mainPage.emulateMedia({ media: 'screen' });
+      }
+      await menu(page, 'new');
+      await page.locator('#confirm-new').click();
+      await source(page, 'main', soloZip.bytes, soloZip.name);
+      await source(page, 'prelab', preZip, 'prelab.zip');
+      await page.locator('[data-confirm]').check();
+      await go(page, 3);
+      await page
+        .locator('[data-field="analysis.conclusionA"]')
+        .fill('Individual conclusion from a solo group.');
+      await print(page, 3);
+      assert.doesNotMatch(
+        await page.locator('#report').textContent(),
+        /Student 2|DRAFT \/ INCOMPLETE/,
+      );
+      if (engine === 'chromium') {
+        await page.emulateMedia({ media: 'print' });
+        await page.pdf({
+          path: 'output/pdf/555-solo-post-lab-qa.pdf',
+          format: 'A4',
+          printBackground: true,
+          preferCSSPageSize: true,
+        });
+        await page.emulateMedia({ media: 'screen' });
+      }
+      for (const width of [1448, 768, 390]) {
+        await mainPage.setViewportSize({ width, height: 900 });
+        await go(mainPage, 0);
+        if (
+          (await mainPage
+            .locator('#menu-button')
+            .getAttribute('aria-expanded')) === 'true'
+        )
+          await mainPage.keyboard.press('Escape');
+        assert(
+          await mainPage
+            .getByLabel('Student 2 ID (optional)', { exact: true })
+            .isVisible(),
+        );
+        assert(
+          await mainPage.evaluate(
+            () => document.documentElement.scrollWidth <= innerWidth + 1,
+          ),
+        );
+        await mainPage.screenshot({
+          path: path.join(output, `${engine}-solo-${width}.png`),
+          fullPage: true,
+          animations: 'disabled',
+        });
+      }
+      // A partial second student remains a downloadable draft, not a completed report.
+      await fillMain('group.student2.name', 'Optional Partner');
+      await menu(mainPage, 'print');
+      assert.match(
+        await mainPage.locator('#toast').textContent(),
+        /Student 2 ID/,
+      );
+      assert.equal(
+        JSON.parse((await backup(mainPage)).bytes).record.group.student2.name,
+        'Optional Partner',
+      );
+      await fillMain('group.student2.id', 'TEST0001');
+      await menu(mainPage, 'print');
+      assert.match(await mainPage.locator('#toast').textContent(), /different/);
+      await fillMain('group.student2.id', '000002');
+      await print(mainPage, 3);
+      assert.match(
+        await mainPage.locator('#report').textContent(),
+        /Student 2/,
+      );
       assert.deepEqual(errors, []);
       assert(
         requests
@@ -555,7 +720,7 @@ async function print(page, images, native = false) {
         'Student data must never be posted or sent to another server',
       );
       console.log(
-        `PASS ${engine}: source imports, 15 responsive post-lab pages, reports, restore, replacement, identity and storage isolation; no upload requests`,
+        `PASS ${engine}: unrestricted timing values, solo/two-student groups, source imports, responsive pages, reports, restore, replacement, identity and storage isolation; no upload requests`,
       );
     } finally {
       await context.close();

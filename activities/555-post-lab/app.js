@@ -302,7 +302,7 @@ async function importFile(file, kind) {
       const parsed = await parseMainFile(bytes);
       if (parsed.migrated)
         throw new Error(
-          'Open this earlier backup in the main worksheet, confirm the two students and add their IDs, then download a new ZIP.',
+          'Open this earlier backup in the main worksheet, confirm the participating students and add their IDs, then download a new ZIP.',
         );
       candidate = {
         record: withSource(record, 'main', parsed.record, file.name),

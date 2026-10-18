@@ -46,9 +46,9 @@ export function Timer555Topic() {
           <div className="topic-card-body">
             <h2>Main Lab Worksheet</h2>
             <p>
-              Work as a pair to record all three labs, attach scope images
-              locally, and download the shared data for your individual
-              post-lab.
+              Work in a group of one or two to record all three labs, attach
+              scope images locally, and download the shared data for your
+              individual post-lab.
             </p>
             <Link
               reloadDocument
@@ -67,7 +67,7 @@ export function Timer555Topic() {
           <div className="topic-card-body">
             <h2>Individual Post-Lab</h2>
             <p>
-              Import your own pre-lab and the pair’s main-lab data. Write your
+              Import your own pre-lab and the group’s main-lab data. Write your
               own analysis and conclusions, then download your complete report.
             </p>
             <Link

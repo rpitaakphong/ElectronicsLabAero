@@ -9,7 +9,7 @@ import {
   comparison,
   chart,
 } from '../555-main-lab/views.js';
-import { createRecord, pairStudents } from '../555-main-lab/model.js';
+import { createRecord, groupStudents } from '../555-main-lab/model.js';
 import { PAGES, issues } from './model.js';
 
 const names = {
@@ -100,7 +100,7 @@ export function sourceMain(record, sources) {
     ? `<div class="source-report">${mainReport(record.sources.main, sources)}</div>`
     : box(
         'Main-lab data not imported',
-        'Choose the pair’s main-lab ZIP or JSON backup on Import files.',
+        'Choose the group’s main-lab ZIP or JSON backup on Import files.',
       );
 }
 function identity(record) {
@@ -110,7 +110,7 @@ function identity(record) {
     ? `<p><strong>${esc(pre.student.full_name)}</strong> · Student ID ${esc(pre.student.university_student_id)}</p>`
     : '';
   if (main)
-    text += `<p>Group ID: ${esc(main.group.id)}</p>${pairStudents(main)
+    text += `<p>Group ID: ${esc(main.group.id)}</p>${groupStudents(main)
       .map(
         (student, i) =>
           `<p>Student ${i + 1}: ${esc(student.name)} · ${esc(student.id)}</p>`,
@@ -118,14 +118,14 @@ function identity(record) {
       .join('')}`;
   const match =
     pre && main
-      ? pairStudents(main).find(
+      ? groupStudents(main).find(
           (s) => s.id.trim() === pre.student.university_student_id.trim(),
         )
       : null;
   if (match && match.name.trim() !== pre.student.full_name.trim())
     text += box(
       'Name spelling differs',
-      `Pre-lab: ${esc(pre.student.full_name)}. Pair sheet: ${esc(match.name)}. Check both names before confirming. Source names will not be changed.`,
+      `Pre-lab: ${esc(pre.student.full_name)}. Group sheet: ${esc(match.name)}. Check both names before confirming. Source names will not be changed.`,
       'warning',
     );
   const problems = issues(record, false);
@@ -133,14 +133,14 @@ function identity(record) {
     text +
     (problems.length
       ? box('Check the imported files', esc(problems.join(' ')), 'warning')
-      : `<label class="check"><input type="checkbox" data-confirm ${record.identityConfirmed ? 'checked' : ''}><span>I confirm this is my own pre-lab and my pair’s lab data, including any name-spelling differences shown above.</span></label>`)
+      : `<label class="check"><input type="checkbox" data-confirm ${record.identityConfirmed ? 'checked' : ''}><span>I confirm this is my own pre-lab and my group’s lab data, including any name-spelling differences shown above.</span></label>`)
   );
 }
 export function postlabScreen(record, index, sources) {
   const intro = [
-    'Import your own finalized pre-lab and the pair’s lab data. Nothing is uploaded to a server.',
+    'Import your own finalized pre-lab and the group’s lab data. Nothing is uploaded to a server.',
     'Review your preserved pre-lab responses.',
-    'Review the pair’s measurements, designs and screenshots. Imported data cannot be edited here.',
+    'Review the group’s measurements, designs and screenshots. Imported data cannot be edited here.',
     'Complete these answers independently, using your own reasoning.',
     'Check your individual report, then download it and keep a backup.',
   ][index];
@@ -151,18 +151,18 @@ export function postlabScreen(record, index, sources) {
         'Choose the two source files',
         box(
           'Your work stays in this browser',
-          'Use a copy of the pair’s main-lab ZIP and only your own finalized pre-lab ZIP. JSON evidence is also accepted. PDFs and the pre-lab HTML are not data imports. Download an individual backup before leaving or changing computers.',
+          'Use a copy of the group’s main-lab ZIP and only your own finalized pre-lab ZIP. JSON evidence is also accepted. PDFs and the pre-lab HTML are not data imports. Download an individual backup before leaving or changing computers.',
         ) +
           ['prelab', 'main']
             .map(
               (kind) =>
-                `<h3>${kind === 'prelab' ? 'Your finalized pre-lab' : 'The pair’s main-lab data'}</h3><p>${esc(record.sourceNames[kind] || 'No file imported')}</p><div class="attachment-controls"><label for="source-${kind}">Choose ${kind === 'prelab' ? 'pre-lab' : 'main-lab'} ZIP or JSON</label><input id="source-${kind}" type="file" accept=".zip,.json" data-source="${kind}"><button data-import-source="${kind}">Import ${kind === 'prelab' ? 'pre-lab' : 'main-lab'}</button></div>`,
+                `<h3>${kind === 'prelab' ? 'Your finalized pre-lab' : 'The group’s main-lab data'}</h3><p>${esc(record.sourceNames[kind] || 'No file imported')}</p><div class="attachment-controls"><label for="source-${kind}">Choose ${kind === 'prelab' ? 'pre-lab' : 'main-lab'} ZIP or JSON</label><input id="source-${kind}" type="file" accept=".zip,.json" data-source="${kind}"><button data-import-source="${kind}">Import ${kind === 'prelab' ? 'pre-lab' : 'main-lab'}</button></div>`,
             )
             .join('') +
           '<p class="small muted">Corrections must be made in the source workspace and explicitly re-imported. Replacing a source never merges groups or students.</p>',
       ) +
       paper('Confirm your identity', identity(record)) +
-      '<p><a href="/worksheets/555-main-lab.html" target="_blank" rel="noopener">Open paired main-lab workspace ↗</a></p>';
+      '<p><a href="/worksheets/555-main-lab.html" target="_blank" rel="noopener">Open main-lab workspace ↗</a></p>';
   if (index === 1) body = prelabEvidence(record.sources.prelab);
   if (index === 2) body = sourceMain(record, sources);
   if (index === 3) {
@@ -195,7 +195,7 @@ export function postlabScreen(record, index, sources) {
         (record.needsReview
           ? `<label class="check"><input type="checkbox" data-reviewed><span>I have reviewed my analysis against the updated source data.</span></label>`
           : '') +
-        `<p>${Object.values(record.analysis).filter((text) => text.trim()).length}/${Object.keys(record.analysis).length} analysis fields started. Entered answers are not automatically checked for correctness.</p><p>The PDF includes your pre-lab evidence, the pair’s results and screenshots, and your individual analysis. Missing measurements or images remain explicitly marked.</p><div class="actions"><button class="primary" data-action="print">Print or save report as PDF</button><button data-action="export">Download answers (JSON)</button><button data-action="zip">Download lab files (ZIP)</button></div><p>JSON and ZIP backups include both imported records, your writing and attached images. ZIP also contains the original images in a screenshots folder. Downloads do not submit your work.</p>`,
+        `<p>${Object.values(record.analysis).filter((text) => text.trim()).length}/${Object.keys(record.analysis).length} analysis fields started. Entered answers are not automatically checked for correctness.</p><p>The PDF includes your pre-lab evidence, the group’s results and screenshots, and your individual analysis. Missing measurements or images remain explicitly marked.</p><div class="actions"><button class="primary" data-action="print">Print or save report as PDF</button><button data-action="export">Download answers (JSON)</button><button data-action="zip">Download lab files (ZIP)</button></div><p>JSON and ZIP backups include both imported records, your writing and attached images. ZIP also contains the original images in a screenshots folder. Downloads do not submit your work.</p>`,
     );
   return `<div class="screen-head"><span class="eyebrow">INDIVIDUAL POST-LAB</span><h1>${PAGES[index]}</h1><p class="leadin">${intro}</p></div>${body}`;
 }

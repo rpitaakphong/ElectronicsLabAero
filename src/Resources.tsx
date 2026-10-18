@@ -61,9 +61,9 @@ export function Resources() {
         <span className="eyebrow">WORKSHEET</span>
         <h2 id="worksheet-title">555 Main Lab Worksheet</h2>
         <p>
-          Complete the three labs as a pair. Answers and attached images stay in
-          your browser; download a backup to keep them or move to another
-          computer.
+          Complete the three labs in a group of one or two. Answers and attached
+          images stay in your browser; download a backup to keep them or move to
+          another computer.
         </p>
         <Link
           reloadDocument
@@ -77,7 +77,7 @@ export function Resources() {
         <span className="eyebrow">INDIVIDUAL WORKSHEET</span>
         <h2 id="postlab-title">555 Individual Post-Lab</h2>
         <p>
-          Import your own finalized pre-lab and the pair’s main-lab ZIP. Review
+          Import your own finalized pre-lab and the group’s main-lab ZIP. Review
           the evidence, write your own analysis and conclusions, and download
           your report. Work stays in your browser.
         </p>
