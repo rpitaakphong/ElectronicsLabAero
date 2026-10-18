@@ -18,7 +18,7 @@ import {
   groupStudents,
   identityIssues,
 } from './model.js';
-import { n, v, op, row, frac, unit, math, valueLine, range, timingEquations, analysisEquations } from './scientific.js';
+import { n, v, op, row, frac, unit, math, valueLine, range, timingEquations, analysisEquations, LAB1_TIMING_TARGETS } from './scientific.js';
 import { astableSchematic, dip8PinGuide, conversionSchematic, monostableWaveforms } from './diagrams.js';
 
 export const esc = (value) =>
@@ -82,7 +82,9 @@ export function designFeedback(id, d) {
   return (id.startsWith('A') ? '' : designSummary(id, d)) + designStatus(id, d);
 }
 function targetExpressions(record, id) {
-  if (id === 'A0') return range('0.8', 'f', '', '1.3', 'Hz');
+  if (id === 'A0') return range(LAB1_TIMING_TARGETS.frequencyMin, 'f', '', LAB1_TIMING_TARGETS.frequencyMax, 'Hz')
+    + '<p>Design your circuit for approximately equal HIGH and LOW times, <var>t<sub>H</sub></var> ≈ <var>t<sub>L</sub></var>. Aim for a 50% HIGH duty cycle; the accepted measured range is 45–55%.</p>'
+    + range(LAB1_TIMING_TARGETS.dutyMin, 'D', 'H', LAB1_TIMING_TARGETS.dutyMax, '%');
   if (id === 'M0') return range('0.55', 't', 'W', '0.95', 's');
   const base = number(designReference(record, id).frequency);
   return '<h3>Make the HIGH time about twice the LOW time</h3><p>The HIGH time (<var>t<sub>H</sub></var>) is how long the output stays HIGH in one cycle. The LOW time (<var>t<sub>L</sub></var>) is how long it stays LOW. Divide the HIGH time by the LOW time: the result must be between 1.8 and 2.2, close to a ratio of 2.</p>'
@@ -93,7 +95,7 @@ function targetExpressions(record, id) {
       : '<p class="small muted">Your numerical frequency limits will appear here after you enter the Lab 1 measurement.</p>');
 }
 function astableSignalIllustration() {
-  return `<figure class="signal-illustration"><h3>Intended output signal</h3><svg viewBox="0 0 480 150" role="img" aria-label="Illustration of the intended 555 astable output: repeating HIGH and LOW pulses over time. One cycle contains one HIGH interval and one LOW interval. No specific duty cycle or voltage level is prescribed."><g fill="none" stroke="#c8d9d6" stroke-width="1.5"><path d="M62 30V116H470"/><path d="M62 42H470M62 96H470" stroke-dasharray="3 5"/></g><path d="M72 96V42H144V96H192V42H264V96H312V42H384V96H432V42H468" fill="none" stroke="#087f85" stroke-width="2.5" stroke-linejoin="round"/><path d="M72 25V20H192V25" fill="none" stroke="#59717a" stroke-width="1.5"/><g fill="#365861" font-family="system-ui,sans-serif" font-size="16"><text x="8" y="47">HIGH</text><text x="8" y="101">LOW</text><text x="132" y="14" text-anchor="middle">One cycle</text><text x="468" y="141" text-anchor="end">Time →</text></g></svg><figcaption>Illustration only, not to scale. The HIGH and LOW times need not be equal; calculate them for your selected components.</figcaption></figure>`;
+  return `<figure class="signal-illustration"><h3>Intended output signal</h3><svg viewBox="0 0 480 150" role="img" aria-label="Illustration of the intended 555 astable output: repeating pulses with equal-length HIGH and LOW intervals showing the 50% HIGH duty-cycle design aim. The accepted measured HIGH duty cycle is 45–55%. This is not measured data; no voltage level or time scale is prescribed."><g fill="none" stroke="#c8d9d6" stroke-width="1.5"><path d="M62 30V116H470"/><path d="M62 42H470M62 96H470" stroke-dasharray="3 5"/></g><path d="M72 96V42H132V96H192V42H252V96H312V42H372V96H432V42H468" fill="none" stroke="#087f85" stroke-width="2.5" stroke-linejoin="round"/><path d="M72 25V20H192V25" fill="none" stroke="#59717a" stroke-width="1.5"/><g fill="#365861" font-family="system-ui,sans-serif" font-size="16"><text x="8" y="47">HIGH</text><text x="8" y="101">LOW</text><text x="132" y="14" text-anchor="middle">One cycle</text><text x="468" y="141" text-anchor="end">Time →</text></g></svg><figcaption>Illustration only, not to scale. Equal-length intervals show the 50% design aim; measured HIGH duty cycle must be 45–55%.</figcaption></figure>`;
 }
 function objectiveDeliverables(id) {
   const symbols = { high: '<var>t<sub>H</sub></var>', low: '<var>t<sub>L</sub></var>', period: '<var>T</var>', frequency: '<var>f</var>', duty: '<var>D<sub>H</sub></var>', pulse: '<var>t<sub>W</sub></var>' };
@@ -120,7 +122,7 @@ function goalPanel(record, id) {
   const ref = designReference(record, id);
   const title = 'Lab Objective';
   const note = id === 'A0' ? '<p>The main objective of this lab task is to design a repeating pulse signal using a 555 timer in its astable configuration. The generated signal must have a frequency within the following range:</p>' : id === 'M0' ? '<p>The objective of Lab 3 is to convert your 555 astable circuit into a monostable circuit. In simple words, design a circuit that produces one HIGH output pulse when you press a button, instead of oscillating continuously. Use a normally-open momentary pushbutton: press and release it briefly. The output stays LOW between pulses.</p><p>Your output pulse must meet this requirement:</p>' : '<p>The objective of Lab 2 is to modify your Lab 1 astable circuit to meet both timing requirements below. Change either or both timing resistances, R1 and R2, but keep the same physical timing capacitor used in Lab 1.</p>';
-  const description = id === 'A0' ? '<p>Your job is to select a suitable combination of timing resistors and a timing capacitor yourself. Use the astable circuit connections shown below, calculate the expected output, then build and measure the circuit to check whether it meets this requirement.</p>' : id === 'M0' ? '<p>Choose a timing resistance R and timing capacitor C yourself. Predict the pulse duration and save your initial design before building. The pulse duration (<var>t<sub>W</sub></var>) runs from the output’s rising edge to its falling edge, not for as long as you hold the button.</p><p>Wire with the power off. Check the connections before switching on to test.</p>' : '';
+  const description = id === 'A0' ? '<p>Your job is to select a suitable combination of timing resistors and a timing capacitor yourself. Use the astable circuit connections shown below, calculate the expected output, then build and measure the circuit to check whether it meets both requirements.</p>' : id === 'M0' ? '<p>Choose a timing resistance R and timing capacitor C yourself. Predict the pulse duration and save your initial design before building. The pulse duration (<var>t<sub>W</sub></var>) runs from the output’s rising edge to its falling edge, not for as long as you hold the button.</p><p>Wire with the power off. Check the connections before switching on to test.</p>' : '';
   const illustration = id === 'A0' ? astableSignalIllustration() : id === 'M0' ? waveformGuide() : '';
   const reference = id === 'A1' ? `<div class="goal-reference"><strong>Measured frequency from Lab 1</strong>${number(ref.frequency) > 0 ? valueLine('f', 'Lab 1, meas', ref.frequency, 'Hz') : '<p>No Lab 1 frequency has been entered yet.</p>'}<p>Enter this reading on the Lab 1 page, under <strong>Measured results → Frequency (Hz)</strong>. Save the Lab 1 initial design and predictions first to enable its measurement fields.</p><button data-go-task1-frequency>Go to Lab 1 measured frequency</button><small>${record.configs.A1.original ? 'The frequency limits and capacitor reference were fixed when you saved the initial Lab 2 design. Later Lab 1 corrections do not change them.' : 'Saving the initial Lab 2 design will keep a copy of this frequency and the Lab 1 timing-capacitor value, so later Lab 1 corrections will not change your original Lab 2 requirements.'}</small></div>` : '';
   return `<section class="goal-panel" aria-label="${taskLabel(id)} ${title.toLowerCase()}"><div class="goal-header"><span class="goal-id" aria-hidden="true">${TASKS[id].number}</span><h2>${title}</h2></div><div class="goal-body">${note}${targetExpressions(record, id)}${description}${objectiveDeliverables(id)}${illustration}${reference}</div></section>`;
@@ -170,7 +172,7 @@ function designFields(record, id) {
   const totalValue = (prefix) => d[`${prefix}b`].trim() && resistance(d, prefix) !== null ? fmt(resistance(d, prefix)) : d[`${prefix}a`];
   const total = (prefix, label) => field(record, `configs.${id}.design.${prefix}a`, label, { unit: 'kΩ', numeric: true, positive: true, value: totalValue(prefix) });
   const rationale = id === 'A0'
-    ? 'State the output frequency you are aiming for. Explain why you chose R1, R2, and C, and how those values should give the intended HIGH and LOW times. If you combine components, identify the parts and their equivalent value. Explain your choices in words; calculation steps are not required.'
+    ? 'State the output frequency you are aiming for. Explain why you chose R1, R2, and C to meet the frequency target and give approximately equal HIGH and LOW times, aiming for a 50% HIGH duty cycle. If you combine components, identify the parts and their equivalent value. Explain your choices in words; calculation steps are not required.'
     : id === 'A1'
       ? 'Explain which resistance values you changed from Lab 1 and why. Describe how your choices should change the HIGH and LOW times while keeping the frequency within the allowed limits and the capacitor unchanged. Identify any combined components; calculation steps are not required.'
       : 'State the output pulse duration you are aiming for. Explain why you chose the timing resistance and capacitor, and how they should produce that pulse duration. Identify any combined components. Explain your choices in words; calculation steps are not required.';
@@ -329,7 +331,7 @@ export function analysisForm(record, comparisonSection = null) {
         field(
           record,
           'analysis.conclusionA',
-          'For Lab 1 and Lab 2 separately, state whether your astable design met its objectives. Use your measured frequency for Lab 1, and your HIGH/LOW time ratio and frequency change for Lab 2, to support your conclusions.',
+          'For Lab 1 and Lab 2 separately, state whether your astable design met its objectives. Use your measured frequency and HIGH duty cycle for Lab 1, and your HIGH/LOW time ratio and frequency change for Lab 2, to support your conclusions.',
           { area: true },
         ) +
           field(

@@ -1,4 +1,5 @@
 // Native MathML keeps every equation available offline, including in print.
+export const LAB1_TIMING_TARGETS = Object.freeze({ frequencyMin: '0.8', frequencyMax: '1.3', dutyMin: '45', dutyMax: '55' });
 const safe = (text) => String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 export const n = (value) => `<mn>${safe(value)}</mn>`;
 export const v = (name, sub = '') => sub ? `<msub><mi>${safe(name)}</mi><mtext>${safe(sub)}</mtext></msub>` : `<mi>${safe(name)}</mi>`;

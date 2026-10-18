@@ -647,6 +647,22 @@ test('post-lab questions are explicit without helper text or retired optional se
     );
   }
 });
+test('Lab 1 post-lab and report show the duty target without changing answers or adding calculations', () => {
+  const record = individual(), before = JSON.stringify(record);
+  const html = postlabScreen(record, 3, {}), printed = individualReport(record, {});
+  for (const output of [html, printed]) {
+    assert.match(output, /0\.8 ≤ f ≤ 1\.3 Hz/);
+    assert.match(output, /accepted measured range: 45–55%/);
+    assert.match(output, /Aim for 50% HIGH duty cycle/);
+  }
+  assert.match(html, /Use your measured frequency and HIGH duty cycle for Lab 1/);
+  assert.equal((html.match(/data-calculation-answer/g) || []).length, 13);
+  assert.deepEqual(answerProgress(record), { started: 0, total: 24 });
+  assert.equal(JSON.stringify(record), before);
+  record.identityConfirmed = true;
+  record.sources.main.configs.A0.measurement.duty = '60';
+  assert.deepEqual(issues(record), [], 'Measured duty outside the target must not introduce a report restriction');
+});
 test('reports include complete source evidence and individual answers, not raw HTML or shared conclusions', () => {
   const record = individual();
   record.sources.main.analysis.conclusionA = 'OLD SHARED CONCLUSION';

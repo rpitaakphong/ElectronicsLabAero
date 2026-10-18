@@ -5,6 +5,7 @@ import {
   designReference,
 } from '../555-main-lab/model.js';
 import { CALCULATION_KEYS, numericAnswerIssue } from './calculations.js';
+import { LAB1_TIMING_TARGETS } from '../555-main-lab/scientific.js';
 
 const quantities = {
   high: ['HIGH time t_H', 's'],
@@ -41,7 +42,7 @@ function missing(predicted, measured, divide = true) {
   return '';
 }
 function targets(main, id) {
-  if (id === 'A0') return 'Target: 0.8 ≤ f ≤ 1.3 Hz.';
+  if (id === 'A0') return `Targets: ${LAB1_TIMING_TARGETS.frequencyMin} ≤ f ≤ ${LAB1_TIMING_TARGETS.frequencyMax} Hz; approximately equal HIGH and LOW times, t_H ≈ t_L. Aim for 50% HIGH duty cycle; accepted measured range: ${LAB1_TIMING_TARGETS.dutyMin}–${LAB1_TIMING_TARGETS.dutyMax}%.`;
   if (id === 'M0')
     return 'Targets: 0.55 ≤ t_W ≤ 0.95 s; one pulse per brief button press. Check output voltage levels and switch response.';
   const frozen = designReference(main, 'A1').frequency,

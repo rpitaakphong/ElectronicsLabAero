@@ -213,7 +213,7 @@ test('five pages use the task titles without visible legacy codes or repeated sp
   assert.doesNotMatch(schematic(), /10 kΩ|33 kΩ|1 µF/);
 });
 
-test('Lab 1 explains its lab objective with one frequency range and an illustrative pulse signal', () => {
+test('Lab 1 specifies frequency and approximate timing equality with an illustrative pulse signal', () => {
   const r = createRecord(), before = JSON.stringify(r), html = screen(r, 1);
   const objective = html.match(/<section class="goal-panel"[\s\S]*?<\/section>/)?.[0];
   assert(objective);
@@ -225,11 +225,31 @@ test('Lab 1 explains its lab objective with one frequency range and an illustrat
   assert.equal((objective.match(/<mn>1\.3<\/mn>/g) || []).length, 1);
   assert.match(objective, /class="signal-illustration"/);
   assert.match(objective, /Illustration only, not to scale/);
-  assert.match(objective, /No specific duty cycle or voltage level is prescribed/);
+  assert.match(objective, /approximately equal HIGH and LOW times/);
+  assert.match(objective, /Aim for a 50% HIGH duty cycle; the accepted measured range is 45–55%/);
+  assert.match(objective, /aria-label="D H from 45 to 55 %"/);
+  assert.match(objective, /equal-length HIGH and LOW intervals/);
+  assert.doesNotMatch(objective, /No specific duty cycle|HIGH and LOW times need not be equal/);
+  const wave = objective.match(/<path d="(M72 96V42H[^\"]+)"/)[1];
+  const edges = [...wave.matchAll(/H(\d+)/g)].map((match) => Number(match[1]));
+  assert.deepEqual(edges.slice(0, 6), [132, 192, 252, 312, 372, 432]);
+  assert(edges.slice(0, 6).every((x, i) => x - (i ? edges[i - 1] : 72) === 60), 'Every complete HIGH and LOW interval must have equal width');
   assert.doesNotMatch(objective, /Design specifications|<p\b[^>]*>(?:(?!<\/p>)[\s\S])*<math/);
   for (const i of [0, 2, 3, 4]) assert.doesNotMatch(screen(r, i), /signal-illustration/);
   assert.match(screen(r, 3), /<h2>Lab Objective<\/h2>/);
   assert.equal(JSON.stringify(r), before);
+});
+test('Lab 1 duty target is in reports and component prompts without new answers or grading', () => {
+  const record = createRecord(), before = JSON.stringify(record);
+  const html = screen(record, 1), printed = report(record);
+  assert.match(html, /R1, R2, and C to meet the frequency target and give approximately equal HIGH and LOW times/);
+  assert.match(printed, /aria-label="f  from 0.8 to 1.3 Hz"/);
+  assert.match(printed, /aria-label="D H from 45 to 55 %"/);
+  assert.doesNotMatch(html, /4\.7 kΩ|68 kΩ|R1 = 0|exactly equal/);
+  assert.equal(JSON.stringify(record), before);
+  Object.assign(record.configs.A0.design, { r1a: '10', r2a: '10', capacitor: '10' });
+  Object.assign(record.configs.A0.prediction, { frequency: '1', duty: '66.7' });
+  assert.doesNotThrow(() => preservePrediction(record, 'A0'), 'Out-of-target predictions are still saveable, not graded or blocked');
 });
 
 test('Lab 3 objective explains single-pulse design, construction and measurement without prescribing parts', () => {

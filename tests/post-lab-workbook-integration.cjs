@@ -266,6 +266,8 @@ async function print(page, images, native = false) {
       assert.equal(await page.locator('#main textarea').count(), 0);
       await go(page, 3);
       assert.equal(await page.locator('[data-field^="analysis."]').count(), 8);
+      assert.match(await page.locator('.calculation-target').first().innerText(), /accepted measured range: 45–55%/);
+      assert.match(await page.locator('label[for="field-analysis-conclusionA"]').innerText(), /measured frequency and HIGH duty cycle for Lab 1/);
       assert.equal(await page.locator('[data-calculation-answer]').count(), 13);
       assert.equal(await page.locator('[data-field^="optional."]').count(), 0);
       assert.equal(
@@ -327,6 +329,7 @@ async function print(page, images, native = false) {
       await print(page, 3);
       await print(page, 3, true);
       assert.match(await page.locator('#report').innerText(), /-12.5 %/);
+      assert.match(await page.locator('#report').innerText(), /accepted measured range: 45–55%/);
       assert.doesNotMatch(
         await page.locator('#report').innerText(),
         /Signed deviation|Measured ratio/,
@@ -474,6 +477,7 @@ async function print(page, images, native = false) {
       await mainPage.locator('#import-file').setInputFiles(payload(mainBackup));
       await mainPage.locator('#confirm-import').click();
       await print(mainPage, 3);
+      assert.equal(await mainPage.locator('#report [aria-label="D H from 45 to 55 %"]').count(), 1);
       assert.equal(
         await mainPage.locator('#report [data-report-image]').count(),
         3,
@@ -845,7 +849,22 @@ async function print(page, images, native = false) {
           fullPage: true,
           animations: 'disabled',
         });
+        await go(mainPage, 1);
+        if ((await mainPage.locator('#menu-button').getAttribute('aria-expanded')) === 'true')
+          await mainPage.keyboard.press('Escape');
+        const goal = mainPage.locator('.goal-panel');
+        assert.match(await goal.innerText(), /approximately equal HIGH and LOW times/);
+        assert.equal(await goal.locator('[aria-label="D H from 45 to 55 %"]').count(), 1);
+        assert.match(await goal.locator('svg').getAttribute('aria-label'), /equal-length HIGH and LOW intervals/);
+        assert.doesNotMatch(await goal.innerText(), /need not be equal|No specific duty cycle/);
+        assert(await mainPage.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1));
+        await goal.screenshot({
+          path: path.join(output, `${engine}-lab1-duty-${width}.png`),
+          animations: 'disabled',
+          style: '.topbar, footer, #toast { visibility: hidden !important; }',
+        });
       }
+      await go(mainPage, 0);
       // A partial second student remains a downloadable draft, not a completed report.
       await fillMain('group.student2.name', 'Optional Partner');
       await menu(mainPage, 'print');
