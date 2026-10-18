@@ -46,3 +46,4 @@ yarn-error.log*
 
 /public/simulators/rc-filter/
 /public/simulators/timer555/
+/public/worksheets/
