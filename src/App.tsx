@@ -15,16 +15,18 @@ import { AppLayout } from './AppLayout';
 import { Welcome } from './Welcome';
 import { TopicCatalog } from './TopicCatalog';
 import { Resources } from './Resources';
+import { NoiseFilteringTopic } from './NoiseFilteringTopic';
 
 // Register topic views here; navigation and metadata come from the catalog.
 const topicViews: Record<
   TopicId,
-  { overview: ComponentType; learn: ComponentType }
+  { overview: ComponentType; learn?: ComponentType }
 > = {
   timer555: { overview: Timer555Topic, learn: Timer555Lab },
   'voltage-divider': { overview: DividerTopic, learn: DividerLab },
   'rc-filter': { overview: RcTopic, learn: RcLab },
   opamp: { overview: OpAmpTopic, learn: OpAmpLab },
+  'noise-filtering': { overview: NoiseFilteringTopic },
 };
 export function AppRoutes() {
   return (
@@ -45,19 +47,21 @@ export function AppRoutes() {
           return (
             <Route key={topic.id}>
               <Route path={topic.path} element={<Overview />} />
-              {topic.tools.map((tool) => (
-                <Route
-                  key={tool.id}
-                  path={tool.path}
-                  element={
-                    tool.id === 'learn' ? (
-                      <Learning />
-                    ) : (
-                      <SimulatorWorkspace key={topic.id} lab={topic.id} />
-                    )
-                  }
-                />
-              ))}
+              {topic.tools
+                .filter((tool) => tool.navigation === 'app')
+                .map((tool) => (
+                  <Route
+                    key={tool.id}
+                    path={tool.path}
+                    element={
+                      tool.id === 'learn' && Learning ? (
+                        <Learning />
+                      ) : tool.id === 'simulator' && 'simulator' in topic ? (
+                        <SimulatorWorkspace key={topic.id} lab={topic.id} />
+                      ) : null
+                    }
+                  />
+                ))}
             </Route>
           );
         })}

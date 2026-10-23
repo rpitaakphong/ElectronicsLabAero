@@ -1,0 +1,68 @@
+{
+  "kind": "2145427-W12-workspace-backup",
+  "version": 4,
+  "workspace": {
+    "package": "2145427-W12-prelab-review-r4",
+    "course": "2145427",
+    "activity": "noise-filtering-prelab-20261026",
+    "stage": "prelab",
+    "current": 9,
+    "fields": {
+      "studentId": "SYNTHETIC-W12-001",
+      "studentName": "Synthetic integration example",
+      "practiceNoise": "",
+      "practiceFilter": "",
+      "maWork": "Synthetic calculation uncertainty <literal>",
+      "emaWork": "Synthetic EMA uncertainty",
+      "p1first": "Synthetic first; no assessed answer.",
+      "p1reason": "Synthetic reason; no assessed answer.",
+      "p1assumption": "Synthetic assumption; no assessed answer.",
+      "p1uncertainty": "Synthetic uncertainty; no assessed answer.",
+      "p1revision": "Synthetic revision, no assessed solution.",
+      "p1help": "none",
+      "p2first": "Synthetic first; no assessed answer.",
+      "p2reason": "Synthetic reason; no assessed answer.",
+      "p2assumption": "Synthetic assumption; no assessed answer.",
+      "p2uncertainty": "Synthetic uncertainty; no assessed answer.",
+      "p2revision": "Synthetic revision, no assessed solution.",
+      "p2help": "none",
+      "check1": "Synthetic independent uncertainty one",
+      "check2": "Synthetic independent uncertainty two",
+      "aiUsed": "Synthetic aiUsed uncertainty",
+      "aiExposure": "Synthetic aiExposure uncertainty",
+      "claim": "Synthetic claim uncertainty",
+      "verification": "Synthetic verification uncertainty",
+      "limitation": "Synthetic limitation uncertainty",
+      "handoff": "Synthetic handoff uncertainty"
+    },
+    "checks": {
+      "identityConfirm": true,
+      "honestyConfirm": true,
+      "independentConfirm": true
+    },
+    "frozen": {
+      "p1": {
+        "first": "Synthetic first; no assessed answer.",
+        "reason": "Synthetic reason; no assessed answer.",
+        "assumption": "Synthetic assumption; no assessed answer.",
+        "uncertainty": "Synthetic uncertainty; no assessed answer.",
+        "time": "2026-10-23T15:40:02.931Z"
+      },
+      "p2": {
+        "first": "Synthetic first; no assessed answer.",
+        "reason": "Synthetic reason; no assessed answer.",
+        "assumption": "Synthetic assumption; no assessed answer.",
+        "uncertainty": "Synthetic uncertainty; no assessed answer.",
+        "time": "2026-10-23T15:40:03.165Z"
+      },
+      "check": {
+        "check1": "Synthetic independent uncertainty one",
+        "check2": "Synthetic independent uncertainty two",
+        "time": "2026-10-23T15:40:03.362Z"
+      }
+    },
+    "finalized": true,
+    "created": "2026-10-23T15:40:02.415Z",
+    "updated": "2026-10-23T15:40:06.976Z"
+  }
+}

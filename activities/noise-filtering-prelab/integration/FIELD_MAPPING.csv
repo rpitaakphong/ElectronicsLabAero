@@ -1,0 +1,33 @@
+﻿workspace field,evidence JSON path,meaning / downstream boundary
+workspace.fields.studentId,responses.studentId,Identity also at student.id/name
+workspace.fields.studentName,responses.studentName,Identity also at student.id/name
+workspace.fields.practiceNoise,responses.practiceNoise,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.practiceFilter,responses.practiceFilter,Optional legacy formative field; reserved
+workspace.fields.maWork,responses.maWork,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.emaWork,responses.emaWork,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.p1first,responses.p1first,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.p1reason,responses.p1reason,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.p1assumption,responses.p1assumption,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.p1uncertainty,responses.p1uncertainty,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.p1revision,responses.p1revision,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.p1help,responses.p1help,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.p2first,responses.p2first,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.p2reason,responses.p2reason,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.p2assumption,responses.p2assumption,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.p2uncertainty,responses.p2uncertainty,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.p2revision,responses.p2revision,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.p2help,responses.p2help,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.check1,responses.check1,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.check2,responses.check2,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.aiUsed,responses.aiUsed,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.aiExposure,responses.aiExposure,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.claim,responses.claim,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.verification,responses.verification,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.limitation,responses.limitation,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.fields.handoff,responses.handoff,Student text; preserve literally. Not measured evidence or automatically verified correctness.
+workspace.checks.identityConfirm,confirmations.identityConfirm,Client-supplied student confirmation; not authentication or grading
+workspace.checks.honestyConfirm,confirmations.honestyConfirm,Client-supplied student confirmation; not authentication or grading
+workspace.checks.independentConfirm,confirmations.independentConfirm,Client-supplied student confirmation; not authentication or grading
+workspace.frozen.p1,originals.p1,Preserved first/independent response; retain separately from later revisions
+workspace.frozen.p2,originals.p2,Preserved first/independent response; retain separately from later revisions
+workspace.frozen.check,originals.check,Preserved first/independent response; retain separately from later revisions

@@ -1,6 +1,6 @@
 # Electronics Learning Lab
 
-A Vite, React, and TypeScript learning app with voltage-divider, RC filter, operational-amplifier, and 555 timer labs. Start at the welcome page, browse the searchable topic catalog, then use interactive lessons and breadboard simulators to connect circuit theory with measurements.
+A Vite, React, and TypeScript learning app with voltage-divider, RC filter, operational-amplifier, and 555 timer labs, plus the Week 12 Noise and Filtering pre-lab. Start at the welcome page and browse the searchable topic catalog to prepare for class, explore concepts and connect circuit theory with measurements.
 
 ## Learning topics
 
@@ -19,6 +19,7 @@ A Vite, React, and TypeScript learning app with voltage-divider, RC filter, oper
 - `/555-timer`: topic overview with Interactive Learning and Simulator
 - `/555-timer/learn`: astable and monostable lessons with live capacitor/output/trigger plots, predictions, measured timing, and guided experiments
 - `/555-timer/simulator`: NE555 breadboard workspace with a single supply, pushbuttons, function generator, and oscilloscope
+- `/noise-and-filtering`: separate Week 12 topic with the individual Noise and Filtering pre-lab; no learning, simulator, main-lab or post-lab tools yet
 
 The divider learning tool uses an ideal 0–24 V DC source and 100 Ω–1 MΩ resistors. Potentiometer position runs from ground (0%) to the supply (100%). Loaded circuits account for the load in parallel with the lower resistor. Sensor resistance is adjusted directly without assuming a specific sensor. Learning settings persist while switching configurations, but leaving a learning tool or refreshing restores defaults. Simulator Save/Recall is explicit and local to the browser.
 
@@ -34,11 +35,25 @@ Breadcrumbs follow Home → Topics → Topic → Tool. The header height informs
 
 The catalog searches topic names and descriptions without a backend. Resources links to all four self-contained HTML simulators and the 555 Main Lab Worksheet, and explains the current model and storage behavior.
 
-To add a topic, register its metadata and available tools in `lib/catalog.ts`, then its overview and learning components in `src/App.tsx`. The catalog, navigation, breadcrumbs, and document titles derive from the registry. Downloads and resource guidance are registered alongside the topics.
+To add a topic, register its metadata and available tools in `lib/catalog.ts`, then its overview and any learning component in `src/App.tsx`. Tools explicitly distinguish application navigation from full-document navigation. Simulator metadata is optional; only topics with a simulator contribute offline simulator downloads. The catalog, navigation, breadcrumbs, and document titles derive from the registry. Downloads and resource guidance are registered alongside the topics.
 
 `tests/navigation-integration.cjs` checks all navigation destinations at 1512, 1024, 768, and 390 px, along with catalog search, keyboard dismissal/focus, mobile focus containment, skip links, direct links, Back/Forward, reloads, unknown routes, reduced motion, lesson settings, unsaved circuit/iframe preservation, and sticky controls/notifications. It writes review screenshots to `output/playwright/navigation/`.
 
 ## Run locally
+
+### Week 12 Noise and Filtering pre-lab
+
+The separate Noise and Filtering topic, Topics menus and Resources link to `/courses/2145427/week12/prelab/v1.0.0/START_HERE.html` using ordinary same-tab document navigation. Only the supplied `START_HERE.html`, `READ_ME_FIRST.md` and `LAB_AI_COACH.md` are published in this versioned folder. The workbook has a presentation-only math revision: equations and worked calculations are built as native MathML, including review and print reports. The two companion files are unchanged from the supplied v1.0.0 release. The archived instructor handoff remains intact. The workbook runs without runtime network dependencies, authentication, a database or AI access. Its inline scripts/styles require a compatible hosting policy; do not weaken a site-wide policy without testing. RC Filter remains a separate topic.
+
+After preserving PRE-P01 or PRE-P02, students can Show full coach prompt, Copy full coach prompt or Select all for manual copying. The workbook embeds the complete original student coach resource followed by only the selected case request and its frozen reason/uncertainty. Show never requests clipboard access. Missing/denied clipboard access retains the complete read-only text and selects it for normal manual copying. Prompt visibility, status and selection are temporary UI state and never enter saved records or exports. Student identity, independent-check questions/responses and other response fields are not automatically added. The optional coach Markdown download remains a reference; no file download, AI API or network is needed for prompt preparation.
+
+Students complete ten screens, preserve first predictions before comparison/help, write separate revisions, complete the independent check and finalize their individual evidence. Browser autosave uses `2145427-W12-prelab-20261026-impl-v1`; manual JSON backups remain important, especially when changing browser, origin or device. Use one workbook tab at a time. Finalization locks the record and downloads exactly `prelab_evidence.json`, `prelab_report.txt` and `workspace_backup.json` inside a ZIP. Downloads do not submit to an LMS. The instructor supplies submission destination/deadline and actual bench procedures separately.
+
+Restore accepts the JSON backup, not the ZIP: extract `workspace_backup.json` first. It preserves finalized locks, validates identity and asks before replacing current work. Compatible R4 backups require explicit restore; Week 11/R3 are unsupported. Preview/production origins do not share local storage automatically. There is no automatic cloud synchronization or authenticated separation of students on a shared browser.
+
+The private `activities/noise-filtering-prelab/` folder retains the unmodified read-only adapter, schemas, field mapping, release manifest and synthetic examples. It is not part of the public payload. Evidence schema `2145427-w12-prelab-evidence-v4`, workspace envelope version 4, package `2145427-W12-prelab-1.0.0`, storage key, exercises and numerical plot geometry are unchanged. Authored math is typeset; student writing and the portable JSON/TXT exports stay literal. Future Noise and Filtering post-lab work should accept the retained pre-lab ZIP, preserve its original evidence and append separately collected measurements and individual interpretation. No future importer/API is implemented now, and the existing 555 importer is unchanged.
+
+`npm run package:noise-prelab` reproducibly builds the standalone workbook from its maintained private sources using the installed KaTeX package at build time. The output contains native MathML and needs no runtime renderer, remote fonts or network. The release manifest retains upstream hashes separately from the presentation revision. `npm run check:noise-prelab` verifies the three public files against the recorded presentation hashes; the production build also checks its final output and rejects instructor-only material. Reviewed presentation updates explicitly record a new hash with `node scripts/package-noise-prelab.mjs --update-manifest`; ordinary builds never silently update it. Run `npm run test:noise-prelab` for release and contract checks. With Playwright available through the existing browser-test environment, start a production preview on port 4178 and run `npm run test:noise-prelab:browser` (override `APP_URL` for another preview). This synthetic-only browser suite verifies navigation, real served file hashes, autosave, original/revision preservation, invalid/cancelled/accepted restores, final ZIP bytes, clean-context recovery, R4 import, print-report rendering, clipboard fallback, denied storage, responsiveness and 555 storage isolation. It also expands every teaching screen at desktop, tablet and phone widths to check native math, printable context, literal student text and equation layout. Artifacts are written to `output/playwright/noise-prelab/`. Headless report checks do not certify native print dialogs, physical devices or deployed Vercel headers; check the actual deployment before release.
 
 ### Paired main lab and individual post-lab
 

@@ -1,17 +1,27 @@
-export type ToolKind = 'learn' | 'simulator';
+export type ToolKind = 'learn' | 'simulator' | 'prelab';
+export type TopicTool = {
+  label: string;
+  title: string;
+  path: string;
+} & (
+  | { id: 'learn' | 'simulator'; navigation: 'app' }
+  | { id: 'prelab'; navigation: 'document' }
+);
+
+export const NOISE_PRELAB = {
+  base: '/courses/2145427/week12/prelab/v1.0.0/',
+  workbook: '/courses/2145427/week12/prelab/v1.0.0/START_HERE.html',
+  instructions: '/courses/2145427/week12/prelab/v1.0.0/READ_ME_FIRST.md',
+  coach: '/courses/2145427/week12/prelab/v1.0.0/LAB_AI_COACH.md',
+} as const;
 export interface TopicDefinition {
   id: string;
   title: string;
   description: string;
   path: string;
-  art: 'divider' | 'rc' | 'opamp' | 'timer';
-  tools: readonly {
-    id: ToolKind;
-    label: string;
-    title: string;
-    path: string;
-  }[];
-  simulator: { url: string; download: string; description: string };
+  art: 'divider' | 'rc' | 'opamp' | 'timer' | 'noise';
+  tools: readonly TopicTool[];
+  simulator?: { url: string; download: string; description: string };
 }
 
 export const TOPICS = [
@@ -25,12 +35,14 @@ export const TOPICS = [
     tools: [
       {
         id: 'learn',
+        navigation: 'app',
         label: 'Interactive Learning',
         title: 'Voltage Divider Interactive Learning',
         path: '/voltage-divider/learn',
       },
       {
         id: 'simulator',
+        navigation: 'app',
         label: 'Simulator',
         title: 'Voltage Divider Lab Simulator',
         path: '/voltage-divider/simulator',
@@ -54,12 +66,14 @@ export const TOPICS = [
     tools: [
       {
         id: 'learn',
+        navigation: 'app',
         label: 'Interactive Learning',
         title: 'RC Filter Interactive Learning',
         path: '/rc-filter/learn',
       },
       {
         id: 'simulator',
+        navigation: 'app',
         label: 'Simulator',
         title: 'RC Filter Lab Simulator',
         path: '/rc-filter/simulator',
@@ -82,12 +96,14 @@ export const TOPICS = [
     tools: [
       {
         id: 'learn',
+        navigation: 'app',
         label: 'Interactive Learning',
         title: 'Op-Amp Interactive Learning',
         path: '/operational-amplifier/learn',
       },
       {
         id: 'simulator',
+        navigation: 'app',
         label: 'Simulator',
         title: 'Op-Amp Lab Simulator',
         path: '/operational-amplifier/simulator',
@@ -110,12 +126,14 @@ export const TOPICS = [
     tools: [
       {
         id: 'learn',
+        navigation: 'app',
         label: 'Interactive Learning',
         title: '555 Timer Interactive Learning',
         path: '/555-timer/learn',
       },
       {
         id: 'simulator',
+        navigation: 'app',
         label: 'Simulator',
         title: '555 Timer Lab Simulator',
         path: '/555-timer/simulator',
@@ -128,9 +146,30 @@ export const TOPICS = [
         'Build an oscillator or a one-shot. Connect power, trigger a pulse, and measure the timing.',
     },
   },
+  {
+    id: 'noise-filtering',
+    title: 'Noise and Filtering',
+    path: '/noise-and-filtering',
+    art: 'noise',
+    description:
+      'Distinguish useful signals from noise. Compare analog and digital filtering, preserve your predictions, and prepare for the measurement lab.',
+    tools: [
+      {
+        id: 'prelab',
+        navigation: 'document',
+        label: 'Pre-lab',
+        title: 'Noise and Filtering Pre-lab',
+        path: NOISE_PRELAB.workbook,
+      },
+    ],
+  },
 ] as const satisfies readonly TopicDefinition[];
 
 export type TopicId = (typeof TOPICS)[number]['id'];
+export const SIMULATOR_TOPICS = TOPICS.filter((topic) => 'simulator' in topic);
+export type SimulatorTopicId = (typeof SIMULATOR_TOPICS)[number]['id'];
+export const getSimulatorTopic = (id: SimulatorTopicId) =>
+  SIMULATOR_TOPICS.find((topic) => topic.id === id)!;
 export const getTopic = (id: TopicId) =>
   TOPICS.find((topic) => topic.id === id)!;
 export const getTool = (id: TopicId, kind: ToolKind) =>
@@ -189,17 +228,19 @@ export const PAGE_METADATA: readonly PageMetadata[] = [
       section: 'topics' as const,
       breadcrumbs: [homeCrumb, topicsCrumb, { label: topic.title }],
     },
-    ...topic.tools.map((tool) => ({
-      path: tool.path,
-      title: tool.title,
-      section: 'topics' as const,
-      breadcrumbs: [
-        homeCrumb,
-        topicsCrumb,
-        { label: topic.title, path: topic.path },
-        { label: tool.label },
-      ],
-    })),
+    ...topic.tools
+      .filter((tool) => tool.navigation === 'app')
+      .map((tool) => ({
+        path: tool.path,
+        title: tool.title,
+        section: 'topics' as const,
+        breadcrumbs: [
+          homeCrumb,
+          topicsCrumb,
+          { label: topic.title, path: topic.path },
+          { label: tool.label },
+        ],
+      })),
   ]),
 ];
 export const pageMetadata = (pathname: string) =>
@@ -241,6 +282,7 @@ export const RESOURCES: readonly ResourceDefinition[] = [
       'Simulators start with a blank board on every visit. Use Save lab to store your circuit and instrument settings, then Recall lab to restore them. There is no automatic save. Reset lab clears the current board without deleting your saved lab.',
       'Saves belong to this browser and website address. Each simulator saves independently. A different device, browser, website address, or offline file does not automatically share those saves.',
       'Opening the navigation menu keeps your work in place. Following a link away from the lab leaves the current tool, so save first when you want to return to your circuit.',
+      'The Noise and Filtering pre-lab saves answers automatically in this browser. Download JSON backups during your work, then finalize and keep the evidence ZIP. To resume from that ZIP, extract workspace_backup.json and use Restore backup in the pre-lab. Downloads are not submissions.',
     ],
   },
   {
@@ -257,7 +299,7 @@ export const RESOURCES: readonly ResourceDefinition[] = [
       'Read each tool’s model notes when interpreting a measurement. Real components and instruments have additional limitations and tolerances; these educational models do not replace measurements on your physical circuit.',
     ],
   },
-  ...TOPICS.map((topic) => ({
+  ...SIMULATOR_TOPICS.map((topic) => ({
     id: `offline-${topic.id}`,
     title: getTool(topic.id, 'simulator').title,
     kind: 'download' as const,

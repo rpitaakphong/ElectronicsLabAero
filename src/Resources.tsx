@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { ArrowDownToLine, ArrowRight } from 'lucide-react';
-import { RESOURCES, SITE_PAGES } from '@/lib/catalog';
+import { NOISE_PRELAB, RESOURCES, SITE_PAGES } from '@/lib/catalog';
 import { TopicBreadcrumbs } from './TopicBreadcrumbs';
 
 export function Resources() {
@@ -23,6 +23,7 @@ export function Resources() {
           </Link>
         ))}
         <Link to="/resources#offline-simulators">Offline simulators</Link>
+        <a href={NOISE_PRELAB.workbook}>Noise and Filtering Pre-lab</a>
         <Link reloadDocument to="/worksheets/555-main-lab.html">
           555 Main Lab Worksheet
         </Link>
@@ -54,6 +55,42 @@ export function Resources() {
           </section>
         ))}
       </div>
+      <section
+        className="panel resource-guide"
+        aria-labelledby="noise-prelab-title"
+      >
+        <span className="eyebrow">WEEK 12 · INDIVIDUAL PREPARATION</span>
+        <h2 id="noise-prelab-title">Noise and Filtering Pre-lab</h2>
+        <p>
+          Complete the individual workbook, preserve your predictions, then
+          finalize and download your evidence ZIP. Keep the complete ZIP for the
+          future post-lab. Save JSON backups while you work; to recover from a
+          ZIP, extract workspace_backup.json and restore that file. Downloads
+          stay on your device and are not submissions.
+        </p>
+        <p>
+          The full optional AI coach prompt is available inside the pre-lab
+          after you preserve a prediction, with show, copy and manual-copy
+          controls. The coach instructions download below is an optional
+          reference.
+        </p>
+        <a className="topic-link" href={NOISE_PRELAB.workbook}>
+          Open pre-lab <ArrowRight size={16} aria-hidden="true" />
+        </a>
+        <p>
+          <Link className="topic-link" to="/noise-and-filtering">
+            Preparation and recovery guide
+          </Link>
+          {' · '}
+          <a className="topic-link" href={NOISE_PRELAB.instructions} download>
+            Student instructions
+          </a>
+          {' · '}
+          <a className="topic-link" href={NOISE_PRELAB.coach} download>
+            Optional AI coach instructions
+          </a>
+        </p>
+      </section>
       <section
         className="panel resource-guide"
         aria-labelledby="worksheet-title"

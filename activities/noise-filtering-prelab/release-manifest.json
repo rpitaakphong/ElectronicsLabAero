@@ -1,0 +1,57 @@
+{
+  "package": "2145427-W12-prelab-1.0.0",
+  "evidenceSchema": "2145427-w12-prelab-evidence-v4",
+  "workspaceVersion": 4,
+  "storageKey": "2145427-W12-prelab-20261026-impl-v1",
+  "publicPath": "courses/2145427/week12/prelab/v1.0.0",
+  "files": [
+    {
+      "name": "START_HERE.html",
+      "sha256": "74151a50017b58bdeac6989cdc6a17821f0cd19a8a8b14810f3b494747079d69",
+      "bytes": 394057
+    },
+    {
+      "name": "READ_ME_FIRST.md",
+      "sha256": "0bce9ace87bcc2db084ad57d3b825c9e6f49835c62443875468bb9bf03639402",
+      "bytes": 2461
+    },
+    {
+      "name": "LAB_AI_COACH.md",
+      "sha256": "70d59c9804c9b1ea6b54a3da3eeae53a3b7d1f99d00e4e4ed3a351caf31fe300",
+      "bytes": 6936
+    }
+  ],
+  "upstreamFiles": [
+    {
+      "name": "START_HERE.html",
+      "sha256": "10030383c433c94eb85d9c76c920ac50149594ee7b93f80971cd4ac407425cf8",
+      "bytes": 355221
+    },
+    {
+      "name": "READ_ME_FIRST.md",
+      "sha256": "0bce9ace87bcc2db084ad57d3b825c9e6f49835c62443875468bb9bf03639402",
+      "bytes": 2461
+    },
+    {
+      "name": "LAB_AI_COACH.md",
+      "sha256": "70d59c9804c9b1ea6b54a3da3eeae53a3b7d1f99d00e4e4ed3a351caf31fe300",
+      "bytes": 6936
+    }
+  ],
+  "presentationRevision": "math-typesetting-1+full-coach-1",
+  "upstreamFigurePathHashes": {
+    "chain": "b7d42a101aa397fdbbfbdf23474b58bcf3f70829ce3277b08e5239d3ce67e00b",
+    "choice": "ca21370a22d25d654c826109af749f91be2c254ef638900cf1f90fbba756c474",
+    "ema-pred": "14310e8f10bf7d52899144c6f74bab8c33618b876cc2410bf853c498937298a6",
+    "export": "20a32d070270d87aa8dad99708fee2dd0f5bf81671b2478d5f3eadbc4c23de70",
+    "handoff": "e90ed1d1fb2d55e45dfbf6a5bed5fc9c9c51ba0368ed56d61895ff45121b8797",
+    "input": "17d1002164cea3f96666aa93d02426678b1d1d81a88456879a6e23eab65494cc",
+    "mechanism": "f9638ed3ab1b603f8a9e8caf8183aceaea53e4f20e6134863670ce62c615ffee",
+    "predict": "f9638ed3ab1b603f8a9e8caf8183aceaea53e4f20e6134863670ce62c615ffee",
+    "pulse": "5ca60796a8e73a0d0e11a03c4f25d3beb28eeeb7676e50870ad261a561f016b1",
+    "rc-pred": "96c4f6e2c205f8646f5415ff3f9f59e3983bbaea34f3a7a0f4ae1afe52daa32b",
+    "rc": "07744b54015518d69c9291a0e0dde35b3f9c72cd2c3d677ee3d612e66accf150",
+    "steady": "b0f2b39d32b638e10ede3d9b20642f543532fbcee2998212674ce574cda48d3f",
+    "step": "02adcaab750fece48cce7054b97358e69bdff26432d09fbb9b362cf4b8d99f72"
+  }
+}

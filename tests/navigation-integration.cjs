@@ -19,6 +19,7 @@ const destinations = [
   ['/555-timer', '555 Timer'],
   ['/555-timer/learn', '555 Timer Interactive Learning'],
   ['/555-timer/simulator', '555 Timer Lab Simulator'],
+  ['/noise-and-filtering', 'Noise and Filtering'],
 ];
 (async () => {
   const browser = await chromium.launch();
@@ -133,7 +134,7 @@ const destinations = [
     await page
       .getByRole('button', { name: 'Clear search', exact: true })
       .click();
-    assert.equal(await page.locator('.topic-card').count(), 4);
+    assert.equal(await page.locator('.topic-card').count(), 5);
     assert(await search.evaluate((el) => el === document.activeElement));
     await search.fill('no such circuit');
     assert(

@@ -2,15 +2,32 @@ export function TopicArt({
   divider = false,
   rc = false,
   timer = false,
+  noise = false,
 }: {
   divider?: boolean;
   rc?: boolean;
   timer?: boolean;
+  noise?: boolean;
 }) {
   return (
     <svg viewBox="0 0 420 180" aria-hidden="true">
       <g fill="none" stroke="currentColor" strokeWidth="2">
-        {timer ? (
+        {noise ? (
+          <>
+            <path d="M38 148H385M45 25V148" opacity="0.35" />
+            <path
+              d="M45 112L56 98L67 118L78 89L89 106L100 83L111 99L122 72L133 87L144 57L155 77L166 54L177 80L188 62L199 95L210 78L221 109L232 91L243 120L254 105L265 126L276 109L287 130L298 107L309 122L320 96L331 112L342 84L353 99L364 74L375 86"
+              opacity="0.35"
+            />
+            <path
+              d="M45 108C90 108 111 66 155 66S211 116 265 116S330 81 375 81"
+              strokeWidth="4"
+            />
+            <text x="220" y="40">
+              Signal + noise
+            </text>
+          </>
+        ) : timer ? (
           <>
             <rect x="140" y="40" width="100" height="95" rx="8" />
             <path d="M125 60H140M125 85H140M125 110H140M240 60H260M240 85H260M240 110H280V135H305V60H330V135H355M190 25V40M190 135V155M175 155H205" />

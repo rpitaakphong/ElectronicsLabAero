@@ -1,0 +1,378 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:2145427:w12:prelab-evidence:v4",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "enum": [
+        "2145427-w12-prelab-evidence-v4",
+        "2145427-w12-prelab-evidence-review-r4"
+      ]
+    },
+    "package": {
+      "enum": [
+        "2145427-W12-prelab-1.0.0",
+        "2145427-W12-prelab-review-r4"
+      ]
+    },
+    "student": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 10000
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ],
+      "additionalProperties": false
+    },
+    "stage": {
+      "const": "prelab"
+    },
+    "activity": {
+      "const": "noise-filtering-prelab-20261026"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "finalized"
+      ]
+    },
+    "assigned_context": {
+      "type": "object",
+      "properties": {
+        "p1": {
+          "type": "string"
+        },
+        "p2": {
+          "type": "string"
+        },
+        "check1": {
+          "type": "string"
+        },
+        "check2": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "p1",
+        "p2",
+        "check1",
+        "check2"
+      ],
+      "additionalProperties": false
+    },
+    "originals": {
+      "type": "object",
+      "properties": {
+        "p1": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "first": {
+                  "type": "string",
+                  "maxLength": 10000
+                },
+                "reason": {
+                  "type": "string",
+                  "maxLength": 10000
+                },
+                "assumption": {
+                  "type": "string",
+                  "maxLength": 10000
+                },
+                "uncertainty": {
+                  "type": "string",
+                  "maxLength": 10000
+                },
+                "time": {
+                  "type": "string",
+                  "maxLength": 10000
+                }
+              },
+              "required": [
+                "first",
+                "reason",
+                "assumption",
+                "uncertainty",
+                "time"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "p2": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "first": {
+                  "type": "string",
+                  "maxLength": 10000
+                },
+                "reason": {
+                  "type": "string",
+                  "maxLength": 10000
+                },
+                "assumption": {
+                  "type": "string",
+                  "maxLength": 10000
+                },
+                "uncertainty": {
+                  "type": "string",
+                  "maxLength": 10000
+                },
+                "time": {
+                  "type": "string",
+                  "maxLength": 10000
+                }
+              },
+              "required": [
+                "first",
+                "reason",
+                "assumption",
+                "uncertainty",
+                "time"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "check": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "properties": {
+                "check1": {
+                  "type": "string",
+                  "maxLength": 10000
+                },
+                "check2": {
+                  "type": "string",
+                  "maxLength": 10000
+                },
+                "time": {
+                  "type": "string",
+                  "maxLength": 10000
+                }
+              },
+              "required": [
+                "check1",
+                "check2",
+                "time"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        }
+      },
+      "required": [
+        "p1",
+        "p2",
+        "check"
+      ],
+      "additionalProperties": false
+    },
+    "responses": {
+      "type": "object",
+      "properties": {
+        "studentId": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "studentName": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "practiceNoise": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "practiceFilter": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "maWork": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "emaWork": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "p1first": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "p1reason": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "p1assumption": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "p1uncertainty": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "p1revision": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "p1help": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "p2first": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "p2reason": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "p2assumption": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "p2uncertainty": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "p2revision": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "p2help": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "check1": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "check2": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "aiUsed": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "aiExposure": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "claim": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "verification": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "limitation": {
+          "type": "string",
+          "maxLength": 10000
+        },
+        "handoff": {
+          "type": "string",
+          "maxLength": 10000
+        }
+      },
+      "required": [
+        "studentId",
+        "studentName",
+        "practiceNoise",
+        "practiceFilter",
+        "maWork",
+        "emaWork",
+        "p1first",
+        "p1reason",
+        "p1assumption",
+        "p1uncertainty",
+        "p1revision",
+        "p1help",
+        "p2first",
+        "p2reason",
+        "p2assumption",
+        "p2uncertainty",
+        "p2revision",
+        "p2help",
+        "check1",
+        "check2",
+        "aiUsed",
+        "aiExposure",
+        "claim",
+        "verification",
+        "limitation",
+        "handoff"
+      ],
+      "additionalProperties": false
+    },
+    "confirmations": {
+      "type": "object",
+      "properties": {
+        "identityConfirm": {
+          "type": "boolean"
+        },
+        "honestyConfirm": {
+          "type": "boolean"
+        },
+        "independentConfirm": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "identityConfirm",
+        "honestyConfirm",
+        "independentConfirm"
+      ],
+      "additionalProperties": false
+    },
+    "created_client": {
+      "type": "string"
+    },
+    "updated_client": {
+      "type": "string"
+    },
+    "disclaimer": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "package",
+    "student",
+    "stage",
+    "activity",
+    "status",
+    "assigned_context",
+    "originals",
+    "responses",
+    "confirmations",
+    "created_client",
+    "updated_client",
+    "disclaimer"
+  ],
+  "additionalProperties": false,
+  "$comment": "Structural schema. The supplied adapter/runtime additionally validate parseable dates, nonblank preserved records, identity consistency and finalized completeness. Client fields are not authenticated."
+}

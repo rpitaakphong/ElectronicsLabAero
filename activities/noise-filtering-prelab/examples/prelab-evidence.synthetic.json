@@ -1,0 +1,74 @@
+{
+  "schema": "2145427-w12-prelab-evidence-v4",
+  "package": "2145427-W12-prelab-1.0.0",
+  "student": {
+    "id": "SYNTHETIC-W12-001",
+    "name": "Synthetic integration example"
+  },
+  "stage": "prelab",
+  "activity": "noise-filtering-prelab-20261026",
+  "status": "finalized",
+  "assigned_context": {
+    "p1": "R4 PRE-P01: RC R=10 kΩ, C=1 versus 3 µF, shared 25 ms pulse; calculate τ and cutoff, predict before reveal, revise from comparison.",
+    "p2": "R4 PRE-P02: EMA α=0.20 versus 0.04 at 1000 Hz; shared 25 ms pulse, predict before reveal and revise.",
+    "check1": "R4 UC-W12-01: new 100 ms pulse; compare three supplied settings against RMS ≤0.020 V, t90 ≤20 ms, pulse ≥90%; justify with limitations.",
+    "check2": "R4 UC-W12-02: total RMS versus noise RMS; aliased ADC and post-sampling smoothing."
+  },
+  "originals": {
+    "p1": {
+      "first": "Synthetic first; no assessed answer.",
+      "reason": "Synthetic reason; no assessed answer.",
+      "assumption": "Synthetic assumption; no assessed answer.",
+      "uncertainty": "Synthetic uncertainty; no assessed answer.",
+      "time": "2026-10-23T15:40:02.931Z"
+    },
+    "p2": {
+      "first": "Synthetic first; no assessed answer.",
+      "reason": "Synthetic reason; no assessed answer.",
+      "assumption": "Synthetic assumption; no assessed answer.",
+      "uncertainty": "Synthetic uncertainty; no assessed answer.",
+      "time": "2026-10-23T15:40:03.165Z"
+    },
+    "check": {
+      "check1": "Synthetic independent uncertainty one",
+      "check2": "Synthetic independent uncertainty two",
+      "time": "2026-10-23T15:40:03.362Z"
+    }
+  },
+  "responses": {
+    "studentId": "SYNTHETIC-W12-001",
+    "studentName": "Synthetic integration example",
+    "practiceNoise": "",
+    "practiceFilter": "",
+    "maWork": "Synthetic calculation uncertainty <literal>",
+    "emaWork": "Synthetic EMA uncertainty",
+    "p1first": "Synthetic first; no assessed answer.",
+    "p1reason": "Synthetic reason; no assessed answer.",
+    "p1assumption": "Synthetic assumption; no assessed answer.",
+    "p1uncertainty": "Synthetic uncertainty; no assessed answer.",
+    "p1revision": "Synthetic revision, no assessed solution.",
+    "p1help": "none",
+    "p2first": "Synthetic first; no assessed answer.",
+    "p2reason": "Synthetic reason; no assessed answer.",
+    "p2assumption": "Synthetic assumption; no assessed answer.",
+    "p2uncertainty": "Synthetic uncertainty; no assessed answer.",
+    "p2revision": "Synthetic revision, no assessed solution.",
+    "p2help": "none",
+    "check1": "Synthetic independent uncertainty one",
+    "check2": "Synthetic independent uncertainty two",
+    "aiUsed": "Synthetic aiUsed uncertainty",
+    "aiExposure": "Synthetic aiExposure uncertainty",
+    "claim": "Synthetic claim uncertainty",
+    "verification": "Synthetic verification uncertainty",
+    "limitation": "Synthetic limitation uncertainty",
+    "handoff": "Synthetic handoff uncertainty"
+  },
+  "confirmations": {
+    "identityConfirm": true,
+    "honestyConfirm": true,
+    "independentConfirm": true
+  },
+  "created_client": "2026-10-23T15:40:02.415Z",
+  "updated_client": "2026-10-23T15:40:06.976Z",
+  "disclaimer": "Hypothetical individual predictions; no measured results. Client records do not prove independent authorship or LMS submission. Not a 555-recorder import."
+}

@@ -5,6 +5,7 @@ import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AppRoutes } from '../src/App';
+import { NOISE_PRELAB } from '../lib/catalog';
 window.scrollTo = () => {};
 afterEach(cleanup);
 const open = (path = '/') =>
@@ -13,6 +14,87 @@ const open = (path = '/') =>
       <AppRoutes />
     </MemoryRouter>,
   );
+test('Noise and Filtering has its own pre-lab-only topic and full-document links', () => {
+  open('/noise-and-filtering');
+  assert.ok(
+    screen.getByRole('heading', { name: 'Noise and Filtering', level: 1 }),
+  );
+  assert.equal(document.title, 'Noise and Filtering | Electronics Lab');
+  const main = screen.getByRole('main');
+  const links = Array.from(main.querySelectorAll('a'));
+  const workbook = screen.getByRole('link', { name: /Open pre-lab/ });
+  assert.equal(workbook.getAttribute('href'), NOISE_PRELAB.workbook);
+  assert.equal(workbook.getAttribute('target'), null);
+  assert.equal(workbook.hasAttribute('download'), false);
+  assert.equal(workbook.hasAttribute('data-discover'), false);
+  assert.ok(
+    screen
+      .getByRole('link', { name: 'Download student instructions' })
+      .hasAttribute('download'),
+  );
+  assert.ok(
+    screen
+      .getByRole('link', { name: 'Download optional AI coach instructions' })
+      .hasAttribute('download'),
+  );
+  assert.equal(
+    links.some((link) =>
+      /\/(learn|simulator|main-lab|post-lab)(?:\/|$)/.test(link.pathname),
+    ),
+    false,
+  );
+  assert.equal(main.querySelector('iframe'), null);
+  assert.match(main.textContent!, /workspace_backup.json/);
+  assert.match(main.textContent!, /Downloading is not submission/);
+});
+
+test('Noise and Filtering is searchable and has no unfinished tool routes', async () => {
+  const user = userEvent.setup();
+  open('/topics');
+  await user.type(
+    screen.getByRole('searchbox', { name: 'Search topics' }),
+    'noise',
+  );
+  assert.equal(screen.getByRole('status').textContent, '1 topic found');
+  await user.click(
+    screen.getByRole('link', { name: 'Open Noise and Filtering topic' }),
+  );
+  assert.ok(screen.getByRole('link', { name: /Open pre-lab/ }));
+  for (const path of [
+    '/noise-and-filtering/learn',
+    '/noise-and-filtering/simulator',
+    '/noise-and-filtering/main-lab',
+    '/noise-and-filtering/post-lab',
+  ]) {
+    cleanup();
+    open(path);
+    assert.ok(screen.getByRole('heading', { name: 'Page not found' }));
+  }
+  cleanup();
+  open('/rc-filter');
+  assert.ok(screen.getByRole('heading', { name: 'RC Filter', level: 1 }));
+  assert.equal(
+    screen.getByRole('link', { name: /Open simulator/ }).getAttribute('href'),
+    '/rc-filter/simulator',
+  );
+  assert.equal(screen.queryByRole('link', { name: /Open pre-lab/ }), null);
+});
+
+test('Resources links the Noise pre-lab without inventing an offline simulator', () => {
+  open('/resources');
+  assert.equal(
+    screen.getByRole('link', { name: /Open pre-lab/ }).getAttribute('href'),
+    NOISE_PRELAB.workbook,
+  );
+  assert.equal(
+    screen.getAllByRole('link', { name: /^Download .*Lab Simulator$/ }).length,
+    4,
+  );
+  assert.equal(
+    screen.queryByRole('link', { name: /Download Noise.*Simulator/ }),
+    null,
+  );
+});
 test('welcome and catalog link to both labs and leaving restores divider defaults', async () => {
   const user = userEvent.setup();
   open();
@@ -109,13 +191,34 @@ test('unknown routes offer a home link', () => {
 });
 test('555 topic and Resources link directly to the standalone local worksheet', () => {
   open('/555-timer');
-  assert.equal(screen.getByRole('link', { name: /Open worksheet/ }).getAttribute('href'), '/worksheets/555-main-lab.html');
-  assert.equal(screen.getByRole('link', { name: /Open individual post-lab/ }).getAttribute('href'), '/worksheets/555-post-lab.html');
+  assert.equal(
+    screen.getByRole('link', { name: /Open worksheet/ }).getAttribute('href'),
+    '/worksheets/555-main-lab.html',
+  );
+  assert.equal(
+    screen
+      .getByRole('link', { name: /Open individual post-lab/ })
+      .getAttribute('href'),
+    '/worksheets/555-post-lab.html',
+  );
   cleanup();
   open('/resources');
-  assert.equal(screen.getByRole('link', { name: /Open individual post-lab/ }).getAttribute('href'), '/worksheets/555-post-lab.html');
-  assert.equal(screen.getByRole('link', { name: /Open worksheet/ }).getAttribute('href'), '/worksheets/555-main-lab.html');
-  assert.equal(screen.getByRole('link', { name: '555 Main Lab Worksheet' }).getAttribute('href'), '/worksheets/555-main-lab.html');
+  assert.equal(
+    screen
+      .getByRole('link', { name: /Open individual post-lab/ })
+      .getAttribute('href'),
+    '/worksheets/555-post-lab.html',
+  );
+  assert.equal(
+    screen.getByRole('link', { name: /Open worksheet/ }).getAttribute('href'),
+    '/worksheets/555-main-lab.html',
+  );
+  assert.equal(
+    screen
+      .getByRole('link', { name: '555 Main Lab Worksheet' })
+      .getAttribute('href'),
+    '/worksheets/555-main-lab.html',
+  );
 });
 
 test('op-amp topic offers both tools and learning breadcrumbs return to the category', async () => {
@@ -245,7 +348,7 @@ test('catalog searches names and descriptions, clears, and explains empty result
   assert.equal(screen.getByRole('status').textContent, '0 topics found');
   await user.click(screen.getByRole('button', { name: 'Show all topics' }));
   assert.equal((search as HTMLInputElement).value, '');
-  assert.equal(screen.getByRole('status').textContent, '4 topics to explore');
+  assert.equal(screen.getByRole('status').textContent, '5 topics to explore');
 });
 
 test('resources offer all four sections and all four self-contained downloads', () => {

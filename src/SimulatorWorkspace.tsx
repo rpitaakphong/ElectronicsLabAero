@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { EXAM_PAGE, getTopic, getTool, type TopicId } from '@/lib/catalog';
+import {
+  EXAM_PAGE,
+  getSimulatorTopic,
+  getTool,
+  type SimulatorTopicId,
+} from '@/lib/catalog';
 import { TopicBreadcrumbs } from './TopicBreadcrumbs';
 import { Button } from '@/components/ui/button';
 import { RotateCcw } from 'lucide-react';
@@ -8,11 +13,11 @@ export function SimulatorWorkspace({
   lab,
   variant = 'standard',
 }: {
-  lab: TopicId;
+  lab: SimulatorTopicId;
   variant?: 'standard' | 'exam';
 }) {
   const exam = variant === 'exam';
-  const topic = getTopic(lab);
+  const topic = getSimulatorTopic(lab);
   const title = exam ? EXAM_PAGE.title : getTool(lab, 'simulator').title;
   const simulatorUrl = topic.simulator.url;
   const frame = useRef<HTMLIFrameElement>(null);

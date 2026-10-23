@@ -20,8 +20,8 @@ export function TopicCatalog() {
         <span className="eyebrow">EXPLORE THE LAB</span>
         <h1>Learning topics</h1>
         <p>
-          Choose a circuit. Explore the concepts, then build and measure it
-          yourself.
+          Choose a topic. Prepare for class, explore the concepts, and build
+          your measurement skills.
         </p>
       </div>
       <div className="catalog-toolbar">
@@ -59,11 +59,16 @@ export function TopicCatalog() {
           {topics.map((topic) => (
             <article className="panel topic-card" key={topic.id}>
               <div className="topic-art">
-                <span className="eyebrow">LEARN, BUILD &amp; MEASURE</span>
+                <span className="eyebrow">
+                  {topic.tools.some((tool) => tool.id === 'prelab')
+                    ? 'PREPARE & PREDICT'
+                    : 'LEARN, BUILD & MEASURE'}
+                </span>
                 <TopicArt
                   divider={topic.art === 'divider'}
                   rc={topic.art === 'rc'}
                   timer={topic.art === 'timer'}
+                  noise={topic.art === 'noise'}
                 />
               </div>
               <div className="topic-card-body">

@@ -32,11 +32,17 @@ function TopicLinks({ onNavigate }: { onNavigate: () => void }) {
             <ArrowUpRight size={15} aria-hidden="true" />
           </NavLink>
           <div className="nav-tool-links">
-            {topic.tools.map((tool) => (
-              <NavLink key={tool.id} to={tool.path} end onClick={onNavigate}>
-                {tool.label}
-              </NavLink>
-            ))}
+            {topic.tools.map((tool) =>
+              tool.navigation === 'document' ? (
+                <a key={tool.id} href={tool.path} onClick={onNavigate}>
+                  {tool.label}
+                </a>
+              ) : (
+                <NavLink key={tool.id} to={tool.path} end onClick={onNavigate}>
+                  {tool.label}
+                </NavLink>
+              ),
+            )}
           </div>
         </div>
       ))}
