@@ -1,0 +1,50 @@
+/* Preserve earlier sine-wave work while the current URL serves pulse v3. */
+const { chromium } = require('playwright');
+const fs = require('node:fs/promises');
+const assert = require('node:assert/strict');
+const { pathToFileURL } = require('node:url');
+const origin = process.env.APP_URL || 'http://127.0.0.1:4184';
+(async () => {
+  const { createRecord } = await import(pathToFileURL(process.cwd() + '/activities/noise-filtering-main-lab-v2/model.js'));
+  const { createZip, validateFile } = await import(pathToFileURL(process.cwd() + '/activities/noise-filtering-main-lab-v2/files.js'));
+  const r = createRecord();
+  r.fields['group.groupId'] = 'PRESERVED-SINE-V2';
+  r.fields['group.student1Name'] = 'Synthetic legacy student';
+  r.fields['scope.observations'] = 'Original 50 / 55 / 70 Hz investigation';
+  const csvBytes = Buffer.from('Time,Voltage\r\n0,2\r\n0.001,2.1\r\n');
+  const files = { 'baseline.csv': await validateFile('baseline.csv', new Blob([csvBytes]), 'legacy-original.csv') };
+  const zip = await createZip(r, files), browser = await chromium.launch({ headless: true });
+  try {
+    const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, acceptDownloads: true });
+    const page = await context.newPage();
+    const ready = async (p) => p.waitForFunction(() => !document.querySelector('#workbook').inert);
+    await page.goto(origin + '/worksheets/noise-filtering-main-lab-v2.html'); await ready(page);
+    await page.locator('#import-file').setInputFiles({ name: 'legacy.zip', mimeType: 'application/zip', buffer: Buffer.from(zip) });
+    await page.locator('#confirm-import').click();
+    assert.equal(await page.locator('[data-field="group.groupId"]').inputValue(), 'PRESERVED-SINE-V2');
+    await page.waitForFunction(() => document.querySelector('#save-status').textContent.startsWith('Answers saved'));
+    const stored = await page.evaluate(() => localStorage.getItem('electronics-noise-filtering-main-lab-v2'));
+    await page.goto(origin + '/worksheets/noise-filtering-main-lab.html'); await ready(page);
+    assert.equal(await page.locator('[data-field="group.groupId"]').inputValue(), '');
+    await page.locator('#import-file').setInputFiles({ name: 'legacy.zip', mimeType: 'application/zip', buffer: Buffer.from(zip) });
+    await page.locator('#toast').filter({ hasText: 'previous sine-wave v2' }).waitFor();
+    assert.equal(await page.evaluate(() => localStorage.getItem('electronics-noise-filtering-main-lab-v2')), stored);
+    assert.equal(await page.locator('a[href="/worksheets/noise-filtering-main-lab-v2.html"]').count(), 1);
+    await page.locator('#steps [data-step="1"]').click();
+    await page.locator('#toast').evaluate((el) => { el.hidden = true; });
+    await page.locator('.display-equation').nth(1).evaluate((el) => el.scrollIntoView({ block: 'center' }));
+    await fs.mkdir('output/playwright/noise-main-lab', { recursive: true });
+    await page.screenshot({ path: 'output/playwright/noise-main-lab/pulse-equations-desktop.png' });
+    const oldPage = await context.newPage();
+    await oldPage.goto(origin + '/worksheets/noise-filtering-main-lab-v2.html'); await ready(oldPage);
+    assert.equal(await oldPage.locator('[data-field="group.groupId"]').inputValue(), 'PRESERVED-SINE-V2');
+    await oldPage.locator('#save-menu-button').click();
+    const waiting = oldPage.waitForEvent('download');
+    await oldPage.locator('#save-menu [data-action="export"]').click();
+    const download = await waiting, backup = JSON.parse(await fs.readFile(await download.path(), 'utf8'));
+    assert.equal(backup.backupVersion, 2);
+    assert.equal(backup.record.fields['scope.observations'], r.fields['scope.observations']);
+    assert.deepEqual(Buffer.from(backup.attachments[0].data, 'base64'), csvBytes);
+    console.log('Previous sine v2 ZIP, CSV bytes, answers and browser storage remain restorable; pulse v3 rejects reinterpretation.');
+  } finally { await browser.close(); }
+})().catch((e) => { console.error(e); process.exitCode = 1; });

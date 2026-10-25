@@ -1,12 +1,21 @@
-export type ToolKind = 'learn' | 'simulator' | 'prelab';
+export type ToolKind = 'learn' | 'simulator' | 'prelab' | 'mainlab' | 'postlab';
 export type TopicTool = {
   label: string;
   title: string;
   path: string;
 } & (
   | { id: 'learn' | 'simulator'; navigation: 'app' }
-  | { id: 'prelab'; navigation: 'document' }
+  | { id: 'prelab' | 'mainlab' | 'postlab'; navigation: 'document' }
 );
+
+export const NOISE_POST_LAB = { workbook: '/worksheets/noise-filtering-post-lab.html' } as const;
+
+export const NOISE_MAIN_LAB = {
+  workbook: '/worksheets/noise-filtering-main-lab.html',
+  sketch:
+    '/courses/2145427/week12/main-lab/v4.0.0/aircraft_pulse_source.zip',
+  guide: '/courses/2145427/week12/main-lab/v4.0.0/LAB_GUIDE.txt',
+} as const;
 
 export const NOISE_PRELAB = {
   base: '/courses/2145427/week12/prelab/v1.0.0/',
@@ -152,14 +161,35 @@ export const TOPICS = [
     path: '/noise-and-filtering',
     art: 'noise',
     description:
-      'Distinguish useful signals from noise. Compare analog and digital filtering, preserve your predictions, and prepare for the measurement lab.',
+      'Prepare with individual predictions, then keep long and short aircraft receiver command pulses, reduce interference with an RC filter and compare digital filters using recorded data.',
     tools: [
+      {
+        id: 'learn',
+        navigation: 'app',
+        label: 'Interactive Learning',
+        title: 'Noise and Filtering Interactive Learning',
+        path: '/noise-and-filtering/learn',
+      },
       {
         id: 'prelab',
         navigation: 'document',
         label: 'Pre-lab',
         title: 'Noise and Filtering Pre-lab',
         path: NOISE_PRELAB.workbook,
+      },
+      {
+        id: 'mainlab',
+        navigation: 'document',
+        label: 'Main Lab',
+        title: 'Noise and Filtering Main Lab',
+        path: NOISE_MAIN_LAB.workbook,
+      },
+      {
+        id: 'postlab',
+        navigation: 'document',
+        label: 'Post-Lab',
+        title: 'Noise and Filtering Individual Post-Lab',
+        path: NOISE_POST_LAB.workbook,
       },
     ],
   },
@@ -282,7 +312,7 @@ export const RESOURCES: readonly ResourceDefinition[] = [
       'Simulators start with a blank board on every visit. Use Save lab to store your circuit and instrument settings, then Recall lab to restore them. There is no automatic save. Reset lab clears the current board without deleting your saved lab.',
       'Saves belong to this browser and website address. Each simulator saves independently. A different device, browser, website address, or offline file does not automatically share those saves.',
       'Opening the navigation menu keeps your work in place. Following a link away from the lab leaves the current tool, so save first when you want to return to your circuit.',
-      'The Noise and Filtering pre-lab saves answers automatically in this browser. Download JSON backups during your work, then finalize and keep the evidence ZIP. To resume from that ZIP, extract workspace_backup.json and use Restore backup in the pre-lab. Downloads are not submissions.',
+      'The Noise and Filtering pre-lab saves answers automatically in this browser. Download JSON backups during your work, then finalize and keep the final ZIP. To resume from that ZIP, extract workspace_backup.json and use Restore backup in the pre-lab. Downloads are not submissions.',
     ],
   },
   {

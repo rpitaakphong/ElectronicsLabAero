@@ -105,11 +105,11 @@ const check = (name, condition) => {
       );
       const main = page.getByRole('main');
       check(
-        'Only pre-lab available ' + width,
+        'Pre-lab and independent learning available ' + width,
         (await main.getByRole('link', { name: /Open pre-lab/ }).count()) ===
           1 &&
           (await main
-            .locator('a[href$="/learn"], a[href$="/simulator"], iframe')
+            .locator('a[href$="/simulator"], iframe')
             .count()) === 0,
       );
       check(
@@ -138,8 +138,9 @@ const check = (name, condition) => {
         }),
       });
       check(
-        'Menu exposes only overview and pre-lab ' + width,
-        (await group.locator('a').count()) === 2 &&
+        'Menu exposes overview, learning, pre-lab, main lab and post-lab ' + width,
+        (await group.locator('a').count()) === 5 &&
+          (await group.locator('a[href="/worksheets/noise-filtering-post-lab.html"]').count()) === 1 &&
           (await group.locator(`a[href="${base}START_HERE.html"]`).count()) ===
             1,
       );

@@ -1,0 +1,37 @@
+const block = (body, label) => `<div class="display-equation" role="group" aria-label="${label}"><math xmlns="http://www.w3.org/1998/Math/MathML" display="block">${body}</math></div>`;
+const sub = (a, b) => `<msub><mi>${a}</mi><mtext>${b}</mtext></msub>`;
+const frac = (a, b) => `<mfrac><mrow>${a}</mrow><mrow>${b}</mrow></mfrac>`;
+export const EQUATIONS = {
+  noise: block(`${sub('n', 'RMS')}<mo>=</mo><msqrt>${frac('<mn>1</mn>', '<mi>N</mi>')}<munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover><msup><mrow><mo>(</mo>${sub('x', 'i')}<mo>−</mo><mover><mi>x</mi><mo>¯</mo></mover><mo>)</mo></mrow><mn>2</mn></msup></msqrt>`, 'Noise RMS: square root of mean squared deviation from the steady mean'),
+  mean: block(`<mover><mi>x</mi><mo>¯</mo></mover><mo>=</mo>${frac('<mn>1</mn>', '<mi>N</mi>')}<munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>1</mn></mrow><mi>N</mi></munderover>${sub('x', 'i')}`, 'Steady mean of N samples'),
+  rc: block(`<mi>τ</mi><mo>=</mo><mi>R</mi><mi>C</mi><mo>,</mo><mspace width="1em"/>${sub('f', 'c')}<mo>=</mo>${frac('<mn>1</mn>', '<mn>2</mn><mi>π</mi><mi>R</mi><mi>C</mi>')}`, 'Ideal RC time constant and cutoff'),
+  rise: block(`${sub('t', '10–90')}<mo>≈</mo><mn>2.20</mn><mi>τ</mi><mo>,</mo><mspace width="1em"/>${sub('t', '90')}<mo>≈</mo><mn>2.30</mn><mi>τ</mi>`, 'Ideal step rise time and ninety percent time'),
+  ma: block(`<mi>y</mi><mo>[</mo><mi>k</mi><mo>]</mo><mo>=</mo>${frac('<mn>1</mn>', '<mi>M</mi>')}<munderover><mo>∑</mo><mrow><mi>i</mi><mo>=</mo><mn>0</mn></mrow><mrow><mi>M</mi><mo>−</mo><mn>1</mn></mrow></munderover><mi>x</mi><mo>[</mo><mi>k</mi><mo>−</mo><mi>i</mi><mo>]</mo>`, 'Trailing M-point moving average'),
+  ema: block(`<mi>y</mi><mo>[</mo><mi>k</mi><mo>]</mo><mo>=</mo><mi>α</mi><mi>x</mi><mo>[</mo><mi>k</mi><mo>]</mo><mo>+</mo><mo>(</mo><mn>1</mn><mo>−</mo><mi>α</mi><mo>)</mo><mi>y</mi><mo>[</mo><mi>k</mi><mo>−</mo><mn>1</mn><mo>]</mo>`, 'Exponential moving average, also a first-order IIR'),
+  snr: block(`<msub><mtext>SNR</mtext><mtext>dB</mtext></msub><mo>=</mo><mn>20</mn><msub><mi>log</mi><mn>10</mn></msub><mo>(</mo>${frac(sub('s', 'RMS'), sub('n', 'RMS'))}<mo>)</mo>`, 'SNR in decibels from useful signal RMS divided by noise RMS'),
+  delay: block(`${sub('d', 'MA')}<mo>=</mo>${frac('<mi>M</mi><mo>−</mo><mn>1</mn>', `<mn>2</mn>${sub('f', 's')}`)}<mo>,</mo><mspace width="1em"/>${sub('d', 'EMA')}<mo>≈</mo>${frac('<mn>1</mn><mo>−</mo><mi>α</mi>', `<mi>α</mi>${sub('f', 's')}`)}`, 'Low-frequency delay; not the step threshold delay'),
+};
+
+const toneSum = (name, coefficient, frequencies) => block(`<mrow><mi>${name}</mi><mo>(</mo><mi>t</mi><mo>)</mo></mrow><mo>=</mo><mn>${coefficient}</mn><munder><mo>∑</mo><mrow><mi>f</mi><mo>∈</mo><mo>{</mo>${frequencies.map((f) => `<mn>${f}</mn>`).join('<mo>,</mo>')}<mo>}</mo></mrow></munder><mrow><mi>sin</mi><mo>(</mo><mn>2</mn><mi>π</mi><mi>f</mi><mi>t</mi><mo>)</mo></mrow>`, name === 's' ? 'Useful signal: fifty, fifty-five and seventy hertz' : 'Interference: one hundred twenty, one hundred fifty and one hundred eighty hertz');
+Object.assign(EQUATIONS, {
+  useful: toneSum('s', '0.20', [50, 55, 70]),
+  interference: toneSum('n', '0.10', [120, 150, 180]),
+  source: block(`<msub><mi>v</mi><mtext>out</mtext></msub><mo>(</mo><mi>t</mi><mo>)</mo><mo>=</mo><mo>[</mo><mn>2.0</mn><mo>+</mo><mi>s</mi><mo>(</mo><mi>t</mi><mo>)</mo><mo>+</mo><mi>n</mi><mo>(</mo><mi>t</mi><mo>)</mo><mo>]</mo><mtext> V</mtext>`, 'DAC source: two volt offset plus useful signal and interference; t in seconds'),
+  lowpass: block(`<mrow><mo>|</mo>${sub('H', 'LP')}<mo>(</mo><mi>f</mi><mo>)</mo><mo>|</mo></mrow><mo>=</mo>${frac('<mn>1</mn>', `<msqrt><mn>1</mn><mo>+</mo><msup><mrow><mo>(</mo>${frac('<mi>f</mi>', sub('f', 'c'))}<mo>)</mo></mrow><mn>2</mn></msup></msqrt>`)}`, 'Ideal unloaded first-order RC low-pass amplitude response'),
+  highpass: block(`<mrow><mo>|</mo>${sub('H', 'HP')}<mo>(</mo><mi>f</mi><mo>)</mo><mo>|</mo></mrow><mo>=</mo>${frac(frac('<mi>f</mi>', sub('f', 'c')), `<msqrt><mn>1</mn><mo>+</mo><msup><mrow><mo>(</mo>${frac('<mi>f</mi>', sub('f', 'c'))}<mo>)</mo></mrow><mn>2</mn></msup></msqrt>`)}`, 'Ideal unloaded first-order RC high-pass amplitude response'),
+  attenuation: block(`<msub><mi>L</mi><mtext>dB</mtext></msub><mo>=</mo><mn>20</mn><msub><mi>log</mi><mn>10</mn></msub><mo>(</mo>${frac(sub('A', 'in'), sub('A', 'out'))}<mo>)</mo>`, 'Positive attenuation in decibels for linear amplitudes in the same units'),
+  resolution: block(`<mi>Δf</mi><mo>=</mo>${frac(sub('f', 's'), '<mi>N</mi>')}<mo>=</mo>${frac('<mn>1</mn>', '<mi>T</mi>')}`, 'Native FFT bin spacing from the actual samples used, before window broadening'),
+});
+
+export function circuit(kind = 'baseline') {
+  const filtered = kind !== 'baseline';
+  const wire = (d, net) => `<path d="${d}" data-net="${net}" fill="none" stroke="currentColor" stroke-width="2.5"/>`;
+  return `<figure class="diagram noise-diagram"><div class="diagram-scroll" tabindex="0" role="region" aria-label="Circuit connections; scroll horizontally if needed"><svg viewBox="0 0 720 310" role="img" aria-label="${filtered ? 'Proposed low-pass wiring: A0 through resistor to A1, capacitor from A1 to ground' : 'Baseline wiring: DAC A0 directly to ADC A1'}" xmlns="http://www.w3.org/2000/svg"><g fill="currentColor" font-family="system-ui,sans-serif" font-size="15">
+    <rect x="20" y="92" width="133" height="76" rx="12" fill="#eef7f3" stroke="currentColor"/><text x="86" y="120" text-anchor="middle">UNO R4</text><text x="86" y="146" text-anchor="middle">A0 · DAC OUT</text>
+    ${wire('M153 130 H235', 'source')}<circle cx="235" cy="130" r="4"/><text x="218" y="55" text-anchor="middle">Scope CH1 tip</text>${wire('M235 65 V130', 'source')}
+    ${filtered ? `${wire('M235 130 H300', 'source')}<rect x="300" y="119" width="78" height="22" fill="white" stroke="currentColor" stroke-width="2"/><text x="339" y="99" text-anchor="middle">Your R</text>${wire('M378 130 H550', 'filtered')}<circle cx="460" cy="130" r="4"/>${wire('M460 130 V191', 'filtered')}<path d="M438 191 H482 M438 205 H482" stroke="currentColor" stroke-width="3"/><text x="495" y="205">Your C</text>${wire('M460 205 V264', 'ground')}` : wire('M235 130 H550', 'source')}
+    <rect x="550" y="92" width="145" height="76" rx="12" fill="#eef7f3" stroke="currentColor"/><text x="622" y="120" text-anchor="middle">Same UNO R4</text><text x="622" y="146" text-anchor="middle">A1 · ADC IN</text>
+    ${wire('M520 130 V65', filtered ? 'filtered' : 'source')}<text x="538" y="55" text-anchor="middle">Scope CH2 tip</text>
+    ${wire('M86 168 V264 H622 V168', 'ground')}<text x="353" y="292" text-anchor="middle">UNO GND + CH1 ground + CH2 ground · common ground</text>
+    </g></svg></div><figcaption>${filtered ? 'This is a low-pass topology reference; choose and justify your design first. Use non-polar capacitors. A different topology needs instructor review, including input bias and ADC voltage limits.' : 'Baseline: no physical filter. Both scope tips measure the same source node. A0 is an output, A1 is an input; no external generator is connected.'}</figcaption></figure>`;
+}

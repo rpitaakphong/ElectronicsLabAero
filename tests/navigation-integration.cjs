@@ -20,6 +20,7 @@ const destinations = [
   ['/555-timer/learn', '555 Timer Interactive Learning'],
   ['/555-timer/simulator', '555 Timer Lab Simulator'],
   ['/noise-and-filtering', 'Noise and Filtering'],
+  ['/noise-and-filtering/learn', 'Noise and Filtering Interactive Learning'],
 ];
 (async () => {
   const browser = await chromium.launch();
@@ -42,20 +43,38 @@ const destinations = [
     const openMenu = async () => {
       await trigger().click();
       await menu().waitFor();
-      await page.waitForFunction(() => {
-        const popup = document.querySelector(
-          '[data-slot="sheet-content"], [data-slot="popover-content"]',
-        );
-        return (
-          popup &&
-          getComputedStyle(popup).opacity === '1' &&
-          !popup.hasAttribute('data-starting-style')
-        );
-      });
+      await page.waitForFunction(
+        (selector) => {
+          const popup = document.querySelector(selector);
+          return (
+            popup &&
+            popup.hasAttribute('data-open') &&
+            getComputedStyle(popup).opacity === '1' &&
+            !popup.hasAttribute('data-starting-style')
+          );
+        },
+        mobile()
+          ? '.mobile-navigation[data-slot="sheet-content"]'
+          : '.topics-popover[data-slot="popover-content"]',
+        { polling: 50 },
+      );
     };
     const closeMenu = async () => {
       await page.keyboard.press('Escape');
       await menu().waitFor({ state: 'hidden' });
+      // Focus restoration completes after the closing transition/unmount.
+      await page
+        .waitForFunction(
+          (selector) =>
+            document.querySelector(selector) === document.activeElement,
+          mobile() ? '.mobile-nav-trigger' : '.topics-trigger',
+          { timeout: 2000 },
+        )
+        .catch(async (error) => {
+          throw new Error(
+            `${error.message} at ${page.url()}, width ${page.viewportSize().width}, focus ${await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 500))}`,
+          );
+        });
       assert(
         await trigger().evaluate((el) => el === document.activeElement),
         'Escape restores trigger focus',
@@ -131,6 +150,13 @@ const destinations = [
         .getByRole('link', { name: 'Open Voltage Divider topic' })
         .isVisible(),
     );
+    await search.fill(' AIRCRAFT ');
+    assert.equal(await page.locator('.topic-card').count(), 1);
+    assert(
+      await page
+        .getByRole('link', { name: 'Open Noise and Filtering topic' })
+        .isVisible(),
+    );
     await page
       .getByRole('button', { name: 'Clear search', exact: true })
       .click();
@@ -201,13 +227,15 @@ const destinations = [
             ? [
                 'Home',
                 'Topics',
-                url.includes('voltage-divider')
-                  ? 'Voltage Divider'
-                  : url.includes('rc-filter')
-                    ? 'RC Filter'
-                    : url.includes('555-timer')
-                      ? '555 Timer'
-                      : 'Operational Amplifier',
+                url.includes('noise-and-filtering')
+                  ? 'Noise and Filtering'
+                  : url.includes('voltage-divider')
+                    ? 'Voltage Divider'
+                    : url.includes('rc-filter')
+                      ? 'RC Filter'
+                      : url.includes('555-timer')
+                        ? '555 Timer'
+                        : 'Operational Amplifier',
                 url.endsWith('/learn') ? 'Interactive Learning' : 'Simulator',
               ]
             : url === '/topics'

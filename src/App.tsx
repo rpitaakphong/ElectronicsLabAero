@@ -15,6 +15,7 @@ import { AppLayout } from './AppLayout';
 import { Welcome } from './Welcome';
 import { TopicCatalog } from './TopicCatalog';
 import { Resources } from './Resources';
+import NoiseFilteringLab from './NoiseFilteringLab';
 import { NoiseFilteringTopic } from './NoiseFilteringTopic';
 
 // Register topic views here; navigation and metadata come from the catalog.
@@ -26,7 +27,10 @@ const topicViews: Record<
   'voltage-divider': { overview: DividerTopic, learn: DividerLab },
   'rc-filter': { overview: RcTopic, learn: RcLab },
   opamp: { overview: OpAmpTopic, learn: OpAmpLab },
-  'noise-filtering': { overview: NoiseFilteringTopic },
+  'noise-filtering': {
+    overview: NoiseFilteringTopic,
+    learn: NoiseFilteringLab,
+  },
 };
 export function AppRoutes() {
   return (

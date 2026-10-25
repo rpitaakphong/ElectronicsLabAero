@@ -1,0 +1,100 @@
+2145427 Week 12 — Seven-section aircraft pulse investigation v4
+
+1. INVESTIGATE THE SIGNAL (15 minutes)
+Install Arduino IDE and UNO R4 board support before class. Extract the source ZIP,
+open aircraft_pulse_source.ino, select UNO R4 Minima or WiFi and the correct port.
+Enter your measured supply/reference in REFERENCE_V. Compile and upload.
+The working sketch only outputs the noisy pulse pattern at A0. It does not sample
+A1 or transmit serial data. A0 uses 12-bit DAC output at 4,000 updates/s.
+Connect scope CH1 tip to A0 and its ground to UNO GND. Use high-impedance input,
+DC coupling and compensated 10x probes with matching scope settings.
+Check the one-second cycle: 2.0 V baseline, 2.6 V long pulse at 120–320 ms,
+2.5 V short pulse at 620–640 ms. Interference at three frequencies is added.
+Verify actual voltage and timing. Paste your uploaded code and save an initial
+copy in the worksheet. Attach a waveform screenshot with readable scales.
+
+2. FREQUENCY SPECTRUM ANALYSIS (25 minutes)
+Find out how to operate FFT and read its peaks on your GDS-1202B. This is your task.
+Use the full manufacturer manual and other resources:
+https://www.gwinstek.com/en-global/products/downloadSeriesDownNew/1676/130
+Submit an oscilloscope FFT screenshot showing CH1, readable frequency/amplitude
+axes with units, and the identified interference peaks. No FFT questionnaire or
+image-detail fields are required. Keep the three frequency/amplitude rows below.
+Pulse harmonics are useful content: not every peak is interference.
+
+3. NOISE FILTER DESIGN (25 minutes)
+Choose and justify low-pass or high-pass behavior. Use the worksheet equations to
+calculate cutoff, R/C and expected attenuation. Predict useful-pulse changes too.
+Approximately 47 kohm and non-polar 22–100 nF parts are starting stock.
+For the shown unbuffered low-pass layout keep at least 33 kohm series resistance.
+A different topology/lower resistance requires instructor review before powering,
+including loading, bias and allowable voltage. Design answers save automatically
+in the worksheet.
+
+4. FILTER CONSTRUCTION AND VALIDATION (30 minutes)
+Turn power off before changing wiring. Low-pass reference:
+A0 -- R -- output node; C from output node to GND.
+CH1 tip: A0 before R. CH2 tip: output node. Both grounds: UNO GND.
+Do not connect another source to A0. Confirm that CH1 has not changed under load.
+Record actual R and C values. Attach one scope image with both time-domain waveforms
+together, then write your comparison below the screenshots. Describe changes in
+ripple, pulse shape and short-pulse visibility. Support your discussion with
+before/after pulse heights and widths or delays, including units and your
+measurement method. Discuss the balance between smoothing and changes to useful
+pulses, and note any measurement limits. A breadboard photo is optional.
+
+5. FILTERED SIGNAL ANALYSIS (25 minutes)
+Take fresh input/output FFT measurements from the assembled circuit. Attach ONE
+image containing both CH1 input and CH2 RC output FFT results, with readable
+channel labels, scales and units. Match acquisition/window/scale conventions.
+If captured separately, combine both captures into one labelled image.
+Read corresponding peaks yourself. Calculate positive attenuation for a reduction
+using the typeset worksheet equations: linear RMS amplitudes require a ratio in
+matching units; dBV RMS readings require subtraction. Record limitations.
+Report attenuation at identified interference frequencies. A bin may also contain
+pulse harmonics. A noise-floor reading is a limit, not zero output amplitude.
+
+After the FFT measurements, return to the time-domain display. Keep CH2 connected
+to the RC output and set 500 ms/div: five seconds across ten divisions. Use normal
+sampling and start with a 10,000-point record. Complete an acquisition, stop it,
+and export CH2 as Detail CSV containing time and voltage samples. Check the units,
+approximately five seconds of data, sample interval and clipping. The first-to-last
+time span may be one sample interval short of five seconds. Keep the original CSV
+locally for analysis. Do not submit or attach the CSV to the worksheet.
+
+6. DIGITAL FILTER DESIGN (45 minutes)
+Use Excel, MATLAB, Python or another program to process your Section 5 CSV.
+Identify the numeric time and CH2 voltage columns below any scope headers. Verify
+time and voltage units, duration and uniform sampling. Check for missing/repeated
+time values or clipping; re-export unsuitable data. Determine actual sample interval
+Δt and sample rate 1/Δt. Do not assume 1,000 samples/s from the display scale.
+Apply trailing MA and EMA independently to the same original RC voltage samples.
+Use spreadsheet formulas or code; explain your work and any AI help. Initialize MA
+history and EMA output with the first valid input, padding the MA history with that
+value. Allow initial transients to settle before comparing. Compare MA 5/51 and
+EMA 0.40/0.02, then choose your own settings. An M-sample window spans MΔt seconds;
+relate its duration to the useful 20 ms short pulse. Record the program, formulas
+or code, checks, settings and observations in the worksheet. No A1 wiring or new
+Arduino filter sketch is needed.
+Make TWO comparison figures using the same five-second recording:
+1. MA: plot window lengths 5, 51 and your chosen window together.
+2. EMA: plot coefficients 0.4, 0.02 and your chosen coefficient together.
+Include the original RC trace as a reference in each figure. A labelled short-pulse
+inset is optional. Each figure needs a descriptive title, Time (s) horizontal axis,
+Voltage (V) vertical axis, and a legend identifying RC and every filter setting.
+State the chosen MA window in samples or chosen EMA coefficient in the legend or
+caption. Use readable text, distinguishable traces and common scales. Keep filter
+delay visible rather than shifting traces to align. No trial-value table is needed.
+Attach one MA image and one EMA image as PNG/JPEG/BMP/WebP (up to 10 MiB each).
+Clear screenshots of the finished figures are acceptable. Submit both figures
+and worksheet responses, not the CSV. Discuss how settings change smoothing,
+pulse height, shape and delay and explain your choices in the observations above.
+Figures alone do not establish digital-output SNR without a signal/noise method.
+
+7. SAVE LAB FILES (5 minutes)
+Review missing items and download the group ZIP: complete JSON backup, code/ and
+screenshots/. Each member keeps a copy for the later individual post-lab.
+Unfinished work can always be downloaded. Restore older v3 answers in the linked
+five-section v3 workbook; earlier versions also have their own recovery links.
+Allow ten additional minutes for recovery. Hardware timing, FFT readability,
+loading, CSV export and figure preparation must be checked on the classroom equipment before class.

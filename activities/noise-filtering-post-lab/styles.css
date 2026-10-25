@@ -1,0 +1,39 @@
+@import '../noise-filtering-main-lab/styles.css';
+.reference-text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; margin: 6px 0 14px; }
+.reference-row { margin: 14px 0; }
+.reference-row > strong { font-size: .85rem; }
+.source-tag { font-size: .76rem; letter-spacing: .06em; font-weight: 700; color: #42666b; overflow-wrap: anywhere; }
+.source-reference { background: #f3f7f6; border-left: 3px solid #70a1a1; padding: 18px; margin-bottom: 24px; }
+.source-image { margin: 20px 0; }
+.source-image img { display: block; max-width: 100%; max-height: 640px; width: auto; height: auto; border: 1px solid var(--line); border-radius: 8px; }
+.source-image figcaption { font-size: .85rem; margin-top: 8px; overflow-wrap: anywhere; }
+.source-image a { font-size: .85rem; }
+.reference-table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: .85rem; }
+.reference-table caption { text-align: left; padding: 10px 0; font-weight: 650; }
+.reference-table th, .reference-table td { padding: 12px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; max-width: 260px; }
+.reference-table thead { background: #edf4f3; }
+.calculation { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 22px; }
+.field { margin: 14px 0; }
+.field textarea { min-height: 170px; }
+.field-compact input { max-width: 24rem; }
+.field-value input { max-width: 12rem; }
+#answer-name { max-width: 24rem; }
+.empty-state, .review-notice { background: #f6f6ee; padding: 14px; border-radius: 8px; }
+.check-line { display: flex; gap: 10px; align-items: flex-start; font-weight: 500; }
+.check-line input { width: 20px; height: 20px; flex-shrink: 0; margin-top: 2px; }
+.review-list { padding-left: 24px; }
+.review-list li { margin: 8px 0; }
+#main details { margin: 16px 0; }
+#main summary { cursor: pointer; font-weight: 650; }
+#main .paper p, #main li { line-height: 1.65; }
+@media print {
+  #report .report-section { break-before: page; }
+  #report .source-image { break-inside: avoid; }
+  #report .source-image img { max-height: 145mm; }
+  #report .reference-table { min-width: 0; table-layout: fixed; font-size: 8pt; }
+  #report .reference-table th, #report .reference-table td { padding: 4px; }
+  #report .reference-text { white-space: pre-wrap; }
+  #report .fields { display: block; }
+  #report .field { break-inside: auto; }
+  #report .review-list { font-size: 9pt; }
+}

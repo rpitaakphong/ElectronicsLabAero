@@ -1,0 +1,45 @@
+@import '../555-main-lab/styles.css';
+.trail > a { font-size: .7rem; }
+.trail strong { font-size: 1rem; }
+.student-steps { padding-left: 23px; }
+.student-steps li { margin: 12px 0; padding-left: 3px; }
+.capture { border-top: 1px solid var(--line); padding: 10px 0; }
+.capture summary { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.capture summary .chip { flex-shrink: 0; }
+.attachment { padding: 18px 0; border-top: 1px dashed var(--line); }
+.noise-diagram svg { width: 100%; min-width: 650px; max-width: 860px; max-height: none; }
+.measurement-table td { min-width: 165px; position: relative; }
+.measurement-table td label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+.measurement-table td .field { min-width: 145px; }
+.measurement-table td input { min-width: 0; }
+.report-row { break-inside: avoid; }
+code { overflow-wrap: anywhere; }
+.prose-fields { grid-template-columns: 1fr; }
+.group-fields > .field:first-child { grid-column: 1 / -1; }
+.code-field textarea { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: .85rem; line-height: 1.55; tab-size: 2; min-height: 300px; max-height: 680px; overflow: auto; resize: vertical; }
+.code-preview { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 460px; overflow: auto; padding: 18px; background: #f3f6f5; border: 1px solid var(--line); border-radius: 8px; font-size: .82rem; line-height: 1.55; }
+.preserved { margin: 18px 0; padding: 16px; border: 1px solid #a8cbc0; border-radius: 10px; background: #f4faf7; }
+.preserved summary { cursor: pointer; font-weight: 650; }
+.display-equation { overflow-x: auto; padding: 12px 4px; }
+.diagram-scroll { overflow-x: auto; }
+.noise-diagram svg { min-width: 580px; }
+@media (max-width: 1100px) {
+  .measurement-table, .measurement-table tbody, .measurement-table tr, .measurement-table th, .measurement-table td { display: block; width: 100%; min-width: 0; }
+  .measurement-table thead { display: none; }
+  .measurement-table tbody tr { border: 1px solid var(--line); margin: 16px 0; border-radius: 10px; padding: 8px; }
+  .measurement-table tbody th { background: #edf4f3; }
+  .measurement-table td { border: 0; padding: 8px; }
+  .measurement-table td label { position: static; width: auto; height: auto; overflow: visible; clip: auto; }
+  .measurement-table td .field { min-width: 0; }
+}
+@media (max-width: 560px) {
+  .capture summary { display: block; }
+  .capture summary .chip { display: block; margin-top: 8px; width: fit-content; }
+  .trail strong { font-size: .84rem; }
+}
+@media print {
+  #report .report-row { break-inside: auto; }
+  #report h2 { break-after: avoid; }
+  #report .report-image img { max-height: 150mm; }
+  #report .code-preview { max-height: none; overflow: visible; font-size: 8pt; background: white; }
+}

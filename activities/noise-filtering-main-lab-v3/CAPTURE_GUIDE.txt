@@ -1,0 +1,119 @@
+2145427 — Aircraft pulse investigation — student guide v3.0.0
+
+Allow about three hours in a group of up to three. Enter a Group ID and Student
+1 name; additional names and all student IDs are optional. Install Arduino IDE
+and UNO R4 board support before class. Use UNO R4 Minima or WiFi. This is a
+training model of low-frequency receiver commands.
+
+REPAIR THE SOURCE
+Extract aircraft_signal_starter.zip and open the self-contained .ino inside its
+matching folder. Select the exact board and port. The starter has one deliberate
+compilation error. Use AI to explain the diagnostic and suggest a minimal repair;
+verify it yourself. Save the error, explanation, help summary and verification.
+Enter the measured supply/reference voltage in REFERENCE_V, compile and upload.
+Save a copy of the complete working code before making a separate digital-filter copy.
+
+REPEATING COMMAND PATTERN
+The one-second cycle runs continuously:
+  0..120 ms:    2.0 V baseline
+  120..320 ms:  2.6 V long pulse, 200 ms wide
+  320..620 ms:  2.0 V baseline
+  620..640 ms:  2.5 V short pulse, 20 ms wide
+  640..1000 ms: 2.0 V baseline, then repeat
+Both pulses are useful. Their heights above baseline are 0.60 V and 0.50 V.
+In noisy mode, add 120, 150 and 180 Hz sine interference, each 0.10 V peak.
+The conservative designed voltage bound is 1.7..2.9 V; measure the real output.
+Pulses have their own harmonics. High frequency alone does not identify noise.
+Generation uses a precomputed table at 4,000 DAC updates/s (250 us per update).
+Independent acquisition reads A1 at nominal 1,000 samples/s. ADC/DAC use 12 bits.
+Actual timing, edges, loading, reference voltage and clipping must be checked.
+
+WIRING AND SOURCE SELECTION
+A0 is DAC OUTPUT; A1 is ADC RETURN. Keep a common UNO/scope ground and use
+compensated 10x probes with high-impedance inputs and matching scope settings.
+Never connect another active source to A0. Power off before wiring changes.
+Baseline: A0 directly to A1, both scope tips at A0, both grounds at UNO GND.
+In Serial Monitor, send source clean or source noisy with a newline. Switching
+pauses plot text but keeps the same cycle phase, generation, sampling and filter state.
+Discard at least two complete cycles after switching, and allow more settling
+if needed. The mode remains selected until another command or board reset.
+Reset/reconnection returns to noisy mode. Check status to confirm the mode.
+
+DISCOVER AND COMPARE FFT
+Find how to operate the GDS-1202B FFT using its manual, AI or reliable resources;
+record the procedure and settings you discover. No button sequence is supplied.
+First inspect clean pulses in time. Save the clean-source FFT screenshot and
+original time-domain Detail CSV. Switch to noisy mode and save the corresponding
+FFT screenshot and Detail CSV with matched acquisition, scale and units.
+Investigate the added 120/150/180 Hz components using the clean reference.
+A bin may contain pulse harmonics and interference together. Subtracting FFT
+magnitudes does not isolate interference amplitude when phases combine.
+Record source mode, probe settings, window, actual sample rate, record/FFT point
+counts, duration, frequency span and amplitude convention. Aim for four settled
+complete cycles (four seconds) where supported; record actual limitations.
+FFT bin spacing depends on the samples used. Zoom adds no resolution.
+
+DESIGN AND BUILD THE RC
+Choose/justify filter type and cutoff before seeing the low-pass connection
+reference. Predict changes to the long/short pulses and the reduction in interference;
+save your initial R/C design, then record actual values and corrections.
+Stock: approximately 47 kohm and non-polar 22..100 nF. For the shown unbuffered
+low-pass, keep at least 33 kohm SERIES resistance between A0 and the capacitor.
+Do not put a large capacitor directly across A0. Obtain a wiring review.
+Shown low-pass: A0 -> chosen series R -> output/A1; C from output to GND.
+CH1 tip before R, CH2 tip after R, both grounds at UNO GND. Other topologies
+need instructor review of source loading, bias and ADC voltage range first.
+One RC stage suppresses interference partially and rounds/delays useful edges.
+In clean mode save the original CH2 waveform CSV, measuring long/short heights,
+width and delay against CH1. A clean RC FFT image is optional. Then use noisy
+mode and save the filtered FFT screenshot and CH2 Detail CSV. Label all runs.
+Record total-bin amplitudes at 120/150/180 Hz before/after RC and the clean source
+bin values; a bin may include useful content. Use consistent linear units for
+ratios; subtract dBV readings for dB attenuation. Missing peaks are limits.
+Measure pulse heights above local baseline; document width and delay thresholds.
+Use a settled pulse-free window (for example 800..950 ms) for mean-removed ripple
+RMS. Pulse edges or recovery in that window would contaminate the estimate.
+
+ADD DIGITAL FILTERS AND TUNE PARAMETERS
+Keep the physical RC. Integrate FILTER_EXAMPLES.txt into a copy of your saved
+working code. Replace processSample once, set DIGITAL_FILTERS to true and retain
+the source, timers and serial routines. MA and EMA independently consume the
+same A1 samples. Examples initialize histories from the first input; allow settling.
+At 1,000 samples/s start by comparing MA 5 versus 51 samples and EMA 0.40 versus
+0.02. Then choose your final settings. Record each setting, changes to the long and short pulses,
+steady ripple and event delay. A smooth trace that hides the short event fails
+the intended goal of keeping useful information. State measurement limitations.
+Use source noisy for the primary comparison and send plot to resume live output.
+Serial Plotter: 500,000 baud. Traces: RC, RC_MA, RC_EMA, in volts. These are
+software traces, not extra physical analogue outputs. Save the screenshot yourself.
+The plot horizontal axis is a sample sequence, not a calibrated time axis.
+There is no capture, replay or automatic recording command.
+
+STATUS AND RECOVERY
+status      Pause plot text; print source mode, actual rates, missed-slot estimates,
+            timing gaps, processing time, clipping and output/partial-write counts.
+plot        Resume continuous plotting without resetting phase or filter history.
+source clean / source noisy  Select source mode; plot text pauses.
+resetstats  Pause plot text and clear diagnostics; generation/state continue.
+help        Same diagnostic information as status.
+Commands need newline. Reconnection/reset may restart the board. Confirm mode.
+If USB/serial cannot keep up, acquisition and filtering continue, but plot lines
+can be lost. Overruns invalidate uniformly spaced plotted-point claims; resolve
+throughput with the instructor. Software counters do not certify analogue timing.
+
+SAVE MEASUREMENTS AND LAB FILES
+Required: clean source FFT+CSV, noisy source FFT+CSV, clean RC output CSV,
+noisy RC output FFT+CSV, live plot image (eight files). Supplementary images/CSVs
+are optional. Save the original working code and final filter code as separate copies.
+The JSON backup includes your answers, code and attached files. ZIP contains main_lab_backup.json, code/, screenshots/,
+and data/, keeping the original files unchanged. Incomplete backups always remain available.
+Each member keeps the group ZIP and their own pre-lab ZIP for later individual
+work. This group worksheet never imports or rewrites pre-lab answers.
+Restore v3 JSON/ZIP here. Previous sine v2 and LDR v1 records use the separate
+worksheets linked on page 1; no old measurements are reinterpreted as pulses.
+Keep clean/noisy recordings before/after RC for later quantitative analysis.
+Total signal variation and pulse harmonics are not noise-only RMS. Later paired
+analysis needs phase/time alignment and a stated treatment of residuals/distortion.
+Live screenshots alone do not establish digital SNR. Recomputed digital outputs
+must be described as recomputation from samples, not recorded board outputs.
+Download is not submission; use the separately supplied destination and deadline.

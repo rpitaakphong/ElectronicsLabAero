@@ -1,6 +1,12 @@
 import { Link } from 'react-router-dom';
 import { ArrowDownToLine, ArrowRight } from 'lucide-react';
-import { NOISE_PRELAB, RESOURCES, SITE_PAGES } from '@/lib/catalog';
+import {
+  NOISE_PRELAB,
+  NOISE_MAIN_LAB,
+  NOISE_POST_LAB,
+  RESOURCES,
+  SITE_PAGES,
+} from '@/lib/catalog';
 import { TopicBreadcrumbs } from './TopicBreadcrumbs';
 
 export function Resources() {
@@ -24,6 +30,11 @@ export function Resources() {
         ))}
         <Link to="/resources#offline-simulators">Offline simulators</Link>
         <a href={NOISE_PRELAB.workbook}>Noise and Filtering Pre-lab</a>
+        <a href={NOISE_MAIN_LAB.workbook}>Noise and Filtering Main Lab</a>
+        <a href={NOISE_POST_LAB.workbook}>Noise and Filtering Individual Post-Lab</a>
+        <Link to="/noise-and-filtering/learn">
+          Noise and Filtering Interactive Learning
+        </Link>
         <Link reloadDocument to="/worksheets/555-main-lab.html">
           555 Main Lab Worksheet
         </Link>
@@ -57,20 +68,38 @@ export function Resources() {
       </div>
       <section
         className="panel resource-guide"
+        aria-labelledby="noise-learning-title"
+      >
+        <span className="eyebrow">EXPLORE THE CONCEPTS</span>
+        <h2 id="noise-learning-title">
+          Noise and Filtering Interactive Learning
+        </h2>
+        <p>
+          Learn how RC, moving averages and exponential averaging change a
+          signal. Explore frequency selection, sampling, noise reduction, delay
+          and keeping useful events using independent synthetic demonstrations and
+          typeset mathematics.
+        </p>
+        <Link className="topic-link" to="/noise-and-filtering/learn">
+          Explore Noise and Filtering
+        </Link>
+      </section>
+      <section
+        className="panel resource-guide"
         aria-labelledby="noise-prelab-title"
       >
         <span className="eyebrow">WEEK 12 · INDIVIDUAL PREPARATION</span>
         <h2 id="noise-prelab-title">Noise and Filtering Pre-lab</h2>
         <p>
-          Complete the individual workbook, preserve your predictions, then
-          finalize and download your evidence ZIP. Keep the complete ZIP for the
-          future post-lab. Save JSON backups while you work; to recover from a
+          Complete the individual workbook, save your first predictions, then
+          finalize and download your final ZIP. Keep the complete ZIP for the
+          individual post-lab. Save JSON backups while you work; to recover from a
           ZIP, extract workspace_backup.json and restore that file. Downloads
           stay on your device and are not submissions.
         </p>
         <p>
           The full optional AI coach prompt is available inside the pre-lab
-          after you preserve a prediction, with show, copy and manual-copy
+          after you save your first prediction, with show, copy and manual-copy
           controls. The coach instructions download below is an optional
           reference.
         </p>
@@ -91,6 +120,40 @@ export function Resources() {
           </a>
         </p>
       </section>
+      <section
+        className="panel resource-guide"
+        aria-labelledby="noise-main-title"
+      >
+        <span className="eyebrow">WEEK 12 · GROUP MEASUREMENTS</span>
+        <h2 id="noise-main-title">Noise and Filtering Main Lab</h2>
+        <p>
+          Follow seven sections: investigate the noisy pulse signal, discover
+          its spectrum, design and build an RC filter, measure attenuation,
+          write your own MA/EMA code, and save your lab files. The working source
+          sketch generates A0 output only. Save measurements, code and screenshots
+          in the group ZIP for later individual work.
+        </p>
+        <a className="topic-link" href={NOISE_MAIN_LAB.workbook}>
+          Open Noise and Filtering main lab
+        </a>
+        <p>
+          <a href={NOISE_MAIN_LAB.sketch} download>
+            Download UNO R4 signal-source sketch
+          </a>
+          {' · '}
+          <a href={NOISE_MAIN_LAB.guide} download>
+            Download wiring and measurement guide
+          </a>
+        </p>
+      </section>
+
+      <section className="panel resource-guide" aria-labelledby="noise-post-title">
+        <span className="eyebrow">WEEK 12 · INDIVIDUAL ANALYSIS</span>
+        <h2 id="noise-post-title">Noise and Filtering Individual Post-Lab</h2>
+        <p>Load your group main-lab ZIP and your personal pre-lab ZIP. Use the saved measurements and screenshots to calculate attenuation, evaluate pulse changes and digital filters, and write your own conclusions.</p>
+        <a className="topic-link" href={NOISE_POST_LAB.workbook}>Open Noise and Filtering individual post-lab</a>
+      </section>
+
       <section
         className="panel resource-guide"
         aria-labelledby="worksheet-title"

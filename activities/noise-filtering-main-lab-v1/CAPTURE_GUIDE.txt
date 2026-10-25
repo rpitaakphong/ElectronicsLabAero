@@ -1,0 +1,124 @@
+2145427 — Noise and Filtering main lab — capture guide v1.0.0
+
+Use an Arduino UNO R4 Minima or WiFi. This sketch does not support UNO R3.
+Extract the downloaded sketch ZIP and open noise_filtering_main_lab.ino in its
+noise_filtering_main_lab folder. Keep acquisition.h beside the .ino file.
+Install Arduino UNO R4 Boards in Arduino IDE's Boards Manager, select the exact
+R4 board and port, then upload. A0 is the ADC input. D9 drives the optical LED
+through a 1 kOhm series resistor. All instrument grounds share circuit GND.
+
+Before connecting an external generator:
+- Switch outputs off and disconnect the LDR source from the filter input.
+- Never connect D9 and generator MAIN to the same driven node.
+- Verify the ACTUAL input levels on the scope before connecting A0: 1–3 V.
+- Use high-impedance scope inputs; check attenuation and generator load setting.
+- An amplitude display intended for 50 Ohm loading can differ from actual voltage.
+- Observe capacitor polarity and voltage rating. Power off before changing wiring.
+
+Serial Monitor: 115200 baud, newline line ending. Send "help" for commands.
+Measure the supply/reference voltage with the bench meter, then enter, for example:
+  ref 4.98
+This is a user-entered conversion reference, not an automatic calibration. Record
+the measured value in the worksheet. Changing it later does not change an earlier
+capture. The sketch requests 12-bit ADC data (0–4095).
+
+CAPTURE COMMANDS
+steady    LED HIGH: settle, warm up, capture four seconds, export the CSV.
+dark      LED LOW: otherwise the same sequence. Ambient light is still present.
+step      LED LOW initially; rises at approximately 1 s after capture start.
+pulse     LED LOW initially; rises at approximately 1 s, then falls after pulsems.
+external  D9 high impedance; acquire the already-connected external input.
+pulsems 250  Set NEXT optical pulse width in integer milliseconds (20–1000).
+csv       Repeat the LAST complete capture without reacquiring it.
+summary   Mean and mean-removed RMS for the LAST steady/dark capture only.
+plot      Replay the LAST capture as labeled RAW/MA5/MA21/EMA20/EMA04 voltages.
+help      Command reference.
+
+The sketch settles for 1.5 s, then runs 500 warm-up samples before acquisition.
+It initializes all filters from one input sample before warm-up. The CSV includes
+the exact starting filter histories and states AFTER warm-up. Every filter then
+uses precisely the same recorded raw samples. The sketch uses floating-point MA
+outputs and EMA coefficients 0.20 and 0.04, with trailing MA lengths 5 and 21.
+
+No CSV printing occurs during acquisition. A maximum of 2,000 samples is buffered
+over a requested four-second interval at nominal 500 samples/s. The normal first
+to last sample span is approximately 3.998 s, not four seconds of elapsed endpoints.
+Actual timestamps are measured immediately BEFORE analogRead. If the program
+misses whole sample slots it skips them; it never takes rapid catch-up samples.
+Retain the sample count, actual rate, maximum gap/lateness and missed-slot count.
+Do not describe a record with timing gaps as uniformly sampled. Ask the instructor
+whether it should be repeated. Clipping flags mark ADC rail codes only; inspect
+the scope as well because clipping may occur elsewhere in the signal chain.
+
+SAVE A COMPLETE CSV
+1. Acquire a run and wait for # END_NOISE_LAB_CSV_V1.
+2. Copy from # BEGIN_NOISE_LAB_CSV_V1 through # END_NOISE_LAB_CSV_V1 inclusive.
+3. Paste into a PLAIN-TEXT editor, save UTF-8 with a .csv extension, and include the
+   group, circuit and mode in the filename. Do not use a rich-text document.
+4. If copying from a timestamped Serial Monitor, disable its timestamp prefix
+   before exporting again with "csv". Only the sketch's own t_us column is used.
+5. If the monitor truncates early rows, use a serial terminal that logs to a file,
+   send "csv" again, and retain the complete block. Do not omit metadata or rows.
+6. Check sample indices from 0 through sample_count minus 1 and both markers.
+7. Enter the run ID and conditions in the matching worksheet capture, choose the
+   CSV, and click Attach CSV. The worksheet stores bytes; it does not analyze them
+   or certify capture completeness. Download a JSON/ZIP backup before the next run.
+
+CSV columns:
+sample_index,t_us,raw_counts,raw_v,ma5_v,ma21_v,ema20_v,ema04_v,led_state,clipped
+Metadata lines start with #. Times are relative to the scheduled capture start.
+LED state 0=LOW, 1=HIGH, 2=high-impedance external mode. A zero edge timestamp
+means no edge was recorded. External input timing must be measured on the scope.
+The run counter restarts after a board reset; use your group/circuit filename and
+worksheet capture ID as well. Uploading a new sketch or starting a new capture
+replaces the board's last capture. Downloaded computer files are not changed.
+
+STEADY NOISE
+After a settled steady/dark capture, send summary. It reports mean and RMS
+deviation around that mean for the same full record in volts for every path.
+Copy the window endpoints and results to the worksheet; exclude transients and
+repeat if illumination drifted. The sketch refuses a noise summary for a sine,
+step or pulse, because those records include useful variation. Dark-condition
+noise is not automatically the noise present at the illuminated operating point.
+Zero observed variation means a resolution/record limit, not infinite SNR.
+
+PLOTTER AND EVENT MEASUREMENTS
+Save the CSV first. In Arduino IDE Serial Plotter send plot to replay the stored
+record, using the same vertical scale for all displayed paths. Replay speed is
+not the original acquisition time. Use t_us, recorded LED edges, and scope time
+cursors for measurements. If changing the serial connection resets your board,
+the in-memory capture is lost; reacquire and save it before requesting plot.
+With a long record, the plotter may display only its final portion: retain the
+complete CSV and use selected ranges in your normal spreadsheet/plotting tool.
+Take screenshots with trace names, voltage scale and relevant time context.
+
+Step: record baseline and settled final voltage; the 90% threshold is baseline
+plus 0.9 times the change. Record the first crossing time and the reference edge
+time separately. Record whether that edge is the LED command or the measured
+electrical input. No clear crossing, unsettled baseline or excessive noise should
+be reported as unavailable with a reason, rather than inventing a measurement.
+Pulse: record baseline, peak and actual duration, with the matching input/reference
+capture. The LDR has its own dynamics. Begin with 250 ms; the instructor may choose
+a different duration after checking the actual sensor. Optical timings describe
+the sensor/filter chain, not a pure RC capacitor.
+
+CONTROLLED ELECTRICAL TESTS
+RC step: use a 1 Hz square wave at actual levels 1–3 V. CH1 measures filter input;
+CH2 measures filter output. Measure the 63.2% crossing and 10–90% rise interval.
+SNR data (REQUIRED): use a 5 Hz sine at actual levels 1–3 V. Record settled external
+captures for bypass, RC A and RC B, without changing the generator settings.
+Attach all three CSVs and scope images. The bypass file also contains every digital
+filter on identical raw samples; use it for the later digital SNR comparison.
+Keep actual frequency, Vpp, offset, reference, timing and filter settings with each
+record. Generator noise/distortion and ADC resolution limit what can be inferred.
+
+SNR calculations and conclusions are individual post-lab work. A sine record's
+mean-removed RMS includes the useful sine; it is not noise RMS. Keep raw samples
+to separate DC, useful signal, harmonics and noise during that analysis. A residual
+containing harmonic distortion must not be labeled noise-only SNR. Do not use the
+old covered/uncovered total-RMS subtraction as an automatic SNR calculation.
+
+HANDOFF
+Each group member retains the main-lab ZIP AND their own finalized pre-lab ZIP.
+The main ZIP includes the complete restorable JSON plus screenshots/ and data/.
+Restore JSON or the original ZIP in the main worksheet. Downloads are not submission.

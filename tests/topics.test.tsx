@@ -5,7 +5,7 @@ import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AppRoutes } from '../src/App';
-import { NOISE_PRELAB } from '../lib/catalog';
+import { NOISE_PRELAB, NOISE_MAIN_LAB, NOISE_POST_LAB } from '../lib/catalog';
 window.scrollTo = () => {};
 afterEach(cleanup);
 const open = (path = '/') =>
@@ -14,7 +14,7 @@ const open = (path = '/') =>
       <AppRoutes />
     </MemoryRouter>,
   );
-test('Noise and Filtering has its own pre-lab-only topic and full-document links', () => {
+test('Noise and Filtering has separate pre-lab and main-lab document links', () => {
   open('/noise-and-filtering');
   assert.ok(
     screen.getByRole('heading', { name: 'Noise and Filtering', level: 1 }),
@@ -38,12 +38,22 @@ test('Noise and Filtering has its own pre-lab-only topic and full-document links
       .hasAttribute('download'),
   );
   assert.equal(
-    links.some((link) =>
-      /\/(learn|simulator|main-lab|post-lab)(?:\/|$)/.test(link.pathname),
-    ),
+    links.some((link) => /\/(simulator|post-lab)(?:\/|$)/.test(link.pathname)),
     false,
   );
   assert.equal(main.querySelector('iframe'), null);
+  const mainlab = screen.getByRole('link', { name: /Open main lab/ });
+  assert.equal(mainlab.getAttribute('href'), NOISE_MAIN_LAB.workbook);
+  assert.equal(mainlab.getAttribute('target'), null);
+  assert.equal(mainlab.hasAttribute('data-discover'), false);
+  const postlab = screen.getByRole('link', { name: /Open individual post-lab/ });
+  assert.equal(postlab.getAttribute('href'), NOISE_POST_LAB.workbook);
+  assert.equal(postlab.hasAttribute('data-discover'), false);
+  assert.equal(
+    screen.getByRole('link', { name: /Start learning/ }).getAttribute('href'),
+    '/noise-and-filtering/learn',
+  );
+  assert.equal(screen.queryByRole('link', { name: /Practise wiring/ }), null);
   assert.match(main.textContent!, /workspace_backup.json/);
   assert.match(main.textContent!, /Downloading is not submission/);
 });
@@ -61,7 +71,6 @@ test('Noise and Filtering is searchable and has no unfinished tool routes', asyn
   );
   assert.ok(screen.getByRole('link', { name: /Open pre-lab/ }));
   for (const path of [
-    '/noise-and-filtering/learn',
     '/noise-and-filtering/simulator',
     '/noise-and-filtering/main-lab',
     '/noise-and-filtering/post-lab',
@@ -94,6 +103,7 @@ test('Resources links the Noise pre-lab without inventing an offline simulator',
     screen.queryByRole('link', { name: /Download Noise.*Simulator/ }),
     null,
   );
+  assert.ok(document.querySelector(`a[href="${NOISE_MAIN_LAB.workbook}"]`));
 });
 test('welcome and catalog link to both labs and leaving restores divider defaults', async () => {
   const user = userEvent.setup();
@@ -372,4 +382,10 @@ test('resources offer all four sections and all four self-contained downloads', 
     assert.match(link.getAttribute('href')!, /_single_file\.html$/);
   }
   assert.equal(document.title, 'Resources | Electronics Lab');
+});
+
+test('Removed Noise checker route does not expose a simulator', () => {
+  open('/noise-and-filtering/connection-checker');
+  assert.ok(screen.getByRole('heading', { name: 'Page not found' }));
+  assert.equal(screen.getByRole('main').querySelector('iframe'), null);
 });

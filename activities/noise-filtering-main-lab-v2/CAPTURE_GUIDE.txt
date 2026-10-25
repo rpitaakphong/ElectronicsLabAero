@@ -1,0 +1,122 @@
+2145427 — Aircraft signal investigation — student guide v2.0.0
+
+Allow about three hours in a group of up to three. Only Student 1 name is
+required; additional names and all student IDs are optional. Enter a Group ID.
+Install Arduino IDE and
+Arduino UNO R4 board support before class. Use an UNO R4 Minima or WiFi.
+This is a training model of a communication receiver's low-frequency output.
+It is not a 933 MHz radio experiment.
+
+STARTER AND AI DEBUGGING
+Download aircraft_signal_starter.zip; extract it and open the .ino inside its
+matching folder. The downloaded sketch is self-contained; no extra library is
+needed beyond the Arduino UNO R4 core (reference build: 1.6.0).
+Select the exact board and port. Attempt compilation. The starter contains one
+deliberate compilation error. Use your AI tool to explain the diagnostic and
+suggest a minimal repair; verify the change yourself. Keep the observed error,
+your explanation, an AI-help summary, changes and verification in the worksheet.
+Enter your measured supply/reference voltage in REFERENCE_V, compile and upload.
+The worksheet saves code as literal evidence; upload through Arduino IDE.
+Preserve the repaired generator version before extending it for digital filters.
+
+SOURCE AND CONNECTIONS
+A0 is the 12-bit DAC OUTPUT; A1 is the measured ADC INPUT. Both variants use
+these pins. Keep common UNO/scope ground. Never connect a generator or another
+active output to A0. Use compensated 10x probes and high-impedance scope inputs
+(not 50 ohm loading), and
+match the physical probe attenuation with the scope setting. Switch power off
+before changing wiring. Verify actual voltages before relying on the ADC.
+
+Baseline: A0 directly to A1. Both scope tips at A0; both grounds at UNO GND.
+Useful tones: 50, 55, 70 Hz; 0.20 V peak each.
+Interference tones: 120, 150, 180 Hz; 0.10 V peak each.
+DC offset: 2.0 V. The mathematical bound is 1.1 to 2.9 V; inspect actual output.
+Generation uses a 4,000-update/s hardware timer and a precomputed waveform.
+A separate timer samples A1 at nominal 1,000 samples/s, with 12-bit readings.
+The measured voltage reference is user-entered, not automatically calibrated.
+
+FFT INVESTIGATION
+Discover how to operate the GDS-1202B FFT using the manufacturer manual and
+reliable resources, including your AI tool. Record the procedure you discover.
+No FFT button or menu sequence is supplied. First establish the changing time
+waveform and voltage range. Find all six peaks, including the 50/55 Hz pair.
+Record source, window, record length, actual sample rate, frequency/amplitude
+scales and units. Display zoom alone does not improve frequency resolution.
+The native FFT bin spacing is the sample rate divided by the number of samples
+actually used. Windowing broadens peaks. A settled four-second record is the
+starting target; record what your instrument actually permits and obtains.
+The DC offset is not one of the three useful tones.
+
+MANUAL FILE SAVING
+Save a readable FFT screenshot yourself (scope USB image or a legible photo).
+For numerical evidence save the TIME-DOMAIN waveform as Detail CSV, not a list
+of FFT magnitudes or an image. Keep the scope metadata, time and voltage columns.
+The scope manual explains image/waveform file saving. Use matching capture IDs
+and record node, settings, sample count, duration and limitations in the worksheet.
+Required before the filter: source FFT screenshot and original source waveform CSV.
+Required after the filter: output FFT screenshot and original CH2 waveform CSV.
+Keep comparable amplitude scales and conventions. Retain the baseline files.
+Upload originals to the matching worksheet slots. The page validates file types
+and sizes but does not analyze, grade or certify measurement quality.
+
+RC DESIGN
+Choose and justify the filter type, cutoff and component combination. Predict
+what happens to every useful and interference tone; preserve the design first.
+For the proposed low-pass topology: A0 -> your series R -> output/A1; capacitor
+from output/A1 to GND. CH1 before R; CH2 at A1. Keep all probe grounds at UNO GND.
+Use non-polar capacitors. Available starting stock: approximately 47 kohm and
+22-100 nF. Keep at least 33 kohm in series for this unbuffered DAC arrangement.
+A lower resistance or a different topology requires instructor review of loading,
+bias and voltage range. A simple high-pass with a ground-referenced output can
+produce negative voltages; do not energize another topology without review.
+These constraints protect the source and ADC; your cutoff and R/C choices remain
+yours. Record nominal/actual values, tolerances, predicted/measured tone amplitudes,
+attenuation and any redesign. One RC stage gives partial suppression and also
+changes useful amplitudes and phase. In dBV, subtract readings for attenuation;
+do not divide logarithmic values. Missing peaks are measurement limits.
+
+LIVE DIGITAL COMPARISON
+Keep the physical RC in place. The starter's processSample initially passes the
+measured voltage through; it does not claim to have MA/EMA filtering. Integrate
+the working FILTER_EXAMPLES.txt definitions, replacing processSample once.
+Then set DIGITAL_FILTERS to true. Examples start with MA length 5 and EMA
+coefficient 0.40, with independent first-input initialization. Change parameters
+only with a recorded explanation. Keep timer/source/serial routines intact.
+Both digital paths consume the same A1 sample, never each other's output.
+In Arduino IDE Serial Plotter choose 500,000 baud and newline commands.
+Completed live traces: RC (A1), RC_MA, RC_EMA, all in volts. They are software
+traces, not additional analogue output pins. Save your plot screenshot manually.
+Allow startup settling. Compare useful information, interference and delay.
+The horizontal axis is a sample sequence; it is not a calibrated time axis.
+There is no capture, buffered recording or replay command.
+
+DIAGNOSTICS (SEPARATE FROM PLOT LINES)
+status      Pause plot lines and print measured rates, gap-based missed-slot
+            estimates, interval errors, processing time, clipping and overruns.
+plot        Resume the continuous live stream without restarting the waveform.
+resetstats  Pause plotting and clear diagnostics; waveform/filter state continues.
+help        Same diagnostic / command information as status.
+Commands require newline. Use Serial Monitor for status; reopen Plotter and
+send plot afterward. Reset/reconnection may restart the board. Start a clean
+observation interval with resetstats then plot, wait, then status; record results.
+If USB/serial cannot keep up, source, sampling and filter updates continue but
+plot lines can be lost. An overrun invalidates any claim of uniformly spaced
+plotted points. Resolve timing/throughput issues with the instructor.
+Do not infer actual timing from baud rate. The actual scope measurement is
+needed to verify source timing; software counters alone cannot establish it.
+
+SAVE AND HANDOFF
+Required files: two FFT screenshots, two original scope waveform CSVs, and one
+live plot screenshot. Supplementary files are optional. Paste the complete
+self-contained generator and final .ino sketches in their separate code fields;
+preserve them separately. The ZIP includes main_lab_backup.json plus code/,
+screenshots/ and data/, with original attachment bytes. JSON also embeds evidence.
+Keep downloaded backups regularly; browser storage can be unavailable or full.
+Each member retains the group ZIP AND their own pre-lab ZIP. No pre-lab is
+imported here. Restore v2 JSON or its original ZIP in this worksheet; legacy LDR
+v1 backups use the separate legacy worksheet linked on page 1.
+Detailed SNR calculations belong in the later individual post-lab. Total variation
+includes useful tones; it is not noise RMS. Keep timing, DC, harmonics and other
+components for interpretation. Digital SNR recomputed from retained RC samples
+must be labeled recomputation, not a measured live board-output recording.
+Downloads are not submission. Use the separately supplied destination/deadline.
