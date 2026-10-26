@@ -24,9 +24,13 @@ for (const [kind, source] of Object.entries(sources)) {
     });
     await writeFile(path.join(output, `${kind}-${board}.log`), result.text);
     const errors = result.text.split('\n').filter((line) => /\berror:/.test(line));
-    const expected = result.code === 0;
-    results.push({ kind, board, passed: expected, errors, summary: result.text.split('\n').filter((s) => /Sketch uses|Global variables/.test(s)) });
-    console.log(`${kind} / ${board}: ${expected ? 'PASS' : 'FAIL'}`);
+    const expectedFailure = kind === 'source';
+    const expected = expectedFailure
+      ? result.code !== null && result.code !== 0 && errors.length === 1
+        && errors.every((line) => line.includes('startSignalGenrator') && /not declared|undeclared/.test(line))
+      : result.code === 0;
+    results.push({ kind, board, passed: expected, expectedFailure, exitCode: result.code, errors, summary: result.text.split('\n').filter((s) => /Sketch uses|Global variables/.test(s)) });
+    console.log(`${kind} / ${board}: ${expected ? 'PASS' : 'FAIL'}${expectedFailure ? ' (expected deliberate compilation error)' : ''}`);
     if (!expected) { console.error(result.text); process.exitCode = 1; }
     else for (const line of results.at(-1).summary) console.log(line);
   }

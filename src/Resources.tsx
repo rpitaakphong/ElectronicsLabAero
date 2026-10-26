@@ -129,7 +129,8 @@ export function Resources() {
         <p>
           Follow seven sections: investigate the noisy pulse signal, discover
           its spectrum, design and build an RC filter, measure attenuation,
-          write your own MA/EMA code, and save your lab files. The working source
+          write your own MA/EMA code, and save your lab files. Repair the starter’s
+          deliberate compilation error yourself or with AI help; the repaired
           sketch generates A0 output only. Save measurements, code and screenshots
           in the group ZIP for later individual work.
         </p>

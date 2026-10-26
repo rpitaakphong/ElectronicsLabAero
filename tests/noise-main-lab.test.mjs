@@ -134,6 +134,8 @@ test('student pages provide discovery, literal code, equations and independent c
   const pages = SCREENS.map((_, i) => screen(r, i));
   assert(pages[1].includes('&lt;img') && !pages[1].includes('<img src=x'));
   assert(pages[0].includes('v3 workbook') && pages[0].includes('128 KiB'));
+  assert(pages[0].includes('one deliberate compilation error') && pages[0].includes('yourself or with AI help'));
+  assert(!pages[0].includes('startSignalGenrator') && !pages[0].includes('working Arduino source ZIP'));
   assert(pages[5].includes('Excel, MATLAB, Python') && pages[5].includes('actual sampling interval'));
   assert(pages[4].includes('500 ms/div') && pages[4].includes('10,000-point') && pages[4].includes('Detail CSV'));
   assert(!/Press (?:the )?(?:Math|MATH)|MATH\s*→\s*FFT/.test(pages.join('')));
@@ -155,7 +157,11 @@ test('v4 packages only the source sketch and guide; legacy v3 remains recoverabl
   const zip = unzipSync(new Uint8Array(await readFile(directory + 'aircraft_pulse_source.zip'))), sources = await sketchSources();
   assert.deepEqual(Object.keys(zip), ['aircraft_pulse_source/aircraft_pulse_source.ino']);
   assert.equal(Buffer.from(Object.values(zip)[0]).toString(), sources.source);
-  assert(!/Serial\.|analogRead\(|processSample\(|startSignalGenrator/.test(sources.source));
+  assert(!/Serial\.|analogRead\(|processSample\(/.test(sources.source));
+  assert.equal(sources.source.split('timerOK = startSignalGenrator();').length, 2);
+  assert(sources.source.includes('// A tiny gremlin is hiding in here. :)'));
+  assert.equal(sources.source.replace('timerOK = startSignalGenrator();', 'timerOK = startSignalGenerator();'), sources.repaired);
+  assert(!sources.repaired.includes('startSignalGenrator'));
   assert(sources.source.includes('analogWriteResolution(12)') && sources.source.includes('DAC_RATE = 4000'));
   const legacy = await readFile('public/worksheets/noise-filtering-main-lab-v3.html', 'utf8');
   assert(legacy.includes('electronics-noise-filtering-main-lab-v3') && !legacy.includes('electronics-noise-filtering-main-lab-v4'));
@@ -175,10 +181,21 @@ test('real completed firmware keeps sampling through serial stalls and preserves
   const run = spawnSync('output/noise-aircraft-runtime/runtime', [], { encoding: 'utf8' });
   assert.equal(run.status, 0, run.stderr);
 });
-test('actual source-only sketch generates the waveform without ADC or serial output', async () => {
+test('downloaded starter fails only at the planted typo; its single repair preserves the waveform', async () => {
   await mkdir('output/noise-aircraft-source', { recursive: true });
-  await writeFile('output/noise-aircraft-source/source.ino', (await sketchSources()).source);
-  const compile = spawnSync(process.env.CXX || 'c++', ['-std=c++17', '-Wall', '-Wextra', '-Werror', '-Itests/fixtures/aircraft', '-Ioutput/noise-aircraft-source', 'tests/noise-main-lab-source.cpp', '-o', 'output/noise-aircraft-source/source'], { encoding: 'utf8' });
+  const zip = unzipSync(new Uint8Array(await readFile('public/courses/2145427/week12/main-lab/v4.0.0/aircraft_pulse_source.zip')));
+  const starter = Buffer.from(zip['aircraft_pulse_source/aircraft_pulse_source.ino']).toString();
+  await writeFile('output/noise-aircraft-source/source.ino', starter);
+  const compileSource = () => spawnSync(process.env.CXX || 'c++', ['-std=c++17', '-Wall', '-Wextra', '-Werror', '-Itests/fixtures/aircraft', '-Ioutput/noise-aircraft-source', 'tests/noise-main-lab-source.cpp', '-o', 'output/noise-aircraft-source/source'], { encoding: 'utf8' });
+  const broken = compileSource(), errors = broken.stderr.split('\n').filter(line => /\berror:/.test(line));
+  assert.notEqual(broken.status, null, broken.error?.message);
+  assert.notEqual(broken.status, 0);
+  assert.equal(errors.length, 1, broken.stderr);
+  assert(errors[0].includes('startSignalGenrator') && /not declared|undeclared/.test(errors[0]), broken.stderr);
+  const repaired = starter.replace('timerOK = startSignalGenrator();', 'timerOK = startSignalGenerator();');
+  assert.equal(repaired, (await sketchSources()).repaired);
+  await writeFile('output/noise-aircraft-source/source.ino', repaired);
+  const compile = compileSource();
   assert.equal(compile.status, 0, compile.stderr);
   const run = spawnSync('output/noise-aircraft-source/source', [], { encoding: 'utf8' }); assert.equal(run.status, 0, run.stderr);
 });

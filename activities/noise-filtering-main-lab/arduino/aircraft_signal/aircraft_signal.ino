@@ -1,10 +1,11 @@
-/* Aircraft pulse investigation v4.0.0 — working source only.
+/* Aircraft pulse investigation v4.0.0 — A0 signal generator.
    UNO R4 Minima / WiFi: A0 DAC to scope CH1; probe ground to UNO GND.
    No A1 acquisition, digital filtering or serial output in this sketch.
    A one-second pattern repeats: 2.0 V baseline; 2.6 V at 120–320 ms;
    2.5 V at 620–640 ms. Added interference: 120, 150, 180 Hz, 0.10 V peak each.
    Do not connect another output to A0. Verify actual levels on the scope.
 */
+// A tiny gremlin is hiding in here. :)
 #include <Arduino.h>
 #include <FspTimer.h>
 #include <math.h>

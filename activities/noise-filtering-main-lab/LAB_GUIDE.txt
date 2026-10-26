@@ -3,8 +3,10 @@
 1. INVESTIGATE THE SIGNAL (15 minutes)
 Install Arduino IDE and UNO R4 board support before class. Extract the source ZIP,
 open aircraft_pulse_source.ino, select UNO R4 Minima or WiFi and the correct port.
-Enter your measured supply/reference in REFERENCE_V. Compile and upload.
-The working sketch only outputs the noisy pulse pattern at A0. It does not sample
+Enter your measured supply/reference in REFERENCE_V. Try compiling: the starter
+contains one deliberate compilation error. Read the diagnostic and repair the
+code yourself or with AI help, then compile again and upload.
+After repair, the sketch only outputs the noisy pulse pattern at A0. It does not sample
 A1 or transmit serial data. A0 uses 12-bit DAC output at 4,000 updates/s.
 Connect scope CH1 tip to A0 and its ground to UNO GND. Use high-impedance input,
 DC coupling and compensated 10x probes with matching scope settings.

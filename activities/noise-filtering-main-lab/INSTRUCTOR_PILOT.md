@@ -3,6 +3,15 @@
 Never package this file or instructor/ as student resources. Software checks do
 not establish physical readiness. Deliver locally; keep deployed pre-lab unchanged.
 
+## Starter debugging revision — 26 October 2026
+
+- All 307 tests, lint, type checks and production build pass locally.
+- The packaged starter fails only at its planted typo; a single correction passes
+  the source waveform/timing checks. The smiley comment is included in the ZIP.
+- With Renesas UNO core 1.6.0, both UNO R4 variants produce the intended starter
+  diagnostic; private repaired and historical digital sketches compile successfully.
+- Existing answers, saved sketches and archived versions are unchanged. No deployment.
+
 ## CSV processing revision — 26 October 2026
 
 - Full suite: 302 tests pass. Final focused main/post-lab checks: 25 pass.
@@ -41,12 +50,19 @@ checks below for the CSV processing and final-figure revision.
 
 ## Instructor solution and recovery
 
-Run npm run test:noise-main-lab:arduino. Both source and digital sketches must
-compile for UNO R4 Minima and WiFi. Private completed code and compiler logs are
-written to output/noise-aircraft-arduino/digital/ and sibling files. The source
-ZIP contains only the working A0 generator. There is no planted fault or public
-A1/MA/EMA scaffold. Check board support, port and REFERENCE_V first if upload or
-voltage checks fail. A0 stays near baseline if its timer cannot start.
+Run npm run test:noise-main-lab:arduino. The student source must fail compilation
+for UNO R4 Minima and WiFi only at the deliberate misspelled startup call.
+The private repaired and digital sketches must compile for both variants.
+The maintained arduino/aircraft_signal/aircraft_signal.ino is the working instructor
+source; packaging changes only its startup call to startSignalGenrator(). Restore
+startSignalGenerator() to repair it. The starter includes a teasing smiley comment.
+Private repaired/completed code and compiler logs are written to
+output/noise-aircraft-arduino/ and its subdirectories. The public ZIP contains only
+the faulty A0 starter, with no solution or A1/MA/EMA scaffold. Have students read
+the diagnostic and debug independently or with AI help before uploading; no extra
+worksheet fields are required. After repair, check board support, port and
+REFERENCE_V if upload or voltage checks fail. A0 stays near baseline if its timer
+cannot start.
 
 The private Arduino filter solution is retained only for historical/reference
 checks. The current Section 6 uses recorded scope data in Excel, MATLAB, Python
@@ -56,6 +72,8 @@ Students record their own formulas or code and prepare separate labelled MA and 
 ## Physical pilot required
 
 - Install board support and IDE before class. Test both R4 variants. Measure the
+  time students need to diagnose and repair the deliberate compilation error.
+  Keep the working instructor source available privately for recovery. Measure the
   supply/reference and enter it in each sketch. Inspect A0 with CH1 tip, UNO GND
   with the probe ground, DC coupling, compensated 10x probes and high impedance.
 - Confirm the one-second repeating waveform: 2.0 V baseline, 2.6 V at 120–320 ms,

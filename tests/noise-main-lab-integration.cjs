@@ -55,7 +55,7 @@ async function importData(page, bytes, confirm = true, extension = 'zip') {
   const { sketchSources } = await import(pathToFileURL(path.resolve('activities/noise-filtering-main-lab/package-source.mjs')));
   const sources = await sketchSources();
   const processing = '# Python example for CSV processing\n# </textarea><script>window.__CODE_EXECUTED = true</script>\n' + '# literal formula or code\n'.repeat(20);
-  const generator = sources.source + '\n// </textarea><script>window.__CODE_EXECUTED = true</script> & `literal`\n//' + 'large-code-test '.repeat(5000);
+  const generator = sources.repaired + '\n// </textarea><script>window.__CODE_EXECUTED = true</script> & `literal`\n//' + 'large-code-test '.repeat(5000);
   for (const engine of (process.env.BROWSERS || 'chromium,firefox,webkit').split(',')) {
     const browser = await playwright[engine].launch({ headless: true }), contexts = [], profiles = [];
     const context = async (init) => {

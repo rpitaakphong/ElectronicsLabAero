@@ -84,7 +84,7 @@ export function NoiseFilteringTopic() {
             <h2>Main lab</h2>
             <p>
               Work in a group of up to three with an UNO R4 and oscilloscope.
-              Upload the working pulse source, discover its FFT, design and
+              Debug and upload the pulse starter, discover its FFT, design and
               build an RC filter, and measure attenuation. Export five seconds of
               the filtered signal and try moving-average and EMA settings in
               Excel, MATLAB, Python or another program. Submit separate MA and
