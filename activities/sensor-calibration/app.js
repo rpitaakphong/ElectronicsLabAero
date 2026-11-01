@@ -28,7 +28,14 @@ import {
   MAX_FILE,
   MAX_GROUP,
 } from './files.js';
-import { esc, mainContent, postContent, report, legacyView } from './views.js';
+import {
+  esc,
+  mainContent,
+  postContent,
+  report,
+  review,
+  legacyView,
+} from './views.js';
 
 const kind = document.body.dataset.kind;
 if (!['main', 'post'].includes(kind)) throw new Error('Unknown worksheet.');
@@ -310,6 +317,10 @@ function inputWarning(el, value, positive = false) {
   }
   hint.textContent = warning;
 }
+function refreshReview() {
+  const current = document.querySelector('#main .review');
+  if (current) current.outerHTML = review(state);
+}
 function edit(el) {
   if (
     !(
@@ -320,6 +331,7 @@ function edit(el) {
   )
     return;
   const d = el.dataset;
+  let completionChanged = false;
   if (
     kind === 'main' &&
     state.record.current > 0 &&
@@ -327,6 +339,8 @@ function edit(el) {
   )
     return;
   if (d.field && Object.hasOwn(labels(kind), d.field)) {
+    completionChanged =
+      !!state.record.fields[d.field].trim() !== !!el.value.trim();
     state.record.fields[d.field] = el.value;
     if (
       numericFields.has(d.field) ||
@@ -341,6 +355,7 @@ function edit(el) {
     state.record.uncertainty[d.uncertainty][d.key] = el.value;
   else return;
   touch();
+  if (completionChanged) refreshReview();
 }
 document.addEventListener('input', (e) => {
   if (e.target instanceof HTMLElement && e.target.tagName !== 'SELECT')
@@ -450,6 +465,7 @@ async function action(name) {
   if (name === 'reviewed') {
     state.record.needsReview = false;
     touch();
+    refreshReview();
     message(
       'You have confirmed that you checked your answers against the replacement group file.',
     );

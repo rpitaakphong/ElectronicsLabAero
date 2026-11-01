@@ -679,12 +679,55 @@ async function postJourney(browser, engine, group, model, files) {
     `${engine}: replacing source preserves graphs`,
   );
   await go(page, 8);
+  const conclusionLabel = model.labels('post').conclusion,
+    helpLabel = model.labels('post').help;
+  check(
+    (await page.locator('.review li').allTextContents()).includes(
+      conclusionLabel,
+    ),
+    `${engine}: blank final conclusion is listed as missing`,
+  );
+  await page
+    .locator('[data-field="conclusion"]')
+    .fill('QA final conclusion\n<literal>');
+  check(
+    !(await page.locator('.review li').allTextContents()).includes(
+      conclusionLabel,
+    ),
+    `${engine}: typing final conclusion immediately clears its missing entry`,
+  );
+  check(
+    await page
+      .locator('[data-field="conclusion"]')
+      .evaluate((el) => el === document.activeElement),
+    `${engine}: refreshing completion keeps the answer focused`,
+  );
+  await page.locator('[data-field="conclusion"]').fill('');
+  check(
+    (await page.locator('.review li').allTextContents()).includes(
+      conclusionLabel,
+    ),
+    `${engine}: clearing the conclusion immediately restores its missing entry`,
+  );
+  await page
+    .locator('[data-field="conclusion"]')
+    .fill('QA final conclusion\n<literal>');
+  await page.locator('[data-field="help"]').fill('QA test software only');
+  check(
+    !(await page.locator('.review li').allTextContents()).includes(helpLabel),
+    `${engine}: typing help disclosure immediately clears its missing entry`,
+  );
   const individual = await download(page, 'zip'),
     parsed = await files.parseFile(individual.bytes, 'post', async () => true);
   check(parsed.record.needsReview, `${engine}: review flag retained`);
   check(
     parsed.record.fields.covariance === '-0.125',
     `${engine}: coefficient text retained`,
+  );
+  check(
+    parsed.record.fields.conclusion === 'QA final conclusion\n<literal>' &&
+      parsed.record.fields.help === 'QA test software only',
+    `${engine}: immediate download retains final answers after completion refresh`,
   );
   check(
     parsed.parsedSource.record.fields.groupId === 'QA REPLACED GROUP',
@@ -711,6 +754,14 @@ async function postJourney(browser, engine, group, model, files) {
   check(
     (await recovered.locator('[data-remove-file="residuals"]').count()) === 1,
     `${engine}: fresh individual restores graph`,
+  );
+  await go(recovered, 8);
+  await recovered.locator('[data-action="reviewed"]').check();
+  check(
+    !(await recovered.locator('.review li').allTextContents()).includes(
+      'Check your answers against the replacement group file.',
+    ),
+    `${engine}: confirming replacement-source review immediately clears the reminder`,
   );
   await saved(recovered);
   await fresh.close();
