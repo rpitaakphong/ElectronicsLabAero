@@ -5,7 +5,13 @@ import { cleanup, render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { AppRoutes } from '../src/App';
-import { NOISE_PRELAB, NOISE_MAIN_LAB, NOISE_POST_LAB } from '../lib/catalog';
+import {
+  NOISE_PRELAB,
+  NOISE_MAIN_LAB,
+  NOISE_POST_LAB,
+  SENSOR_CALIBRATION,
+  TOPICS,
+} from '../lib/catalog';
 window.scrollTo = () => {};
 afterEach(cleanup);
 const open = (path = '/') =>
@@ -46,7 +52,9 @@ test('Noise and Filtering has separate pre-lab and main-lab document links', () 
   assert.equal(mainlab.getAttribute('href'), NOISE_MAIN_LAB.workbook);
   assert.equal(mainlab.getAttribute('target'), null);
   assert.equal(mainlab.hasAttribute('data-discover'), false);
-  const postlab = screen.getByRole('link', { name: /Open individual post-lab/ });
+  const postlab = screen.getByRole('link', {
+    name: /Open individual post-lab/,
+  });
   assert.equal(postlab.getAttribute('href'), NOISE_POST_LAB.workbook);
   assert.equal(postlab.hasAttribute('data-discover'), false);
   assert.equal(
@@ -358,7 +366,84 @@ test('catalog searches names and descriptions, clears, and explains empty result
   assert.equal(screen.getByRole('status').textContent, '0 topics found');
   await user.click(screen.getByRole('button', { name: 'Show all topics' }));
   assert.equal((search as HTMLInputElement).value, '');
-  assert.equal(screen.getByRole('status').textContent, '5 topics to explore');
+  assert.equal(
+    screen.getByRole('status').textContent,
+    `${TOPICS.length} topics to explore`,
+  );
+});
+
+test('Sensor Calibration exposes the group and individual document workflows', () => {
+  open('/sensor-calibration');
+  assert.ok(
+    screen.getByRole('heading', {
+      name: 'Calibrate an ultrasonic distance sensor',
+      level: 1,
+    }),
+  );
+  assert.equal(document.title, 'Sensor Calibration | Electronics Lab');
+  assert.equal(
+    screen
+      .getByRole('link', { name: /Open group main lab/ })
+      .getAttribute('href'),
+    SENSOR_CALIBRATION.main,
+  );
+  assert.equal(
+    screen
+      .getByRole('link', { name: /Open individual post-lab/ })
+      .getAttribute('href'),
+    SENSOR_CALIBRATION.post,
+  );
+  assert.equal(screen.queryByRole('link', { name: /Download raw-echo/ }), null);
+  assert.match(document.body.textContent || '', /target orientations/);
+  assert.equal(screen.queryByRole('link', { name: /Open simulator/ }), null);
+  cleanup();
+  open('/resources');
+  assert.equal(
+    screen
+      .getByRole('link', { name: /Open Sensor Calibration group lab/ })
+      .getAttribute('href'),
+    SENSOR_CALIBRATION.main,
+  );
+  assert.equal(
+    screen
+      .getByRole('link', { name: /Open Sensor Calibration individual/ })
+      .getAttribute('href'),
+    SENSOR_CALIBRATION.post,
+  );
+});
+
+test('Sensor Calibration worksheets use the full-view worksheet template', () => {
+  for (const [path, title, source] of [
+    [
+      SENSOR_CALIBRATION.main,
+      'Sensor Calibration Group Main Lab',
+      SENSOR_CALIBRATION.mainWorksheet,
+    ],
+    [
+      SENSOR_CALIBRATION.post,
+      'Sensor Calibration Individual Post-Lab',
+      SENSOR_CALIBRATION.postWorksheet,
+    ],
+  ]) {
+    cleanup();
+    open(path);
+    assert.ok(screen.getByRole('heading', { name: title, level: 1 }));
+    assert.equal(
+      screen.queryByRole('link', { name: 'Electronics Lab home' }),
+      null,
+    );
+    assert.equal(document.title, `${title} | Electronics Lab`);
+    assert.equal(
+      screen.getByTitle(`${title} workspace`).getAttribute('src'),
+      `${source}?embed=1`,
+    );
+    assert.equal(screen.queryByRole('banner'), null);
+    assert.equal(
+      screen.queryByRole('navigation', { name: 'Breadcrumb' }),
+      null,
+    );
+    assert.equal(screen.getByRole('main').className, 'calibration-workspace');
+  }
 });
 
 test('resources offer all four sections and all four self-contained downloads', () => {

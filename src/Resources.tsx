@@ -6,6 +6,7 @@ import {
   NOISE_POST_LAB,
   RESOURCES,
   SITE_PAGES,
+  SENSOR_CALIBRATION,
 } from '@/lib/catalog';
 import { TopicBreadcrumbs } from './TopicBreadcrumbs';
 
@@ -23,6 +24,8 @@ export function Resources() {
         <p>Get oriented, keep your work, and take a simulator with you.</p>
       </div>
       <nav className="resource-sections" aria-label="Resource sections">
+        <a href={SENSOR_CALIBRATION.main}>Sensor Calibration Main Lab</a>
+        <a href={SENSOR_CALIBRATION.post}>Sensor Calibration Individual Post-Lab</a>
         {guides.map((guide) => (
           <Link to={guide.href} key={guide.id}>
             {guide.title}
@@ -43,6 +46,14 @@ export function Resources() {
         </Link>
       </nav>
       <div className="resource-guide-grid">
+        <section className="panel resource-guide" aria-labelledby="calibration-resource-title">
+          <span className="eyebrow">Use ruler measurements to calibrate the sensor.</span>
+          <h2 id="calibration-resource-title">Sensor Calibration</h2>
+          <p>Build your circuit and upload a photograph and paste your Arduino code. Design three calibration runs, upload CSV measurements and graphs, check two new distances, and investigate target angle. Each student uses the group file for the individual post-lab.</p>
+          <a className="topic-link" href={SENSOR_CALIBRATION.main}>Open Sensor Calibration group lab →</a>
+          <p><a href={SENSOR_CALIBRATION.post}>Open Sensor Calibration individual post-lab →</a></p>
+          <Link className="topic-link" to="/sensor-calibration">View topic and equipment →</Link>
+        </section>
         {guides.map((guide, i) => (
           <section
             className="panel resource-guide"

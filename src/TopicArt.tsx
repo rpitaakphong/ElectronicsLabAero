@@ -3,16 +3,28 @@ export function TopicArt({
   rc = false,
   timer = false,
   noise = false,
+  calibration = false,
 }: {
   divider?: boolean;
   rc?: boolean;
   timer?: boolean;
   noise?: boolean;
+  calibration?: boolean;
 }) {
   return (
     <svg viewBox="0 0 420 180" aria-hidden="true">
       <g fill="none" stroke="currentColor" strokeWidth="2">
-        {noise ? (
+        {calibration ? (
+          <>
+            <path d="M50 28V145H380" opacity="0.35" />
+            <path d="M70 131L350 39" strokeWidth="3" />
+            {[[85, 123], [135, 113], [190, 88], [245, 76], [310, 48]].map(([x, y]) => (
+              <g key={x}><path d={`M${x} ${y - 10}V${y + 10}`} opacity="0.55" /><circle cx={x} cy={y} r="4" /></g>
+            ))}
+            <text x="155" y="173">Reference distance</text>
+            <text x="62" y="25">Echo time</text>
+          </>
+        ) : noise ? (
           <>
             <path d="M38 148H385M45 25V148" opacity="0.35" />
             <path

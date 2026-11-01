@@ -6,6 +6,9 @@ const origin = process.env.APP_URL || 'http://127.0.0.1:3000';
 const output = path.resolve('output/playwright/navigation');
 fs.mkdirSync(output, { recursive: true });
 const destinations = [
+  ['/sensor-calibration', 'Sensor Calibration'],
+  ['/sensor-calibration/main-lab', 'Sensor Calibration Group Main Lab'],
+  ['/sensor-calibration/post-lab', 'Sensor Calibration Individual Post-Lab'],
   ['/topics', 'Learning Topics'],
   ['/voltage-divider', 'Voltage Divider'],
   ['/voltage-divider/learn', 'Voltage Divider Interactive Learning'],
@@ -87,7 +90,14 @@ const destinations = [
         title,
       );
       assert.equal(await page.getByRole('main').count(), 1);
-      assert.equal(await page.getByRole('banner').count(), 1);
+      const worksheet =
+        url === '/sensor-calibration/main-lab' ||
+        url === '/sensor-calibration/post-lab';
+      assert.equal(await page.getByRole('banner').count(), worksheet ? 0 : 1);
+      if (worksheet)
+        await page
+          .locator('.calibration-workspace[data-status="ready"]')
+          .waitFor();
       assert.equal(await page.locator('h1').count(), 1);
       assert.equal(
         await page.evaluate(
@@ -144,7 +154,12 @@ const destinations = [
       .click();
     const search = page.getByRole('searchbox', { name: 'Search topics' });
     await search.fill('  SENSOR ');
-    assert.equal(await page.locator('.topic-card').count(), 1);
+    assert.equal(await page.locator('.topic-card').count(), 2);
+    assert(
+      await page
+        .getByRole('link', { name: 'Open Sensor Calibration topic' })
+        .isVisible(),
+    );
     assert(
       await page
         .getByRole('link', { name: 'Open Voltage Divider topic' })
@@ -160,7 +175,7 @@ const destinations = [
     await page
       .getByRole('button', { name: 'Clear search', exact: true })
       .click();
-    assert.equal(await page.locator('.topic-card').count(), 5);
+    assert.equal(await page.locator('.topic-card').count(), 6);
     assert(await search.evaluate((el) => el === document.activeElement));
     await search.fill('no such circuit');
     assert(
@@ -213,6 +228,24 @@ const destinations = [
         await menu().locator(`a[href="${url}"]`).click();
         await destinationReady(url, title);
         await menu().waitFor({ state: 'hidden' });
+        if (
+          url === '/sensor-calibration/main-lab' ||
+          url === '/sensor-calibration/post-lab'
+        ) {
+          const worksheet = page.frameLocator('.calibration-workspace-frame');
+          assert.equal(await worksheet.locator('.brand').isVisible(), true);
+          assert.equal(
+            await worksheet
+              .locator('html')
+              .evaluate((el) => getComputedStyle(el).backgroundColor),
+            'rgb(244, 246, 243)',
+          );
+          if (await worksheet.locator('#menu-button').isVisible())
+            await worksheet.locator('#menu-button').click();
+          await worksheet.locator('.brand').click();
+          await destinationReady('/sensor-calibration', 'Sensor Calibration');
+          continue;
+        }
         await openMenu();
         assert.equal(await menu().locator('a[aria-current="page"]').count(), 1);
         assert.equal(
@@ -227,16 +260,24 @@ const destinations = [
             ? [
                 'Home',
                 'Topics',
-                url.includes('noise-and-filtering')
-                  ? 'Noise and Filtering'
-                  : url.includes('voltage-divider')
-                    ? 'Voltage Divider'
-                    : url.includes('rc-filter')
-                      ? 'RC Filter'
-                      : url.includes('555-timer')
-                        ? '555 Timer'
-                        : 'Operational Amplifier',
-                url.endsWith('/learn') ? 'Interactive Learning' : 'Simulator',
+                url.includes('sensor-calibration')
+                  ? 'Sensor Calibration'
+                  : url.includes('noise-and-filtering')
+                    ? 'Noise and Filtering'
+                    : url.includes('voltage-divider')
+                      ? 'Voltage Divider'
+                      : url.includes('rc-filter')
+                        ? 'RC Filter'
+                        : url.includes('555-timer')
+                          ? '555 Timer'
+                          : 'Operational Amplifier',
+                url.endsWith('/main-lab')
+                  ? 'Main Lab'
+                  : url.endsWith('/post-lab')
+                    ? 'Post-Lab'
+                    : url.endsWith('/learn')
+                      ? 'Interactive Learning'
+                      : 'Simulator',
               ]
             : url === '/topics'
               ? ['Home', 'Topics']

@@ -50,3 +50,6 @@ yarn-error.log*
 
 # Generated Noise and Filtering main-lab downloads
 /public/courses/2145427/week12/main-lab/
+
+# Generated Sensor Calibration downloads
+/public/courses/2145427/sensor-calibration/

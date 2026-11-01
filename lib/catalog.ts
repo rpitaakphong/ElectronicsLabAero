@@ -10,6 +10,13 @@ export type TopicTool = {
 
 export const NOISE_POST_LAB = { workbook: '/worksheets/noise-filtering-post-lab.html' } as const;
 
+export const SENSOR_CALIBRATION = {
+  main: '/sensor-calibration/main-lab',
+  post: '/sensor-calibration/post-lab',
+  mainWorksheet: '/worksheets/sensor-calibration-main-lab.html',
+  postWorksheet: '/worksheets/sensor-calibration-post-lab.html',
+} as const;
+
 export const NOISE_MAIN_LAB = {
   workbook: '/worksheets/noise-filtering-main-lab.html',
   sketch:
@@ -28,12 +35,23 @@ export interface TopicDefinition {
   title: string;
   description: string;
   path: string;
-  art: 'divider' | 'rc' | 'opamp' | 'timer' | 'noise';
+  art: 'divider' | 'rc' | 'opamp' | 'timer' | 'noise' | 'calibration';
   tools: readonly TopicTool[];
   simulator?: { url: string; download: string; description: string };
 }
 
 export const TOPICS = [
+  {
+    id: 'sensor-calibration',
+    title: 'Sensor Calibration',
+    path: '/sensor-calibration',
+    art: 'calibration',
+    description: 'Build an Arduino ultrasonic system, design three calibration runs, upload CSV measurements and graphs, and investigate sensitivity, uncertainty and target angle.',
+    tools: [
+      { id: 'mainlab', navigation: 'document', label: 'Main Lab', title: 'Sensor Calibration Group Main Lab', path: SENSOR_CALIBRATION.main },
+      { id: 'postlab', navigation: 'document', label: 'Post-Lab', title: 'Sensor Calibration Individual Post-Lab', path: SENSOR_CALIBRATION.post },
+    ],
+  },
   {
     id: 'voltage-divider',
     title: 'Voltage Divider',
@@ -232,6 +250,13 @@ const topicsCrumb = {
   path: SITE_PAGES.topics.path,
 };
 export const PAGE_METADATA: readonly PageMetadata[] = [
+  ...[
+    { path: SENSOR_CALIBRATION.main, title: 'Sensor Calibration Group Main Lab', label: 'Main Lab' },
+    { path: SENSOR_CALIBRATION.post, title: 'Sensor Calibration Individual Post-Lab', label: 'Post-Lab' },
+  ].map(page => ({
+    path: page.path, title: page.title, section: 'topics' as const,
+    breadcrumbs: [homeCrumb, topicsCrumb, { label: 'Sensor Calibration', path: '/sensor-calibration' }, { label: page.label }],
+  })),
   ...Object.entries(SITE_PAGES).map(([section, page]) => ({
     path: page.path,
     title: page.title,

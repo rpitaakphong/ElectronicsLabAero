@@ -1,0 +1,35 @@
+# Sensor Calibration worksheets
+
+The existing Vercel app serves `/sensor-calibration`, `/sensor-calibration/main-lab` and `/sensor-calibration/post-lab`. The same worksheets also run as self-contained documents at `/worksheets/sensor-calibration-main-lab.html` and `/worksheets/sensor-calibration-post-lab.html`. The worksheets use the original 555 worksheet template across the full browser view: its light background, dark teal sidebar, workbook header, section descriptions, cards, fields, save menu and fixed footer. They have no extra website header or dark theme. Pending edits are saved before a worksheet link leaves the page.
+
+## What students do
+
+Groups develop or generate their own Arduino program and determine the connections for an UNO R4 WiFi and HC-SR04. No connection diagram or working program is supplied. A circuit photograph and pasted Arduino code unlock later answers and uploads; instructions and backups remain available throughout. Removing either prerequisite preserves existing answers and files while locking later editing.
+
+Section 2 opens with a short calibration explanation. Two blank text fields, `xVariable` and `yVariable`, ask students to name each plotted quantity and its unit; they sit side by side on desktop and stack on mobile. A five-line, vertically resizable response in `design` records the procedure and reference-measurement limits freely. Older version-two browser saves and backups receive blank defaults for the new axis fields, without changing existing answers. All three responses appear in reports and read-only group-source views; the completion check flags missing responses without evaluating correctness. Earlier structured answers and uncertainty records remain in backups and appear only when populated in a collapsed, read-only notes panel. Empty retired fields are omitted from the completion check, print report and group-source displays. Detailed uncertainty calculations remain in the individual post-lab.
+
+Students design and justify their positions and repetition counts, complete three full calibration runs, and upload their CSV and calibration graph together. A bundled image illustrates the CSV layout using placeholders only. Each attempt has `trial,condition,reference distance (cm),echo time (us),note`. Trial labels 1, 2 and 3 identify the three calibration runs; repeated attempts from a run keep its trial label. A failed echo has an empty duration and an explanation in `note`. Excluded readings retain their original value and begin the note with `Excluded:` and a reason. Ordinary valid readings may leave note blank. The earlier seven-column CSV layout remains readable without rewriting files. Extra columns, literal text and original file bytes are preserved. There are no fixed measurement-entry tables.
+
+Two new distances are excluded from fitting. Groups then compare perpendicular, tilted and returned target orientations with their original calibration. Reference positions, placement limitations and measured or estimated angle must be documented. There is no required small-movement or filtering task.
+
+Students calculate externally. The group workbook explains means, sample standard deviations, the fitted line and sensitivity using native MathML. Fitting uses run-and-position means, with the number determined by the students’ design. Detailed least-squares formulas, residuals, parameter uncertainties and covariance are taught in the individual post-lab, alongside error indicators, inversion and uncertainty propagation. The individual post-lab imports the group file read-only and requires the detailed uncertainty budget and interpretation. It distinguishes regression-conditional uncertainty from reference-aware combined uncertainty. Earlier group parameter-uncertainty entries remain saved and readable but are no longer required in the main lab. There are no automatic answers, grades, instructor sign-offs, deadlines or submission destinations.
+
+## Files and saved work
+
+Version-two records use separate `electronics-sensor-calibration-main-v2` and `electronics-sensor-calibration-post-v2` IndexedDB namespaces. Literal student prose is retained. All attachment bytes use typed arrays for WebKit compatibility. Autosave failures leave the current session available for downloadable backups. Unreadable browser records are not silently overwritten.
+
+Image validation and limits are reused from the 555 worksheet: PNG, JPEG, BMP and WebP up to 10 MiB per file. Students paste Arduino code into a text box; existing `.ino` attachments remain readable for compatibility. CSV uploads are limited to 5 MiB. All attachments together are limited to 32 MiB. Text and images are rendered without executing content. Malformed CSV is kept as a draft with format guidance. Preview parsing is bounded; the complete original file remains downloadable.
+
+JSON backups embed file bytes; stored-entry ZIPs contain `workbook.json`, `files/`, `uncertainty_records.csv`, and the original group source for individual records. Pasted code is kept literally in the record and print report. Earlier uploaded code files and all CSV files retain their original bytes. A separate CSV download produces a ZIP of the original measurement CSVs. Import validates the complete backup before replacement. Group limits remain 96 MiB ZIP/64 MiB JSON; individual limits remain 256 MiB ZIP/192 MiB JSON. The bounded ZIP reader rejects corrupt archives, unsafe or duplicate paths, compression, encryption and unexpected files. Replacing an individual’s group source retains answers and images and requests review.
+
+Version-one readers remain in `legacy/`. Version-one backups open in a read-only recovery dialog, and version-one browser work can be downloaded as a recovery ZIP. Neither old nor new active records are changed by recovery. Older data are not converted into the redesigned protocol. Existing prelab and unrelated lab records are untouched.
+
+## Verification
+
+`npm run package:sensor-calibration` bundles both documents without runtime CDN dependencies and removes the former generated Arduino sketch download. Generated public HTML is not maintained directly.
+
+- `npm run test:sensor-calibration`: version-two records, uploads, CSV parsing, round trips, source isolation, recovery and retained version-one contracts.
+- `npm run test:sensor-calibration:browser`: synthetic upload order, removal/restoration, autosave, fresh-browser restore, source replacement, attachments, recovery, denied storage, mobile access, mathematical notation and printing.
+- `npm run typecheck`, `npm run lint`, `npm run build`: static and production checks. The build also verifies that the existing prelab is unchanged.
+
+Use one tab per active worksheet and download backups before changing devices. The worksheets have no server submission or live collaboration. Test files and screenshots contain synthetic software fixtures, not hardware measurements. No supplied sketch remains to compile; students’ circuits, code and target-angle procedures still require physical testing in class.

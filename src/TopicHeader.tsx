@@ -18,6 +18,7 @@ import {
 import { TOPICS, SITE_PAGES, pageMetadata } from '@/lib/catalog';
 
 function TopicLinks({ onNavigate }: { onNavigate: () => void }) {
+  const { pathname } = useLocation();
   return (
     <div className="nav-topic-list">
       {TOPICS.map((topic) => (
@@ -34,7 +35,7 @@ function TopicLinks({ onNavigate }: { onNavigate: () => void }) {
           <div className="nav-tool-links">
             {topic.tools.map((tool) =>
               tool.navigation === 'document' ? (
-                <a key={tool.id} href={tool.path} onClick={onNavigate}>
+                <a key={tool.id} href={tool.path} onClick={onNavigate} aria-current={pathname === tool.path ? 'page' : undefined}>
                   {tool.label}
                 </a>
               ) : (

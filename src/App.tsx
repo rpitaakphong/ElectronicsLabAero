@@ -1,6 +1,6 @@
 import type { ComponentType } from 'react';
 import { BrowserRouter, Link, Route, Routes } from 'react-router-dom';
-import { EXAM_PAGE, TOPICS, SITE_PAGES, type TopicId } from '@/lib/catalog';
+import { EXAM_PAGE, TOPICS, SITE_PAGES, SENSOR_CALIBRATION, type TopicId } from '@/lib/catalog';
 import OpAmpLab from './OpAmpLab';
 import DividerLab from './DividerLab';
 import RcLab from './RcLab';
@@ -17,12 +17,15 @@ import { TopicCatalog } from './TopicCatalog';
 import { Resources } from './Resources';
 import NoiseFilteringLab from './NoiseFilteringLab';
 import { NoiseFilteringTopic } from './NoiseFilteringTopic';
+import { SensorCalibrationTopic } from './SensorCalibrationTopic';
+import { SensorCalibrationWorkspace } from './SensorCalibrationWorkspace';
 
 // Register topic views here; navigation and metadata come from the catalog.
 const topicViews: Record<
   TopicId,
   { overview: ComponentType; learn?: ComponentType }
 > = {
+  'sensor-calibration': { overview: SensorCalibrationTopic },
   timer555: { overview: Timer555Topic, learn: Timer555Lab },
   'voltage-divider': { overview: DividerTopic, learn: DividerLab },
   'rc-filter': { overview: RcTopic, learn: RcLab },
@@ -39,6 +42,8 @@ export function AppRoutes() {
         <Route path={SITE_PAGES.home.path} element={<Welcome />} />
         <Route path={SITE_PAGES.topics.path} element={<TopicCatalog />} />
         <Route path={SITE_PAGES.resources.path} element={<Resources />} />
+        <Route path={SENSOR_CALIBRATION.main} element={<SensorCalibrationWorkspace key="calibration-main" kind="main" />} />
+        <Route path={SENSOR_CALIBRATION.post} element={<SensorCalibrationWorkspace key="calibration-post" kind="post" />} />
         <Route
           path={EXAM_PAGE.path}
           element={

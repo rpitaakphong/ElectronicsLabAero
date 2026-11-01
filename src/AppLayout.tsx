@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { pageMetadata } from '@/lib/catalog';
+import { pageMetadata, SENSOR_CALIBRATION } from '@/lib/catalog';
 import { TopicHeader } from './TopicHeader';
 
 function PageEffects() {
@@ -32,20 +32,28 @@ function PageEffects() {
 }
 
 export function AppLayout() {
+  const { pathname } = useLocation();
+  const worksheet =
+    pathname === SENSOR_CALIBRATION.main ||
+    pathname === SENSOR_CALIBRATION.post;
   return (
     <>
-      <a
-        className="skip-link"
-        href="#main-content"
-        onClick={() =>
-          document
-            .getElementById('main-content')
-            ?.focus({ preventScroll: true })
-        }
-      >
-        Skip to content
-      </a>
-      <TopicHeader />
+      {!worksheet && (
+        <>
+          <a
+            className="skip-link"
+            href="#main-content"
+            onClick={() =>
+              document
+                .getElementById('main-content')
+                ?.focus({ preventScroll: true })
+            }
+          >
+            Skip to content
+          </a>
+          <TopicHeader />
+        </>
+      )}
       <PageEffects />
       <Outlet />
     </>

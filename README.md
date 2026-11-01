@@ -1,12 +1,16 @@
 # Electronics Learning Lab
 
-A Vite, React, and TypeScript learning app with voltage-divider, RC filter, operational-amplifier, and 555 timer labs, plus the Week 12 Noise and Filtering pre-lab and group main lab. Start at the welcome page and browse the searchable topic catalog to prepare for class, explore concepts and connect circuit theory with measurements.
+A Vite, React, and TypeScript learning app with voltage-divider, RC filter, operational-amplifier, and 555 timer labs, plus Noise and Filtering and ultrasonic Sensor Calibration worksheets. Start at the welcome page and browse the searchable topic catalog to prepare for class, explore concepts and connect circuit theory with measurements.
 
 ## Learning topics
 
 - `/`: welcome page introducing the lab, with a link to browse topics
 - `/topics`: searchable catalog of available topics
 - `/resources`: getting started, saving work, model limitations, and all four offline downloads
+- `/sensor-calibration`: ultrasonic calibration topic with group main-lab and individual post-lab worksheets
+- `/sensor-calibration/main-lab` and `/sensor-calibration/post-lab`: worksheets in the original light worksheet template
+- `/worksheets/sensor-calibration-main-lab.html`: three-run group measurement and reference-uncertainty workbook
+- `/worksheets/sensor-calibration-post-lab.html`: individual calibration, sensitivity and uncertainty analysis using the imported group file
 - `/voltage-divider`: topic page with Interactive Learning and the Voltage Divider Lab Simulator
 - `/voltage-divider/learn`: basic, loaded, potentiometer, and adjustable-resistance sensor dividers, with DC response curves and short experiments
 - `/voltage-divider/simulator`: shared breadboard workbench with a DC supply and V/A/Ω multimeter
@@ -42,6 +46,16 @@ To add a topic, register its metadata and available tools in `lib/catalog.ts`, t
 `tests/navigation-integration.cjs` checks all navigation destinations at 1512, 1024, 768, and 390 px, along with catalog search, keyboard dismissal/focus, mobile focus containment, skip links, direct links, Back/Forward, reloads, unknown routes, reduced motion, lesson settings, unsaved circuit/iframe preservation, and sticky controls/notifications. It writes review screenshots to `output/playwright/navigation/`.
 
 ## Run locally
+
+### Sensor Calibration main lab and individual post-lab
+
+`npm run package:sensor-calibration` builds the group and individual worksheets for the existing Vercel site. Students determine the connections and develop or generate their own Arduino code. A photograph of the actual circuit and pasted Arduino code unlock later answers and uploads; all instructions remain readable. No wiring diagram or working sketch is supplied.
+
+Groups of one to three design and justify their positions and repetition counts, complete three calibration runs, then upload their original CSV and calibration graph. A bundled image illustrates the CSV headings with placeholders only. Two new distances are excluded from fitting, followed by a comparison of perpendicular, tilted and returned target orientations. There are no fixed measurement-entry tables.
+
+Each student opens the group ZIP/JSON in the individual post-lab. Original group data remain read-only and the exact source file travels in individual backups. Explained MathML equations cover fitting the run-and-position means, sensitivity, coefficient uncertainties and covariance, error measures, validation and distance uncertainty. The guide distinguishes regression-conditional uncertainty from a full reference-aware result. There is no compulsory prelab import, instructor sign-off, server submission or automatic grade.
+
+Version-two browser saves are separate from version one. Earlier records and backups remain available through read-only recovery and export without conversion or replacement. Autosave, complete JSON/ZIP backups, downloads of the original CSV files, printable reports and mobile navigation use the original 555 worksheet template across the full browser view. See the [worksheet file contracts and verification guide](activities/sensor-calibration/README.md) and the [private physical preparation notes](activities/sensor-calibration/INSTRUCTOR_PILOT.md). Run the focused tests, browser checks, lint, type checks and a production build. Deployment remains separate.
 
 ### Week 12 Noise and Filtering pre-lab
 

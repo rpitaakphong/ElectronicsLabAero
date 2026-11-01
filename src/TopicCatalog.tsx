@@ -69,6 +69,7 @@ export function TopicCatalog() {
                   rc={topic.art === 'rc'}
                   timer={topic.art === 'timer'}
                   noise={topic.art === 'noise'}
+                  calibration={topic.art === 'calibration'}
                 />
               </div>
               <div className="topic-card-body">
